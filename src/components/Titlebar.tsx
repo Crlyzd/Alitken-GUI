@@ -1,0 +1,151 @@
+import React from 'react';
+import { Window } from '@tauri-apps/api/window';
+import { Minus, Square, X, Cpu, Zap } from 'lucide-react';
+
+interface TitlebarProps {
+  hardwareName?: string;
+  encoderName?: string;
+}
+
+export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName }) => {
+  const appWindow = Window.getCurrent();
+
+  const handleMinimize = () => appWindow.minimize();
+  const handleMaximize = () => appWindow.toggleMaximize();
+  const handleClose = () => appWindow.close();
+
+  const isGpu = hardwareName && !hardwareName.toLowerCase().includes('cpu');
+
+  return (
+    <div
+      data-tauri-drag-region
+      style={{
+        height: '42px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 12px 0 16px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(10, 11, 16, 0.85)',
+        backdropFilter: 'blur(20px)',
+        zIndex: 1000,
+        userSelect: 'none',
+      }}
+    >
+      {/* Brand & App Name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} data-tauri-drag-region>
+        <div
+          style={{
+            width: '24px',
+            height: '24px',
+            borderRadius: '6px',
+            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            color: '#fff',
+            boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
+          }}
+        >
+          A
+        </div>
+        <span style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px' }}>
+          ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>Media Converter v2.0</span>
+        </span>
+      </div>
+
+      {/* GPU Hardware Status Badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} data-tauri-drag-region>
+        {hardwareName && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '3px 10px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 500,
+              background: isGpu ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
+              border: `1px solid ${isGpu ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
+              color: isGpu ? '#34d399' : '#fb7185',
+            }}
+          >
+            {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
+            <span>{hardwareName}</span>
+            {encoderName && <span style={{ opacity: 0.7 }}>({encoderName})</span>}
+          </div>
+        )}
+
+        {/* Window Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button
+            onClick={handleMinimize}
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              color: '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            onClick={handleMaximize}
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              color: '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Square size={12} />
+          </button>
+          <button
+            onClick={handleClose}
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              color: '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f43f5e';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#94a3b8';
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

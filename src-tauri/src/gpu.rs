@@ -1,5 +1,5 @@
+use crate::utils::create_hidden_cmd;
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpuCapability {
@@ -11,7 +11,7 @@ pub struct GpuCapability {
 
 /// Tests if a given FFmpeg encoder initializes cleanly on the current hardware
 fn test_encoder_support(ffmpeg_path: &str, encoder: &str) -> bool {
-    let output = Command::new(ffmpeg_path)
+    let output = create_hidden_cmd(ffmpeg_path)
         .args([
             "-hide_banner",
             "-f",
@@ -98,7 +98,7 @@ pub fn get_gpu_encoder(codec_choice: &str, ffmpeg_path: &str) -> GpuCapability {
 
 /// Helper function to query GPU vendor strings on Windows
 fn query_system_gpu_name() -> String {
-    let output = Command::new("wmic")
+    let output = create_hidden_cmd("wmic")
         .args(["path", "win32_videocontroller", "get", "name"])
         .output();
 
@@ -110,7 +110,7 @@ fn query_system_gpu_name() -> String {
     }
 
     // PowerShell fallback
-    let ps_output = Command::new("powershell")
+    let ps_output = create_hidden_cmd("powershell")
         .args(["-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
         .output();
 

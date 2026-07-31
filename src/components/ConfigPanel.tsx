@@ -28,8 +28,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     <div
       className="glass-panel"
       style={{
-        borderRadius: '14px',
-        padding: '20px',
+        borderRadius: '16px',
+        padding: '22px',
         display: 'flex',
         flexDirection: 'column',
         gap: '20px',
@@ -41,9 +41,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          background: 'rgba(0, 0, 0, 0.3)',
+          background: 'rgba(0, 0, 0, 0.35)',
           padding: '4px',
-          borderRadius: '10px',
+          borderRadius: '12px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
         }}
       >
@@ -51,7 +51,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           onClick={() => onChange({ videoAction: 'CONVERT' })}
           style={{
             padding: '10px',
-            borderRadius: '8px',
+            borderRadius: '9px',
             border: 'none',
             background: config.videoAction === 'CONVERT' ? 'var(--accent-primary)' : 'transparent',
             color: config.videoAction === 'CONVERT' ? '#fff' : 'var(--text-muted)',
@@ -62,6 +62,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
+            boxShadow: config.videoAction === 'CONVERT' ? '0 4px 14px rgba(99, 102, 241, 0.4)' : 'none',
             transition: 'all 0.2s ease',
           }}
         >
@@ -71,7 +72,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           onClick={() => onChange({ videoAction: 'SPLIT' })}
           style={{
             padding: '10px',
-            borderRadius: '8px',
+            borderRadius: '9px',
             border: 'none',
             background: config.videoAction === 'SPLIT' ? 'var(--accent-primary)' : 'transparent',
             color: config.videoAction === 'SPLIT' ? '#fff' : 'var(--text-muted)',
@@ -82,6 +83,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
+            boxShadow: config.videoAction === 'SPLIT' ? '0 4px 14px rgba(99, 102, 241, 0.4)' : 'none',
             transition: 'all 0.2s ease',
           }}
         >
@@ -91,7 +93,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
       {/* Target Codec Selection */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
           TARGET CODEC
         </label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
@@ -105,12 +107,13 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               onClick={() => onChange({ codecChoice: item.id })}
               style={{
                 padding: '10px 8px',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 border: `1px solid ${config.codecChoice === item.id ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.1)'}`,
-                background: config.codecChoice === item.id ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                background: config.codecChoice === item.id ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.02)',
                 color: config.codecChoice === item.id ? '#fff' : 'var(--text-muted)',
                 cursor: 'pointer',
                 textAlign: 'center',
+                boxShadow: config.codecChoice === item.id ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -128,9 +131,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '12px',
-            padding: '12px',
+            padding: '14px',
             background: 'rgba(255, 255, 255, 0.02)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
@@ -159,7 +162,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               onClick={() => onChange({ splitMode: 'DURATION' })}
               style={{
                 padding: '8px',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 border: `1px solid ${config.splitMode === 'DURATION' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)'}`,
                 background: config.splitMode === 'DURATION' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
                 color: '#fff',
@@ -174,7 +177,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               onClick={() => onChange({ splitMode: 'PARTS' })}
               style={{
                 padding: '8px',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 border: `1px solid ${config.splitMode === 'PARTS' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)'}`,
                 background: config.splitMode === 'PARTS' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
                 color: '#fff',
@@ -197,9 +200,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               onChange={(e) => onChange({ splitValue: parseFloat(e.target.value) || 1 })}
               min={1}
               style={{
-                background: 'rgba(0, 0, 0, 0.3)',
+                background: 'rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 padding: '8px 12px',
                 color: '#fff',
                 fontSize: '13px',
@@ -213,7 +216,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       {(!config.splitFastCopy || config.videoAction === 'CONVERT') && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
               TARGET RESOLUTION
             </label>
             <select
@@ -222,7 +225,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               style={{
                 background: 'rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '10px 12px',
                 color: '#fff',
                 fontSize: '13px',
@@ -239,7 +242,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
               TARGET BITRATE / QUALITY
             </label>
             <select
@@ -248,7 +251,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               style={{
                 background: 'rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '10px 12px',
                 color: '#fff',
                 fontSize: '13px',
@@ -273,9 +276,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           style={{
             width: '100%',
             padding: '14px',
-            borderRadius: '10px',
+            borderRadius: '12px',
             border: 'none',
-            background: disabled ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+            background: disabled ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
             color: disabled ? 'rgba(255, 255, 255, 0.3)' : '#fff',
             fontWeight: 700,
             fontSize: '14px',
@@ -284,7 +287,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            boxShadow: disabled ? 'none' : '0 4px 20px rgba(99, 102, 241, 0.4)',
+            boxShadow: disabled ? 'none' : '0 6px 24px rgba(99, 102, 241, 0.45)',
             transition: 'all 0.2s ease',
           }}
         >

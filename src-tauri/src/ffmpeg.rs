@@ -1,9 +1,9 @@
+use crate::utils::{create_tokio_hidden_cmd, log_error, log_info};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaMetadata {
@@ -40,10 +40,9 @@ pub struct FfmpegProgressPayload {
     pub current_part: usize,
     pub total_parts: usize,
     pub status: String,
-    pub raw_log: String,
 }
 
-/// Probes a media file using ffprobe for metadata analysis
+/// Probes a media file using ffprobe for metadata analysis without spawning console window
 pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMetadata, String> {
     let path = Path::new(file_path);
     let file_name = path
@@ -52,7 +51,9 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         .unwrap_or_default();
     let file_size = fs_err_file_size(file_path);
 
-    let output = Command::new(ffprobe_path)
+    log_info(&format!("Probing file: {}", file_path));
+
+    let output = create_tokio_hidden_cmd(ffprobe_path)
         .args([
             "-v",
             "quiet",
@@ -64,7 +65,11 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         ])
         .output()
         .await
-        .map_err(|e| format!("ffprobe failed: {}", e))?;
+        .map_err(|e| {
+            let err_msg = format!("ffprobe failed to spawn: {}", e);
+            log_error(&err_msg);
+            err_msg
+        })?;
 
     let json_str = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
@@ -98,6 +103,11 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         }
     }
 
+    log_info(&format!(
+        "Probed {}: codec={}, duration={}s, res={}x{}",
+        file_name, codec_name, duration_sec, width, height
+    ));
+
     Ok(MediaMetadata {
         file_name,
         file_path: file_path.to_string(),
@@ -121,6 +131,11 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 ) -> Result<(), String> {
     let total_videos = config.video_files.len();
 
+    log_info(&format!(
+        "Starting pipeline: action={}, files_count={}, encoder={}",
+        config.video_action, total_videos, gpu_caps.encoder
+    ));
+
     for (idx, file_path) in config.video_files.iter().enumerate() {
         let meta = probe_file(ffprobe_path, file_path).await?;
         let input_path = Path::new(file_path);
@@ -133,6 +148,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         // Determine input video decoder (VideoLAN libdav1d for AV1 inputs)
         let mut input_decoder_args = Vec::new();
         if meta.codec_name == "av1" {
+            log_info("AV1 input detected: Forcing VideoLAN libdav1d software decoder");
             input_decoder_args.push("-c:v:0");
             input_decoder_args.push("libdav1d");
         } else {
@@ -232,7 +248,6 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                     args.push(arg.to_string());
                 }
 
-                // Bitrate flags
                 append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
                 args.extend([
@@ -375,12 +390,18 @@ async fn execute_ffmpeg_process<R: tauri::Runtime>(
     duration_sec: f64,
     total_parts: usize,
 ) -> Result<(), String> {
-    let mut child = Command::new(ffmpeg_path)
+    log_info(&format!("Spawning FFmpeg: {} {}", ffmpeg_path, args.join(" ")));
+
+    let mut child = create_tokio_hidden_cmd(ffmpeg_path)
         .args(&args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn FFmpeg process: {}", e))?;
+        .map_err(|e| {
+            let err_msg = format!("Failed to spawn FFmpeg process: {}", e);
+            log_error(&err_msg);
+            err_msg
+        })?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let mut reader = BufReader::new(stdout).lines();
@@ -420,7 +441,6 @@ async fn execute_ffmpeg_process<R: tauri::Runtime>(
                                 "Processing file {}/{} ({:.1}%)",
                                 file_index, total_files, pct
                             ),
-                            raw_log: line.clone(),
                         },
                     );
                 }
@@ -431,11 +451,17 @@ async fn execute_ffmpeg_process<R: tauri::Runtime>(
     let status = child
         .wait()
         .await
-        .map_err(|e| format!("FFmpeg wait failed: {}", e))?;
+        .map_err(|e| {
+            let err_msg = format!("FFmpeg wait failed: {}", e);
+            log_error(&err_msg);
+            err_msg
+        })?;
 
     if status.success() {
+        log_info(&format!("Successfully processed {}", file_name));
         Ok(())
     } else {
+        log_error(&format!("FFmpeg failed with exit code: {:?}", status.code()));
         Err("FFmpeg processing failed".to_string())
     }
 }

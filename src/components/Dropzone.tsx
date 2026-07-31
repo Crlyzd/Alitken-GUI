@@ -55,7 +55,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '14px' }}>
       {/* Drop Target Header / Action Area */}
       <div
         onDragOver={(e) => {
@@ -73,36 +73,39 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         }}
         className="glass-panel"
         style={{
-          borderRadius: '14px',
-          padding: '24px',
+          borderRadius: '16px',
+          padding: files.length > 0 ? '20px' : '36px 24px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '12px',
-          border: `2px dashed ${isDragOver ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.15)'}`,
-          background: isDragOver ? 'rgba(99, 102, 241, 0.1)' : 'rgba(18, 20, 29, 0.5)',
+          border: `2px dashed ${isDragOver ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.16)'}`,
+          background: isDragOver ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
+          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: isDragOver ? '0 0 30px rgba(99, 102, 241, 0.25)' : undefined,
         }}
         onClick={handlePickFiles}
       >
         <div
           style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'rgba(99, 102, 241, 0.15)',
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--accent-primary)',
+            color: 'var(--accent-cyan)',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
           }}
         >
-          <UploadCloud size={24} />
+          <UploadCloud size={26} />
         </div>
         <div style={{ textAlign: 'center' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)', letterSpacing: '0.3px' }}>
             Drag & Drop video files here
           </h3>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -121,7 +124,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
             padding: '0 4px',
           }}
         >
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
             QUEUE ({files.length} {files.length === 1 ? 'FILE' : 'FILES'})
           </span>
           <button
@@ -131,7 +134,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
               border: 'none',
               color: 'var(--accent-rose)',
               fontSize: '12px',
-              fontWeight: 500,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -150,7 +153,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '10px',
           paddingRight: '4px',
         }}
       >
@@ -169,10 +172,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
                   background: 'rgba(6, 182, 212, 0.15)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -180,7 +184,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                   flexShrink: 0,
                 }}
               >
-                <FileVideo size={18} />
+                <FileVideo size={20} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h4
@@ -203,7 +207,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     gap: '12px',
                     fontSize: '11px',
                     color: 'var(--text-dim)',
-                    marginTop: '2px',
+                    marginTop: '3px',
                   }}
                 >
                   {file.resolution && (
@@ -248,6 +252,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 cursor: 'pointer',
                 padding: '6px',
                 borderRadius: '6px',
+                transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}

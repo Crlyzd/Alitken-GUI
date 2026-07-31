@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader2, Terminal, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export interface ProgressState {
   isProcessing: boolean;
@@ -10,7 +10,6 @@ export interface ProgressState {
   currentPart: number;
   totalParts: number;
   status: string;
-  logs: string[];
   error?: string;
   completed: boolean;
 }
@@ -21,8 +20,6 @@ interface ProgressModalProps {
 }
 
 export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose }) => {
-  const [showLogs, setShowLogs] = useState(false);
-
   if (!progress.isProcessing && !progress.completed && !progress.error) {
     return null;
   }
@@ -32,8 +29,9 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(16px)',
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         zIndex: 2000,
         display: 'flex',
         alignItems: 'center',
@@ -45,7 +43,7 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
         className="glass-panel"
         style={{
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: '480px',
           borderRadius: '16px',
           padding: '28px',
           display: 'flex',
@@ -55,17 +53,17 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
         }}
       >
         {/* Header Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           {progress.completed ? (
-            <CheckCircle2 size={28} color="#34d399" />
+            <CheckCircle2 size={32} color="#34d399" />
           ) : progress.error ? (
-            <AlertCircle size={28} color="#fb7185" />
+            <AlertCircle size={32} color="#fb7185" />
           ) : (
-            <Loader2 size={28} color="var(--accent-primary)" className="animate-spin" />
+            <Loader2 size={32} color="var(--accent-primary)" className="animate-spin" />
           )}
 
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
+            <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>
               {progress.completed
                 ? 'Processing Complete!'
                 : progress.error
@@ -109,73 +107,31 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
             />
           </div>
 
-          <span style={{ fontSize: '11px', color: 'var(--text-dim)', alignSelf: 'flex-end' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-dim)', alignSelf: 'flex-end', marginTop: '2px' }}>
             {progress.status}
           </span>
         </div>
 
-        {/* Collapsible Log Console */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            onClick={() => setShowLogs(!showLogs)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              fontSize: '12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '4px 0',
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Terminal size={14} /> Terminal Logs ({progress.logs.length})
-            </span>
-            {showLogs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-
-          {showLogs && (
-            <div
-              style={{
-                height: '120px',
-                background: 'rgba(0, 0, 0, 0.6)',
-                borderRadius: '8px',
-                padding: '10px',
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                color: '#34d399',
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-              }}
-            >
-              {progress.logs.slice(-20).map((log, idx) => (
-                <div key={idx}>{log}</div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Close Button on completion */}
+        {/* Close Button on completion / error */}
         {(progress.completed || progress.error) && (
           <button
             onClick={onClose}
             style={{
               width: '100%',
               padding: '12px',
-              borderRadius: '8px',
+              borderRadius: '10px',
               border: 'none',
-              background: 'var(--accent-primary)',
+              background: progress.error
+                ? '#f43f5e'
+                : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
               color: '#fff',
               fontWeight: 600,
+              fontSize: '14px',
               cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(99, 102, 241, 0.3)',
             }}
           >
-            Done
+            {progress.error ? 'Dismiss' : 'Done'}
           </button>
         )}
       </div>

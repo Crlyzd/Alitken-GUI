@@ -39,7 +39,6 @@ export function App() {
     currentPart: 1,
     totalParts: 1,
     status: '',
-    logs: [],
     completed: false,
   });
 
@@ -59,7 +58,6 @@ export function App() {
         currentPart: payload.current_part,
         totalParts: payload.total_parts,
         status: payload.status,
-        logs: [...prev.logs, payload.raw_log],
       }));
     });
 
@@ -75,7 +73,6 @@ export function App() {
         currentPart: 1,
         totalParts: 1,
         status: payload.status,
-        logs: [...prev.logs, payload.status],
       }));
     });
 
@@ -148,7 +145,6 @@ export function App() {
       currentPart: 1,
       totalParts: 1,
       status: 'Connecting...',
-      logs: [],
       completed: false,
     });
 
@@ -184,7 +180,6 @@ export function App() {
       currentPart: 1,
       totalParts: 1,
       status: 'Starting FFmpeg transcode pipeline...',
-      logs: [],
       completed: false,
     });
 
@@ -220,7 +215,17 @@ export function App() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        background: 'rgba(10, 12, 20, 0.65)',
+        backdropFilter: 'blur(40px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+      }}
+    >
       {/* Custom Titlebar */}
       <Titlebar hardwareName={hardwareInfo.name} encoderName={hardwareInfo.encoder} />
 

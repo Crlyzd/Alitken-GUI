@@ -1,5 +1,5 @@
 import React from 'react';
-import { Window } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X, Cpu, Zap } from 'lucide-react';
 
 interface TitlebarProps {
@@ -8,11 +8,32 @@ interface TitlebarProps {
 }
 
 export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName }) => {
-  const appWindow = Window.getCurrent();
+  const handleMinimize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await getCurrentWindow().minimize();
+    } catch (err) {
+      console.error('Failed to minimize window:', err);
+    }
+  };
 
-  const handleMinimize = () => appWindow.minimize();
-  const handleMaximize = () => appWindow.toggleMaximize();
-  const handleClose = () => appWindow.close();
+  const handleMaximize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await getCurrentWindow().toggleMaximize();
+    } catch (err) {
+      console.error('Failed to toggle maximize window:', err);
+    }
+  };
+
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await getCurrentWindow().close();
+    } catch (err) {
+      console.error('Failed to close window:', err);
+    }
+  };
 
   const isGpu = hardwareName && !hardwareName.toLowerCase().includes('cpu');
 
@@ -26,8 +47,9 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         justifyContent: 'space-between',
         padding: '0 12px 0 16px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(10, 11, 16, 0.85)',
+        background: 'rgba(12, 14, 22, 0.4)',
         backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         zIndex: 1000,
         userSelect: 'none',
       }}
@@ -56,10 +78,11 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         </span>
       </div>
 
-      {/* GPU Hardware Status Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }} data-tauri-drag-region>
+      {/* GPU Hardware Status Badge & Control Buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {hardwareName && (
           <div
+            data-tauri-drag-region
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -83,6 +106,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <button
             onClick={handleMinimize}
+            title="Minimize"
             style={{
               width: '28px',
               height: '28px',
@@ -102,6 +126,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
           </button>
           <button
             onClick={handleMaximize}
+            title="Maximize / Restore"
             style={{
               width: '28px',
               height: '28px',
@@ -121,6 +146,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
           </button>
           <button
             onClick={handleClose}
+            title="Close"
             style={{
               width: '28px',
               height: '28px',

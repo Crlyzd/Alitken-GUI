@@ -1,6 +1,7 @@
 use crate::dependencies::{self, DependencyStatus};
 use crate::ffmpeg::{self, ConversionConfig, MediaMetadata};
 use crate::gpu::{self, GpuCapability};
+use crate::utils;
 use tauri::AppHandle;
 
 #[tauri::command]
@@ -49,4 +50,11 @@ pub async fn start_video_pipeline<R: tauri::Runtime>(
 
     let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
     ffmpeg::run_video_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config, gpu_caps).await
+}
+
+#[tauri::command]
+pub fn open_log_folder() -> Result<(), String> {
+    let log_dir = utils::get_log_dir();
+    let _ = utils::create_hidden_cmd("explorer").arg(log_dir).spawn();
+    Ok(())
 }

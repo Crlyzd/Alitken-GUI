@@ -2,11 +2,14 @@ mod commands;
 mod dependencies;
 mod ffmpeg;
 mod gpu;
+mod utils;
 
 use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    utils::log_info("Alitken Media Converter v2.0 application initialized");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -15,7 +18,8 @@ pub fn run() {
             install_dependencies,
             detect_gpu_hardware,
             probe_media_file,
-            start_video_pipeline
+            start_video_pipeline,
+            open_log_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

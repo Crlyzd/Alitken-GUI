@@ -23,3 +23,7 @@ bin/
 Thumbs.db
 .vscode/
 .idea/
+
+# Agent Customizations (Local only)
+.agents/
+

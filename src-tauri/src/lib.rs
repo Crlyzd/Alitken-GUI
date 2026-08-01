@@ -19,7 +19,10 @@ pub fn run() {
             detect_gpu_hardware,
             probe_media_file,
             start_video_pipeline,
-            open_log_folder
+            open_log_folder,
+            minimize_window,
+            toggle_maximize_window,
+            close_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

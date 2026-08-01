@@ -10,9 +10,10 @@ dist/
 dist-ssr/
 *.local
 
-# Rust build outputs
+# Rust build outputs & Executables
 src-tauri/target/
 src-tauri/Cargo.lock
+*.exe
 
 # Portable local dependencies
 bin/

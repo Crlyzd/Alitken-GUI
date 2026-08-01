@@ -42,13 +42,31 @@ if ($Dev) {
     $ExePath = Join-Path $ScriptDir "src-tauri\target\release\alitken-gui.exe"
     $BundlePath = Join-Path $ScriptDir "src-tauri\target\release\bundle"
 
+    # Compute parent directory dynamically (e.g. E:\Default\DEVS\Alitken\)
+    $ParentDir = Split-Path -Parent $ScriptDir
+    $ParentExePath = Join-Path $ParentDir "Alitken.exe"
+
+    if (Test-Path $ExePath) {
+        try {
+            if (-not (Test-Path $ParentDir)) {
+                New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
+            }
+            Copy-Item -Path $ExePath -Destination $ParentExePath -Force
+        } catch {
+            Write-Host "WARNING: Could not copy executable to parent folder: $_" -ForegroundColor Yellow
+        }
+    }
+
     Write-Host ""
     Write-Host "==================================================" -ForegroundColor Green
     Write-Host "               BUILD SUCCESSFUL!                 " -ForegroundColor Green
     Write-Host "==================================================" -ForegroundColor Green
-    Write-Host "Executable location: $ExePath" -ForegroundColor Cyan
+    Write-Host "Executable location (Release): $ExePath" -ForegroundColor Cyan
+    if (Test-Path $ParentExePath) {
+        Write-Host "Parent Folder Executable:     $ParentExePath" -ForegroundColor Green
+    }
     if (Test-Path $BundlePath) {
-        Write-Host "Installer package:   $BundlePath" -ForegroundColor Cyan
+        Write-Host "Installer package:             $BundlePath" -ForegroundColor Cyan
     }
 }
 

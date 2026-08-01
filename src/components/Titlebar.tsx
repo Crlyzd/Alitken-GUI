@@ -1,5 +1,6 @@
 import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { Minus, Square, X, Cpu, Zap } from 'lucide-react';
 
 interface TitlebarProps {
@@ -11,27 +12,39 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await getCurrentWindow().minimize();
-    } catch (err) {
-      console.error('Failed to minimize window:', err);
+      await invoke('minimize_window');
+    } catch {
+      try {
+        await getCurrentWindow().minimize();
+      } catch (err) {
+        console.error('Failed to minimize window:', err);
+      }
     }
   };
 
   const handleMaximize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await getCurrentWindow().toggleMaximize();
-    } catch (err) {
-      console.error('Failed to toggle maximize window:', err);
+      await invoke('toggle_maximize_window');
+    } catch {
+      try {
+        await getCurrentWindow().toggleMaximize();
+      } catch (err) {
+        console.error('Failed to toggle maximize window:', err);
+      }
     }
   };
 
   const handleClose = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await getCurrentWindow().close();
-    } catch (err) {
-      console.error('Failed to close window:', err);
+      await invoke('close_window');
+    } catch {
+      try {
+        await getCurrentWindow().close();
+      } catch (err) {
+        console.error('Failed to close window:', err);
+      }
     }
   };
 
@@ -39,7 +52,6 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
 
   return (
     <div
-      data-tauri-drag-region
       style={{
         height: '42px',
         display: 'flex',
@@ -78,6 +90,9 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         </span>
       </div>
 
+      {/* Flexible Drag Region Spacer */}
+      <div data-tauri-drag-region style={{ flex: 1, height: '100%', cursor: 'default' }} />
+
       {/* GPU Hardware Status Badge & Control Buttons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {hardwareName && (
@@ -102,11 +117,21 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
           </div>
         )}
 
-        {/* Window Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {/* Window Action Buttons (Explicitly Non-Draggable) */}
+        <div
+          className="no-drag"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            WebkitAppRegion: 'no-drag',
+          } as React.CSSProperties}
+        >
           <button
             onClick={handleMinimize}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Minimize"
+            className="no-drag"
             style={{
               width: '28px',
               height: '28px',
@@ -118,7 +143,8 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
@@ -126,7 +152,9 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
           </button>
           <button
             onClick={handleMaximize}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Maximize / Restore"
+            className="no-drag"
             style={{
               width: '28px',
               height: '28px',
@@ -138,7 +166,8 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
@@ -146,7 +175,9 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
           </button>
           <button
             onClick={handleClose}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Close"
+            className="no-drag"
             style={{
               width: '28px',
               height: '28px',
@@ -158,7 +189,8 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = '#f43f5e';
               e.currentTarget.style.color = '#fff';

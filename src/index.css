@@ -99,8 +99,14 @@ select option {
 /* Custom Drag Region for Borderless Tauri Titlebar */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
+  app-region: drag;
 }
 
-button {
-  -webkit-app-region: no-drag;
+button,
+input,
+select,
+.no-drag {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+  pointer-events: auto !important;
 }

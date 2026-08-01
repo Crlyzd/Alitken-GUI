@@ -58,3 +58,22 @@ pub fn open_log_folder() -> Result<(), String> {
     let _ = utils::create_hidden_cmd("explorer").arg(log_dir).spawn();
     Ok(())
 }
+
+#[tauri::command]
+pub fn minimize_window(window: tauri::Window) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn toggle_maximize_window(window: tauri::Window) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        window.unmaximize().map_err(|e| e.to_string())
+    } else {
+        window.maximize().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+pub fn close_window(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}

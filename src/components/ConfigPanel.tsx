@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Scissors, RefreshCw, Zap } from 'lucide-react';
 
 export interface ConfigState {
   videoAction: 'CONVERT' | 'SPLIT';
   splitMode: 'DURATION' | 'PARTS';
-  splitValue: number;
+  splitValue: number | '';
   splitFastCopy: boolean;
   targetHeight: string;
   targetBitrate: string;
@@ -18,12 +18,22 @@ interface ConfigPanelProps {
   disabled: boolean;
 }
 
+const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];
+const PRESET_BITRATES = ['ORIGINAL', '12000', '8000', '5000', '2500', '1200'];
+
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   config,
   onChange,
   onStart,
   disabled,
 }) => {
+  const [isCustomHeight, setIsCustomHeight] = useState<boolean>(
+    !PRESET_HEIGHTS.includes(config.targetHeight)
+  );
+  const [isCustomBitrate, setIsCustomBitrate] = useState<boolean>(
+    !PRESET_BITRATES.includes(config.targetBitrate)
+  );
+
   return (
     <div
       className="glass-panel"
@@ -159,7 +169,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           {/* Split Mode Selector */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
             <button
-              onClick={() => onChange({ splitMode: 'DURATION' })}
+              onClick={() =>
+                onChange({
+                  splitMode: 'DURATION',
+                  splitValue: config.splitValue === '' ? 60 : config.splitValue,
+                })
+              }
               style={{
                 padding: '8px',
                 borderRadius: '8px',
@@ -174,7 +189,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               By Duration (Sec)
             </button>
             <button
-              onClick={() => onChange({ splitMode: 'PARTS' })}
+              onClick={() =>
+                onChange({
+                  splitMode: 'PARTS',
+                  splitValue: typeof config.splitValue === 'number' && config.splitValue === 60 ? '' : config.splitValue,
+                })
+              }
               style={{
                 padding: '8px',
                 borderRadius: '8px',
@@ -196,8 +216,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             </label>
             <input
               type="number"
-              value={config.splitValue}
-              onChange={(e) => onChange({ splitValue: parseFloat(e.target.value) || 1 })}
+              value={config.splitMode === 'PARTS' && config.splitValue === 60 ? '' : config.splitValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange({ splitValue: val === '' ? '' : parseFloat(val) });
+              }}
+              placeholder={config.splitMode === 'DURATION' ? 'e.g. 60' : 'e.g. 4'}
               min={1}
               style={{
                 background: 'rgba(0, 0, 0, 0.4)',
@@ -215,13 +239,24 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       {/* RESOLUTION & BITRATE CONTROLS (IF NOT FAST COPY) */}
       {(!config.splitFastCopy || config.videoAction === 'CONVERT') && (
         <>
+          {/* Target Resolution */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
               TARGET RESOLUTION
             </label>
             <select
-              value={config.targetHeight}
-              onChange={(e) => onChange({ targetHeight: e.target.value })}
+              value={isCustomHeight ? 'CUSTOM' : config.targetHeight}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'CUSTOM') {
+                  setIsCustomHeight(true);
+                  const currentCustom = PRESET_HEIGHTS.includes(config.targetHeight) ? '1080' : config.targetHeight;
+                  onChange({ targetHeight: currentCustom });
+                } else {
+                  setIsCustomHeight(false);
+                  onChange({ targetHeight: val });
+                }
+              }}
               style={{
                 background: 'rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -238,16 +273,44 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <option value="1080">Full HD (1080p)</option>
               <option value="720">HD (720p)</option>
               <option value="480">SD (480p)</option>
+              <option value="CUSTOM">Custom Resolution (Height)...</option>
             </select>
+            {isCustomHeight && (
+              <input
+                type="number"
+                value={config.targetHeight}
+                onChange={(e) => onChange({ targetHeight: e.target.value })}
+                placeholder="Enter custom height in px (e.g. 1080)"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid var(--accent-cyan)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  color: '#fff',
+                  fontSize: '13px',
+                }}
+              />
+            )}
           </div>
 
+          {/* Target Bitrate */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
               TARGET BITRATE / QUALITY
             </label>
             <select
-              value={config.targetBitrate}
-              onChange={(e) => onChange({ targetBitrate: e.target.value })}
+              value={isCustomBitrate ? 'CUSTOM' : config.targetBitrate}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'CUSTOM') {
+                  setIsCustomBitrate(true);
+                  const currentCustom = PRESET_BITRATES.includes(config.targetBitrate) ? '6000' : config.targetBitrate;
+                  onChange({ targetBitrate: currentCustom });
+                } else {
+                  setIsCustomBitrate(false);
+                  onChange({ targetBitrate: val });
+                }
+              }}
               style={{
                 background: 'rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -264,7 +327,24 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               <option value="5000">5,000 kbps (1080p Standard)</option>
               <option value="2500">2,500 kbps (720p HD)</option>
               <option value="1200">1,200 kbps (Low Size)</option>
+              <option value="CUSTOM">Custom Bitrate (kbps)...</option>
             </select>
+            {isCustomBitrate && (
+              <input
+                type="number"
+                value={config.targetBitrate}
+                onChange={(e) => onChange({ targetBitrate: e.target.value })}
+                placeholder="Enter custom bitrate in kbps (e.g. 6000)"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid var(--accent-cyan)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  color: '#fff',
+                  fontSize: '13px',
+                }}
+              />
+            )}
           </div>
         </>
       )}

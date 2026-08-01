@@ -33,10 +33,7 @@ if ($Dev) {
     Write-Host "[2/3] Launching Tauri Development Mode..." -ForegroundColor Green
     npm run tauri dev
 } else {
-    Write-Host "[2/3] Building Web Frontend (TypeScript + Vite)..." -ForegroundColor Yellow
-    npm run build
-
-    Write-Host "[3/3] Compiling Tauri Desktop Executable (Rust Release)..." -ForegroundColor Yellow
+    Write-Host "[2/2] Compiling Tauri Desktop Executable (Vite Frontend + Rust Release)..." -ForegroundColor Yellow
     npm run tauri build
 
     $ExePath = Join-Path $ScriptDir "src-tauri\target\release\alitken-gui.exe"

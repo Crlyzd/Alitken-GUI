@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { UploadCloud, FileVideo, Trash2, Film, Clock, HardDrive } from 'lucide-react';
 
@@ -25,6 +26,62 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   onClearFiles,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const onAddFilesRef = useRef(onAddFiles);
+  const lastDropTimeRef = useRef<number>(0);
+  const lastDropPathsRef = useRef<string>('');
+
+  useEffect(() => {
+    onAddFilesRef.current = onAddFiles;
+  }, [onAddFiles]);
+
+  useEffect(() => {
+    let unlistenFn: (() => void) | null = null;
+    let isMounted = true;
+
+    async function setupDragDrop() {
+      try {
+        const appWindow = getCurrentWindow();
+        const unlisten = await appWindow.onDragDropEvent((event: any) => {
+          if (!isMounted) return;
+          if (event.payload.type === 'drop') {
+            setIsDragOver(false);
+            const paths = event.payload.paths || [];
+            if (paths.length > 0) {
+              const now = Date.now();
+              const fingerprint = paths.join('|');
+              if (now - lastDropTimeRef.current < 300 && lastDropPathsRef.current === fingerprint) {
+                return;
+              }
+              lastDropTimeRef.current = now;
+              lastDropPathsRef.current = fingerprint;
+              onAddFilesRef.current(paths);
+            }
+          } else if (event.payload.type === 'enter') {
+            setIsDragOver(true);
+          } else if (event.payload.type === 'leave' || event.payload.type === 'cancel') {
+            setIsDragOver(false);
+          }
+        });
+
+        if (isMounted) {
+          unlistenFn = unlisten;
+        } else {
+          unlisten();
+        }
+      } catch (err) {
+        console.error('Failed to register drag-drop event listener:', err);
+      }
+    }
+
+    setupDragDrop();
+
+    return () => {
+      isMounted = false;
+      if (unlistenFn) {
+        unlistenFn();
+      }
+    };
+  }, []);
 
   const handlePickFiles = async () => {
     try {
@@ -66,10 +123,6 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         onDrop={(e) => {
           e.preventDefault();
           setIsDragOver(false);
-          if (e.dataTransfer.files) {
-            const paths = Array.from(e.dataTransfer.files).map((f) => (f as any).path || f.name);
-            onAddFiles(paths);
-          }
         }}
         className="glass-panel"
         style={{

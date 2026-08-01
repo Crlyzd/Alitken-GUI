@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Titlebar } from './components/Titlebar';
@@ -20,6 +20,8 @@ export function App() {
   const [isDownloadingDeps, setIsDownloadingDeps] = useState(false);
 
   const [files, setFiles] = useState<FileItem[]>([]);
+  const pendingPathsRef = useRef(new Set<string>());
+
   const [config, setConfig] = useState<ConfigState>({
     videoAction: 'CONVERT',
     splitMode: 'DURATION',
@@ -110,8 +112,22 @@ export function App() {
   };
 
   const handleAddFiles = async (paths: string[]) => {
+    const existingPaths = new Set(files.map((f) => f.path));
+
+    // Synchronously lock new paths in pendingPathsRef before any async IPC work
+    const newPathsToProcess: string[] = [];
+    for (const p of Array.from(new Set(paths))) {
+      if (!p) continue;
+      if (!existingPaths.has(p) && !pendingPathsRef.current.has(p)) {
+        pendingPathsRef.current.add(p);
+        newPathsToProcess.push(p);
+      }
+    }
+
+    if (newPathsToProcess.length === 0) return;
+
     const newItems: FileItem[] = [];
-    for (const p of paths) {
+    for (const p of newPathsToProcess) {
       try {
         const meta: any = await invoke('probe_media_file', {
           ffprobePath: '',
@@ -131,7 +147,12 @@ export function App() {
         newItems.push({ name, path: p, sizeMb: 0 });
       }
     }
-    setFiles((prev) => [...prev, ...newItems]);
+
+    setFiles((prev) => {
+      const currentPaths = new Set(prev.map((f) => f.path));
+      const filteredNew = newItems.filter((item) => !currentPaths.has(item.path));
+      return [...prev, ...filteredNew];
+    });
   };
 
   const handleDownloadDependencies = async () => {
@@ -183,16 +204,23 @@ export function App() {
       completed: false,
     });
 
+    const effectiveSplitValue =
+      typeof config.splitValue === 'number' && !isNaN(config.splitValue) && config.splitValue > 0
+        ? config.splitValue
+        : config.splitMode === 'PARTS'
+        ? 2
+        : 60;
+
     try {
       await invoke('start_video_pipeline', {
         config: {
           video_files: files.map((f) => f.path),
           video_action: config.videoAction,
           split_mode: config.splitMode,
-          split_value: config.splitValue,
+          split_value: effectiveSplitValue,
           split_fast_copy: config.splitFastCopy,
-          target_height: config.targetHeight,
-          target_bitrate: config.targetBitrate,
+          target_height: config.targetHeight || 'ORIGINAL',
+          target_bitrate: config.targetBitrate || 'ORIGINAL',
           codec_choice: config.codecChoice,
           custom_output_dir: null,
         },
@@ -283,8 +311,17 @@ export function App() {
         <Dropzone
           files={files}
           onAddFiles={handleAddFiles}
-          onRemoveFile={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
-          onClearFiles={() => setFiles([])}
+          onRemoveFile={(idx) => {
+            const fileToRemove = files[idx];
+            if (fileToRemove) {
+              pendingPathsRef.current.delete(fileToRemove.path);
+            }
+            setFiles((prev) => prev.filter((_, i) => i !== idx));
+          }}
+          onClearFiles={() => {
+            pendingPathsRef.current.clear();
+            setFiles([]);
+          }}
         />
 
         <ConfigPanel

@@ -75,6 +75,19 @@ select, input {
   outline: none;
 }
 
+/* Hide Chrome, Safari, Edge, Opera number input spin buttons */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide Firefox number input spin buttons */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 select option {
   background: #121420;
   color: #f8fafc;

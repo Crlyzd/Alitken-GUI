@@ -120,8 +120,8 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '20px',
-          padding: '40px 24px',
+          gap: '12px',
+          padding: '24px 20px',
           border: `2px dashed ${
             isDragOver ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.16)'
           }`,
@@ -140,9 +140,9 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
         <div
           style={{
             position: 'relative',
-            width: '84px',
-            height: '84px',
-            borderRadius: '24px',
+            width: '64px',
+            height: '64px',
+            borderRadius: '18px',
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(6, 182, 212, 0.25) 100%)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
             display: 'flex',
@@ -156,41 +156,41 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
             transition: 'transform 0.25s ease, box-shadow 0.25s ease',
           }}
         >
-          <UploadCloud size={44} />
+          <UploadCloud size={34} />
           <Sparkles
-            size={18}
+            size={14}
             style={{
               position: 'absolute',
-              top: '8px',
-              right: '8px',
+              top: '6px',
+              right: '6px',
               color: 'var(--accent-primary)',
             }}
           />
         </div>
 
         {/* Text Content */}
-        <div style={{ textAlign: 'center', maxWidth: '520px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '460px' }}>
           <h2
             style={{
-              fontSize: '22px',
+              fontSize: '17px',
               fontWeight: 700,
               color: 'var(--text-main)',
-              letterSpacing: '0.4px',
-              marginBottom: '8px',
+              letterSpacing: '0.3px',
+              marginBottom: '6px',
             }}
           >
-            Drag & Drop media files here
+            Drop Media Files or Click to Browse
           </h2>
           <p
             style={{
-              fontSize: '13px',
-              lineHeight: '1.6',
+              fontSize: '11.5px',
+              lineHeight: '1.5',
               color: 'var(--text-muted)',
               margin: 0,
             }}
           >
-            Supports <strong style={{ color: 'var(--accent-cyan)' }}>Videos</strong> (MP4, MKV, WEBM, MOV, AVI, AV1) or{' '}
-            <strong style={{ color: '#a855f7' }}>Images</strong> (PNG, JPG, WEBP, BMP, HEIC, TIFF, GIF)
+            Supports <strong style={{ color: 'var(--accent-cyan)' }}>Cinema & Broadcast Video</strong> (ProRes, MP4, MKV, MOV, MXF, AVCHD) and{' '}
+            <strong style={{ color: '#a855f7' }}>Camera RAW & Photos</strong> (Canon CR2/CR3, Nikon NEF, Sony ARW, DJI DNG, HEIC, PNG, JPG, WEBP)
           </p>
         </div>
 
@@ -199,8 +199,8 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            marginTop: '8px',
+            gap: '10px',
+            marginTop: '4px',
           }}
         >
           <div
@@ -208,32 +208,34 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
+              padding: '5px 12px',
               borderRadius: '20px',
               background: 'rgba(6, 182, 212, 0.12)',
               border: '1px solid rgba(6, 182, 212, 0.25)',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 600,
               color: 'var(--accent-cyan)',
+              whiteSpace: 'nowrap',
             }}
           >
-            <Film size={14} /> Video Transcode & Split
+            <Film size={13} /> GPU Transcode & Split
           </div>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
+              padding: '5px 12px',
               borderRadius: '20px',
               background: 'rgba(168, 85, 247, 0.12)',
               border: '1px solid rgba(168, 85, 247, 0.25)',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 600,
               color: '#c084fc',
+              whiteSpace: 'nowrap',
             }}
           >
-            <ImageIcon size={14} /> Image Convert, PDF & MP4
+            <ImageIcon size={13} /> Image Convert, PDF & Slideshow
           </div>
         </div>
       </div>

@@ -101,6 +101,15 @@ export function App() {
   useEffect(() => {
     checkDepsAndGpu('1');
 
+    // Read command line startup arguments (e.g. from Windows "Send to" menu)
+    invoke<string[]>('get_initial_files')
+      .then((initialPaths) => {
+        if (initialPaths && initialPaths.length > 0) {
+          handleAddFiles(initialPaths);
+        }
+      })
+      .catch((err) => console.error('Failed to get initial files:', err));
+
     if (import.meta.env.PROD) {
       const handleContextMenu = (e: MouseEvent) => e.preventDefault();
       document.addEventListener('contextmenu', handleContextMenu);
@@ -257,6 +266,7 @@ export function App() {
             path: normalizePath(meta.file_path),
             sizeMb: meta.file_size_mb,
             mediaKind: 'image',
+            resolution: meta.width > 0 && meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
           });
         }
       } catch (err) {
@@ -486,18 +496,26 @@ export function App() {
       {validationError && (
         <div
           style={{
-            background: 'rgba(239, 68, 68, 0.2)',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.4)',
-            padding: '8px 16px',
+            background:
+              theme === 'light'
+                ? 'rgba(254, 226, 226, 0.95)'
+                : 'rgba(239, 68, 68, 0.25)',
+            borderBottom:
+              theme === 'light'
+                ? '1px solid rgba(239, 68, 68, 0.3)'
+                : '1px solid rgba(239, 68, 68, 0.4)',
+            padding: '10px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             fontSize: '12px',
-            color: '#fca5a5',
+            fontWeight: 600,
+            color: theme === 'light' ? '#991b1b' : '#fca5a5',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertCircle size={16} />
+            <AlertCircle size={16} color={theme === 'light' ? '#b91c1c' : '#fca5a5'} />
             <span>{validationError}</span>
           </div>
           <button
@@ -505,9 +523,11 @@ export function App() {
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#fca5a5',
+              color: theme === 'light' ? '#991b1b' : '#fca5a5',
               cursor: 'pointer',
               padding: '2px',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
             <X size={16} />
@@ -519,18 +539,25 @@ export function App() {
       {(!depsStatus.ffmpeg || !depsStatus.ffprobe) && (
         <div
           style={{
-            background: 'rgba(244, 63, 94, 0.15)',
-            borderBottom: '1px solid rgba(244, 63, 94, 0.3)',
-            padding: '8px 16px',
+            background:
+              theme === 'light'
+                ? 'rgba(254, 205, 211, 0.95)'
+                : 'rgba(244, 63, 94, 0.15)',
+            borderBottom:
+              theme === 'light'
+                ? '1px solid rgba(244, 63, 94, 0.3)'
+                : '1px solid rgba(244, 63, 94, 0.3)',
+            padding: '10px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             fontSize: '12px',
-            color: '#fb7185',
+            fontWeight: 600,
+            color: theme === 'light' ? '#881337' : '#fb7185',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertCircle size={16} />
+            <AlertCircle size={16} color={theme === 'light' ? '#9f1239' : '#fb7185'} />
             <span>Portable FFmpeg dependencies are missing in your local bin/ folder.</span>
           </div>
           <button

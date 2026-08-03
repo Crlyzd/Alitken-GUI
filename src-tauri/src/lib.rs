@@ -16,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             check_app_dependencies,
+            get_initial_files,
             install_dependencies,
             install_magick_dependencies,
             detect_gpu_hardware,

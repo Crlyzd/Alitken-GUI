@@ -9,6 +9,9 @@ export const VIDEO_EXTENSIONS = [
   '.m4v',
   '.wmv',
   '.ts',
+  '.mts',
+  '.m2ts',
+  '.mxf',
 ];
 
 export const IMAGE_EXTENSIONS = [
@@ -21,6 +24,20 @@ export const IMAGE_EXTENSIONS = [
   '.tif',
   '.gif',
   '.heic',
+  '.cr2',
+  '.cr3',
+  '.crw',
+  '.nef',
+  '.arw',
+  '.srf',
+  '.sr2',
+  '.dng',
+  '.raf',
+  '.orf',
+  '.rw2',
+  '.pef',
+  '.nrw',
+  '.rwl',
 ];
 
 export type FileKind = 'video' | 'image' | 'unknown';

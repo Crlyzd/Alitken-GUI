@@ -10,6 +10,18 @@ pub fn check_app_dependencies() -> DependencyStatus {
     dependencies::check_dependencies()
 }
 
+/// Reads command line arguments passed on app startup (e.g. from Windows "Send to" menu)
+#[tauri::command]
+pub fn get_initial_files() -> Vec<String> {
+    std::env::args()
+        .skip(1)
+        .filter(|arg| {
+            let p = std::path::Path::new(arg);
+            p.exists() && p.is_file()
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub async fn install_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
@@ -59,14 +71,15 @@ pub fn probe_image_batch(file_paths: Vec<String>) -> Vec<MediaMetadata> {
             let size = std::fs::metadata(&file_path)
                 .map(|m| m.len() as f64)
                 .unwrap_or(0.0);
+            let (width, height) = utils::get_image_dimensions(&file_path);
             MediaMetadata {
                 file_name,
                 file_path: file_path.clone(),
                 duration_sec: 0.0,
                 total_frames: 0.0,
                 codec_name: "image".to_string(),
-                width: 0,
-                height: 0,
+                width,
+                height,
                 file_size_mb: size / (1024.0 * 1024.0),
                 is_video: false,
             }

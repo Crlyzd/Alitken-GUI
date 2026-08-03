@@ -569,15 +569,28 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             let mut max_w = 0u32;
             let mut max_h = 0u32;
 
-            // Probe sample input files (up to 10) to find maximum width and height
-            let sample_count = std::cmp::min(config.input_files.len(), 10);
-            for file_path in &config.input_files[..sample_count] {
-                if let Ok(meta) = probe_file(ffprobe_path, file_path).await {
-                    if meta.width > max_w {
-                        max_w = meta.width;
-                    }
-                    if meta.height > max_h {
-                        max_h = meta.height;
+            // Probe input files using fast binary header reader first
+            for file_path in &config.input_files {
+                let (w, h) = crate::utils::get_image_dimensions(file_path);
+                if w > max_w {
+                    max_w = w;
+                }
+                if h > max_h {
+                    max_h = h;
+                }
+            }
+
+            // Fallback to probe_file (ffprobe) if needed
+            if max_w == 0 || max_h == 0 {
+                let sample_count = std::cmp::min(config.input_files.len(), 10);
+                for file_path in &config.input_files[..sample_count] {
+                    if let Ok(meta) = probe_file(ffprobe_path, file_path).await {
+                        if meta.width > max_w {
+                            max_w = meta.width;
+                        }
+                        if meta.height > max_h {
+                            max_h = meta.height;
+                        }
                     }
                 }
             }
@@ -593,11 +606,6 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             }
         }
     };
-
-    let vf_filter = format!(
-        "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
-        scale_w, scale_h, scale_w, scale_h
-    );
 
     let temp_dir = std::env::temp_dir();
     let batch_id = format!(
@@ -632,87 +640,110 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
 
     let manifest_input_paths: Vec<String> = if mode == "SEQUENCE" {
         // Mode 2: Image Sequence Mode
-        // Bypass ImageMagick completely for zero overhead on thousands of 3D render frames
         sorted_inputs.clone()
     } else {
         // Mode 1: Photo Slideshow Mode
-        // Check if all files are natively supported by FFmpeg concat demuxer
-        let all_native = sorted_inputs
-            .iter()
-            .all(|p| is_ffmpeg_native_image_format(p));
+        // Pre-normalize EVERY image to uniform (scale_w x scale_h) PNG frames
+        // to prevent FFmpeg concat demuxer dimension lock / frame drop issues
+        has_preprocessing = true;
+        let mut processed_paths = Vec::new();
 
-        if all_native {
-            log_info(
-                "All slideshow input images are native FFmpeg formats. Bypassing ImageMagick pre-conversion.",
+        let vf_prep = format!(
+            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
+            scale_w, scale_h, scale_w, scale_h
+        );
+
+        for (idx, raw_path_str) in sorted_inputs.iter().enumerate() {
+            let temp_png = temp_dir.join(format!("alitken_frame_{}_{}.png", batch_id, idx));
+            temp_files_to_cleanup.push(temp_png.clone());
+
+            let _ = app.emit(
+                "ffmpeg-progress",
+                FfmpegProgressPayload {
+                    current_file: stem.clone(),
+                    file_index: 1,
+                    total_files: 1,
+                    percent: ((idx as f64) / (total_count as f64)) * 20.0,
+                    current_part: 1,
+                    total_parts: 1,
+                    status: format!("Pre-normalizing image {} of {}...", idx + 1, total_count),
+                },
             );
-            sorted_inputs.clone()
-        } else {
-            has_preprocessing = true;
-            let mut processed_paths = Vec::new();
-            for (idx, raw_path_str) in sorted_inputs.iter().enumerate() {
-                if is_ffmpeg_native_image_format(raw_path_str) {
-                    processed_paths.push(raw_path_str.clone());
-                } else {
-                    if magick_path.is_empty() || !Path::new(magick_path).exists() {
-                        for p in &temp_files_to_cleanup {
-                            let _ = std::fs::remove_file(p);
-                        }
-                        return Err(format!(
-                            "ImageMagick (magick.exe) is required to convert non-standard image format: {}",
-                            Path::new(raw_path_str)
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                        ));
+
+            let is_native = is_ffmpeg_native_image_format(raw_path_str);
+            let mut success = false;
+
+            // Non-native formats (e.g. HEIC, TIFF, ICO): Use ImageMagick
+            if !is_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
+                let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
+                magick_cmd
+                    .arg(raw_path_str)
+                    .arg("-resize")
+                    .arg(format!("{}x{}", scale_w, scale_h))
+                    .arg("-background")
+                    .arg("black")
+                    .arg("-gravity")
+                    .arg("center")
+                    .arg("-extent")
+                    .arg(format!("{}x{}", scale_w, scale_h))
+                    .arg(&temp_png);
+
+                if let Ok(st) = magick_cmd.status().await {
+                    if st.success() {
+                        success = true;
                     }
-
-                    let _ = app.emit(
-                        "ffmpeg-progress",
-                        FfmpegProgressPayload {
-                            current_file: stem.clone(),
-                            file_index: 1,
-                            total_files: 1,
-                            percent: ((idx as f64) / (total_count as f64)) * 10.0,
-                            current_part: 1,
-                            total_parts: 1,
-                            status: format!(
-                                "Preprocessing image {} of {}...",
-                                idx + 1,
-                                total_count
-                            ),
-                        },
-                    );
-
-                    let temp_png =
-                        temp_dir.join(format!("alitken_frame_{}_{}.png", batch_id, idx));
-                    temp_files_to_cleanup.push(temp_png.clone());
-
-                    let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
-                    magick_cmd.arg(raw_path_str).arg(&temp_png);
-
-                    let status = magick_cmd
-                        .status()
-                        .await
-                        .map_err(|e| format!("Failed to run ImageMagick for frame {}: {}", idx + 1, e))?;
-
-                    if !status.success() {
-                        for p in &temp_files_to_cleanup {
-                            let _ = std::fs::remove_file(p);
-                        }
-                        return Err(format!(
-                            "ImageMagick failed to process image {}: {}",
-                            idx + 1,
-                            Path::new(raw_path_str)
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                        ));
-                    }
-                    processed_paths.push(temp_png.to_string_lossy().to_string());
                 }
             }
-            processed_paths
+
+            // For native formats (PNG/JPG/WEBP) or FFmpeg fallback: use FFmpeg scale & pad
+            if !success {
+                let mut ffmpeg_prep = create_tokio_hidden_cmd(ffmpeg_path);
+                ffmpeg_prep.args([
+                    "-y",
+                    "-i",
+                    raw_path_str,
+                    "-vf",
+                    &vf_prep,
+                    "-vframes",
+                    "1",
+                    &temp_png.to_string_lossy(),
+                ]);
+
+                if let Ok(st) = ffmpeg_prep.status().await {
+                    if st.success() {
+                        success = true;
+                    }
+                }
+            }
+
+            // Final fallback: ImageMagick direct convert if FFmpeg prep failed
+            if !success && !magick_path.is_empty() && Path::new(magick_path).exists() {
+                let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
+                magick_cmd.arg(raw_path_str).arg(&temp_png);
+                if let Ok(st) = magick_cmd.status().await {
+                    if st.success() {
+                        success = true;
+                    }
+                }
+            }
+
+            if !success {
+                for p in &temp_files_to_cleanup {
+                    let _ = std::fs::remove_file(p);
+                }
+                return Err(format!(
+                    "Failed to pre-normalize image {}: {}",
+                    idx + 1,
+                    Path::new(raw_path_str)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                ));
+            }
+
+            processed_paths.push(temp_png.to_string_lossy().to_string());
         }
+        processed_paths
     };
 
     // Stage 2: Manifest Generation for Concat Demuxer
@@ -740,6 +771,15 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         config.duration_sec * (total_count as f64)
     };
 
+    let vf_filter = if mode == "SEQUENCE" {
+        format!(
+            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
+            scale_w, scale_h, scale_w, scale_h
+        )
+    } else {
+        "setsar=1,format=yuv420p".to_string()
+    };
+
     // Stage 3: FFmpeg Execution with Concat Demuxer
     let mut cmd = create_tokio_hidden_cmd(ffmpeg_path);
     cmd.args([
@@ -763,6 +803,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         cmd.arg(arg);
     }
     cmd.args(["-r", &config.fps.to_string()]);
+    cmd.args(["-fps_mode", "cfr"]);
     cmd.args(["-vf", &vf_filter]);
     cmd.args(["-progress", "pipe:1"]);
     cmd.arg(resolved_out.to_string_lossy().to_string());

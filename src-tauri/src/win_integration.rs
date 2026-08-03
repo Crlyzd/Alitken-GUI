@@ -78,7 +78,7 @@ pub fn set_sendto_shortcut(enable: bool) -> Result<bool, String> {
     }
 }
 
-/// Checks if Windows Context Menu is registered (via Registry or AppX Package)
+/// Checks if Windows Context Menu is registered (via fast HKCU registry key check)
 pub fn is_win11_menu_active() -> bool {
     let output = utils::create_hidden_cmd("reg")
         .args(["query", r"HKCU\Software\Classes\*\shell\AlitkenMediaConverter"])
@@ -86,25 +86,10 @@ pub fn is_win11_menu_active() -> bool {
         .stderr(std::process::Stdio::null())
         .output();
 
-    if let Ok(out) = output {
-        if out.status.success() {
-            return true;
-        }
-    }
-
-    let ps_script = "Get-AppxPackage -Name 'AlitkenMediaConverter' | Select-Object -ExpandProperty Name";
-    let output = utils::create_hidden_cmd("powershell")
-        .args(["-NoProfile", "-Command", ps_script])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .output();
-
-    if let Ok(out) = output {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        stdout.trim().contains("AlitkenMediaConverter")
-    } else {
-        false
-    }
+    // Registry key presence is the authoritative status indicator.
+    // The slow Get-AppxPackage PowerShell fallback is intentionally omitted here
+    // to keep modal open fast — AppxPackage cleanup happens during unregister only.
+    matches!(output, Ok(out) if out.status.success())
 }
 
 /// Prepares resources and registers or unregisters the Windows Context Menu

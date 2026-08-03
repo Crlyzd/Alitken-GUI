@@ -58,8 +58,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSuccessMsg(null);
     const targetState = !(status?.sendto_active ?? false);
 
+    // Optimistic update — flip state immediately so the toggle feels instant
+    setStatus((prev) =>
+      prev ? { ...prev, sendto_active: targetState } : prev
+    );
+
     try {
       const res = await invoke<boolean>('set_sendto_status', { enable: targetState });
+      // Confirm with actual backend result
       setStatus((prev) =>
         prev
           ? { ...prev, sendto_active: res }
@@ -67,6 +73,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       );
       setSuccessMsg(res ? 'Added to Windows "Send to" menu!' : 'Removed from Windows "Send to" menu.');
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setStatus((prev) =>
+        prev ? { ...prev, sendto_active: !targetState } : prev
+      );
       setErrorMsg(err?.toString() || 'Failed to update SendTo shortcut.');
     } finally {
       setLoadingSendTo(false);
@@ -80,8 +90,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSuccessMsg(null);
     const targetState = !(status?.win11_menu_active ?? false);
 
+    // Optimistic update — flip state immediately so the toggle feels instant
+    setStatus((prev) =>
+      prev ? { ...prev, win11_menu_active: targetState } : prev
+    );
+
     try {
       const res = await invoke<boolean>('set_win11_context_menu_status', { enable: targetState });
+      // Confirm with actual backend result
       setStatus((prev) =>
         prev
           ? { ...prev, win11_menu_active: res }
@@ -93,6 +109,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           : 'Unregistered from Windows Context Menu.'
       );
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setStatus((prev) =>
+        prev ? { ...prev, win11_menu_active: !targetState } : prev
+      );
       setErrorMsg(err?.toString() || 'Failed to update Context Menu registration.');
     } finally {
       setLoadingWin11(false);

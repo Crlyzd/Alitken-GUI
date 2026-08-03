@@ -73,18 +73,15 @@ export const Titlebar: React.FC<TitlebarProps> = ({
         userSelect: 'none',
       }}
     >
-      {/* Brand & App Name */}
+      {/* Brand & App Name — drag region only, not clickable */}
       <div
-        onClick={onOpenAbout}
-        className="no-drag"
-        title="About ALITKEN v0.4"
+        data-tauri-drag-region
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          cursor: onOpenAbout ? 'pointer' : 'default',
+          cursor: 'default',
         }}
-        data-tauri-drag-region
       >
         <img
           src="/app-icon.ico"

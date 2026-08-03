@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive } from 'lucide-react';
+import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
+import { GlassSelect, GlassSelectOption } from './GlassSelect';
+
+export type SortOption =
+  | 'DEFAULT'
+  | 'NAME_ASC'
+  | 'NAME_DESC'
+  | 'SIZE_ASC'
+  | 'SIZE_DESC'
+  | 'DURATION_ASC'
+  | 'DURATION_DESC';
 
 export interface FileItem {
   name: string;
@@ -19,6 +29,7 @@ interface DropzoneProps {
   onAddFiles: (paths: string[]) => void;
   onRemoveFile: (index: number) => void;
   onClearFiles: () => void;
+  onReorderFiles?: (sortedFiles: FileItem[]) => void;
 }
 
 export const Dropzone: React.FC<DropzoneProps> = ({
@@ -26,11 +37,61 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   onAddFiles,
   onRemoveFile,
   onClearFiles,
+  onReorderFiles,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [sortOption, setSortOption] = useState<SortOption>('DEFAULT');
+  const initialFilesRef = useRef<FileItem[]>([]);
+
   const onAddFilesRef = useRef(onAddFiles);
   const lastDropTimeRef = useRef<number>(0);
   const lastDropPathsRef = useRef<string>('');
+
+  // Keep track of original import order when files change length or are first loaded
+  useEffect(() => {
+    if (files.length === 0) {
+      initialFilesRef.current = [];
+      setSortOption('DEFAULT');
+    } else if (initialFilesRef.current.length !== files.length && sortOption === 'DEFAULT') {
+      initialFilesRef.current = [...files];
+    }
+  }, [files, sortOption]);
+
+  const handleSortChange = (newSort: SortOption) => {
+    setSortOption(newSort);
+    if (!onReorderFiles) return;
+
+    if (newSort === 'DEFAULT') {
+      if (initialFilesRef.current.length > 0) {
+        // Filter out any files that were removed
+        const currentPaths = new Set(files.map((f) => f.path.toLowerCase()));
+        const restored = initialFilesRef.current.filter((f) => currentPaths.has(f.path.toLowerCase()));
+        onReorderFiles(restored);
+      }
+      return;
+    }
+
+    const sorted = [...files];
+    if (newSort === 'NAME_ASC') {
+      sorted.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+      );
+    } else if (newSort === 'NAME_DESC') {
+      sorted.sort((a, b) =>
+        b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+      );
+    } else if (newSort === 'SIZE_ASC') {
+      sorted.sort((a, b) => a.sizeMb - b.sizeMb);
+    } else if (newSort === 'SIZE_DESC') {
+      sorted.sort((a, b) => b.sizeMb - a.sizeMb);
+    } else if (newSort === 'DURATION_ASC') {
+      sorted.sort((a, b) => (a.durationSec || 0) - (b.durationSec || 0));
+    } else if (newSort === 'DURATION_DESC') {
+      sorted.sort((a, b) => (b.durationSec || 0) - (a.durationSec || 0));
+    }
+
+    onReorderFiles(sorted);
+  };
 
   useEffect(() => {
     onAddFilesRef.current = onAddFiles;
@@ -176,22 +237,47 @@ export const Dropzone: React.FC<DropzoneProps> = ({
           <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
             QUEUE ({files.length} {currentMediaKind.toUpperCase()} {files.length === 1 ? 'FILE' : 'FILES'})
           </span>
-          <button
-            onClick={onClearFiles}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--accent-rose)',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <Trash2 size={13} /> Clear All
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Frosted Glass Sorting Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '175px' }}>
+              <ArrowUpDown size={13} color="var(--accent-cyan)" style={{ flexShrink: 0 }} />
+              <GlassSelect
+                value={sortOption}
+                onChange={(val) => handleSortChange(val as SortOption)}
+                options={[
+                  { value: 'DEFAULT', label: 'Original Order' },
+                  { value: 'NAME_ASC', label: 'Name (A → Z / 0 → 9)' },
+                  { value: 'NAME_DESC', label: 'Name (Z → A / 9 → 0)' },
+                  { value: 'SIZE_ASC', label: 'Size (Smallest)' },
+                  { value: 'SIZE_DESC', label: 'Size (Largest)' },
+                  ...(currentMediaKind === 'video'
+                    ? [
+                        { value: 'DURATION_ASC', label: 'Duration (Shortest)' },
+                        { value: 'DURATION_DESC', label: 'Duration (Longest)' },
+                      ]
+                    : []),
+                ] as GlassSelectOption[]}
+              />
+            </div>
+
+            <button
+              onClick={onClearFiles}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--accent-rose)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Trash2 size={13} /> Clear All
+            </button>
+          </div>
         </div>
       )}
 

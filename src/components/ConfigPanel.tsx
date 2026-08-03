@@ -27,6 +27,7 @@ interface ConfigPanelProps {
   onStartImage: () => void;
   disabled: boolean;
   fileCount: number;
+  onOpenDestination?: () => void;
 }
 
 const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];
@@ -42,6 +43,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onStartImage,
   disabled,
   fileCount,
+  onOpenDestination,
 }) => {
   const [isCustomHeight, setIsCustomHeight] = useState<boolean>(
     !PRESET_HEIGHTS.includes(config.targetHeight)
@@ -68,7 +70,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   };
 
   const handleOpenFolder = async () => {
-    if (config.outputDir) {
+    if (onOpenDestination) {
+      onOpenDestination();
+    } else if (config.outputDir) {
       try {
         await invoke('open_folder', { folderPath: config.outputDir });
       } catch (err) {
@@ -109,6 +113,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             onStart={onStartImage}
             disabled={disabled}
             fileCount={fileCount}
+            onOpenDestination={onOpenDestination}
           />
         ) : (
           /* RENDER UNCHANGED VIDEO CONFIG PANEL IF MEDIA TYPE IS VIDEO */
@@ -503,6 +508,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <div
+                  onClick={handleBrowseFolder}
                   style={{
                     flex: 1,
                     background: 'var(--input-bg)',
@@ -516,46 +522,33 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     textOverflow: 'ellipsis',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: '8px',
+                    cursor: 'pointer',
                     boxSizing: 'border-box',
+                    transition: 'all 0.15s ease',
                   }}
-                  title={
-                    config.outputDir ||
-                    'Output files will be saved in the same directory as source files'
-                  }
+                  title="Click to browse destination folder"
                 >
-                  <Folder
-                    size={14}
-                    color={config.outputDir ? 'var(--accent-cyan)' : 'var(--text-dim)'}
-                  />
-                  <span>{config.outputDir || 'Same as Source File Directory'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', minWidth: 0 }}>
+                    <Folder
+                      size={14}
+                      color={config.outputDir ? 'var(--accent-cyan)' : 'var(--text-dim)'}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {config.outputDir || 'Same as Source File Directory'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-cyan)', opacity: 0.8, flexShrink: 0 }}>
+                    Browse
+                  </span>
                 </div>
 
-                <button
-                  onClick={handleBrowseFolder}
-                  title="Browse Destination Folder"
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-glass)',
-                    background: 'var(--bg-glass-card)',
-                    color: 'var(--text-main)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <FolderOpen size={14} /> Browse
-                </button>
-
-                {config.outputDir && (
+                {(config.outputDir || fileCount > 0) && (
                   <button
                     onClick={handleOpenFolder}
-                    title="Open Selected Folder in Explorer"
+                    title="Open Destination Folder in Explorer"
                     style={{
                       padding: '8px 10px',
                       borderRadius: '10px',
@@ -567,6 +560,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
                     <FolderOpen size={14} />

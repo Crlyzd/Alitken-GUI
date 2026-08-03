@@ -97,9 +97,17 @@ export function App() {
   const currentMediaType: 'video' | 'image' =
     files.length > 0 && getFileKind(files[0].path) === 'image' ? 'image' : 'video';
 
-  // Initial setup: Check dependencies and GPU acceleration
+  // Initial setup: Check dependencies and GPU acceleration, disable right-click in release mode
   useEffect(() => {
     checkDepsAndGpu('1');
+
+    if (import.meta.env.PROD) {
+      const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+      document.addEventListener('contextmenu', handleContextMenu);
+      return () => {
+        document.removeEventListener('contextmenu', handleContextMenu);
+      };
+    }
 
     const unlistenProgress = listen('ffmpeg-progress', (event: any) => {
       const payload = event.payload;
@@ -205,31 +213,57 @@ export function App() {
 
     if (newPathsToProcess.length === 0) return;
 
-    const newItems: FileItem[] = [];
+    const videoPaths: string[] = [];
+    const imagePaths: string[] = [];
     for (const p of newPathsToProcess) {
-      const kind = getFileKind(p);
-      if (kind === 'video') {
-        try {
-          const meta: any = await invoke('probe_media_file', {
-            ffprobePath: '',
-            filePath: p,
-          });
+      if (getFileKind(p) === 'video') {
+        videoPaths.push(p);
+      } else {
+        imagePaths.push(p);
+      }
+    }
+
+    const newItems: FileItem[] = [];
+
+    // Probe videos via ffprobe
+    for (const p of videoPaths) {
+      try {
+        const meta: any = await invoke('probe_media_file', {
+          ffprobePath: '',
+          filePath: p,
+        });
+        newItems.push({
+          name: meta.file_name,
+          path: normalizePath(meta.file_path || p),
+          sizeMb: meta.file_size_mb,
+          durationSec: meta.duration_sec,
+          resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+          codec: meta.codec_name,
+          mediaKind: 'video',
+        });
+      } catch (err) {
+        const name = p.split(/[\\/]/).pop() || p;
+        newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+      }
+    }
+
+    // Probe image batch instantly via native Rust stat (< 5ms for 3,000 files)
+    if (imagePaths.length > 0) {
+      try {
+        const batchMeta: any[] = await invoke('probe_image_batch', { filePaths: imagePaths });
+        for (const meta of batchMeta) {
           newItems.push({
             name: meta.file_name,
-            path: normalizePath(meta.file_path || p),
+            path: normalizePath(meta.file_path),
             sizeMb: meta.file_size_mb,
-            durationSec: meta.duration_sec,
-            resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
-            codec: meta.codec_name,
-            mediaKind: 'video',
+            mediaKind: 'image',
           });
-        } catch (err) {
-          const name = p.split(/[\\/]/).pop() || p;
-          newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
         }
-      } else {
-        const name = p.split(/[\\/]/).pop() || p;
-        newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
+      } catch (err) {
+        for (const p of imagePaths) {
+          const name = p.split(/[\\/]/).pop() || p;
+          newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
+        }
       }
     }
 
@@ -406,6 +440,24 @@ export function App() {
     }
   };
 
+  const handleOpenDestination = async () => {
+    let targetDir = currentMediaType === 'video' ? videoConfig.outputDir : imageConfig.outputDir;
+    if (!targetDir && files.length > 0) {
+      const firstPath = files[0].path;
+      const lastSlash = Math.max(firstPath.lastIndexOf('/'), firstPath.lastIndexOf('\\'));
+      if (lastSlash !== -1) {
+        targetDir = firstPath.substring(0, lastSlash);
+      }
+    }
+    if (targetDir) {
+      try {
+        await invoke('open_folder', { folderPath: targetDir });
+      } catch (err) {
+        console.error('Failed to open destination folder:', err);
+      }
+    }
+  };
+
   return (
     <div
       data-theme={theme}
@@ -534,6 +586,7 @@ export function App() {
               pendingPathsRef.current.clear();
               setFiles([]);
             }}
+            onReorderFiles={(sortedFiles) => setFiles(sortedFiles)}
           />
 
           <ConfigPanel
@@ -546,6 +599,7 @@ export function App() {
             onStartImage={handleStartImageProcessing}
             disabled={files.length === 0 || progress.isProcessing}
             fileCount={files.length}
+            onOpenDestination={handleOpenDestination}
           />
         </div>
       )}
@@ -554,6 +608,7 @@ export function App() {
       <ProgressModal
         progress={progress}
         onClose={() => setProgress((prev) => ({ ...prev, completed: false, error: undefined }))}
+        onOpenDestination={handleOpenDestination}
       />
 
       {/* About ALITKEN v0.4 Modal */}

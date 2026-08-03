@@ -20,6 +20,7 @@ pub fn run() {
             install_magick_dependencies,
             detect_gpu_hardware,
             probe_media_file,
+            probe_image_batch,
             start_video_pipeline,
             start_image_pipeline,
             start_image_to_video_pipeline,

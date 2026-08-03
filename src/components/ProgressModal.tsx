@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, FolderOpen } from 'lucide-react';
 
 export interface ProgressState {
   isProcessing: boolean;
@@ -17,9 +17,14 @@ export interface ProgressState {
 interface ProgressModalProps {
   progress: ProgressState;
   onClose: () => void;
+  onOpenDestination?: () => void;
 }
 
-export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose }) => {
+export const ProgressModal: React.FC<ProgressModalProps> = ({
+  progress,
+  onClose,
+  onOpenDestination,
+}) => {
   if (!progress.isProcessing && !progress.completed && !progress.error) {
     return null;
   }
@@ -112,8 +117,51 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
           </span>
         </div>
 
-        {/* Close Button on completion / error */}
-        {(progress.completed || progress.error) && (
+        {/* Action Buttons on completion / error */}
+        {progress.completed && (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {onOpenDestination && (
+              <button
+                onClick={onOpenDestination}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 20px rgba(99, 102, 241, 0.35)',
+                }}
+              >
+                <FolderOpen size={16} /> Open Destination Folder
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                padding: '12px 20px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-glass)',
+                background: 'var(--bg-glass-card)',
+                color: 'var(--text-main)',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Done
+            </button>
+          </div>
+        )}
+
+        {progress.error && (
           <button
             onClick={onClose}
             style={{
@@ -121,20 +169,19 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({ progress, onClose 
               padding: '12px',
               borderRadius: '10px',
               border: 'none',
-              background: progress.error
-                ? '#f43f5e'
-                : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              background: '#f43f5e',
               color: '#fff',
               fontWeight: 600,
               fontSize: '14px',
               cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(99, 102, 241, 0.3)',
+              boxShadow: '0 4px 20px rgba(244, 63, 94, 0.3)',
             }}
           >
-            {progress.error ? 'Dismiss' : 'Done'}
+            Dismiss
           </button>
         )}
       </div>
     </div>
   );
 };
+

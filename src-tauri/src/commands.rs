@@ -47,6 +47,34 @@ pub async fn probe_media_file(ffprobe_path: String, file_path: String) -> Result
 }
 
 #[tauri::command]
+pub fn probe_image_batch(file_paths: Vec<String>) -> Vec<MediaMetadata> {
+    file_paths
+        .into_iter()
+        .map(|file_path| {
+            let path = std::path::Path::new(&file_path);
+            let file_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let size = std::fs::metadata(&file_path)
+                .map(|m| m.len() as f64)
+                .unwrap_or(0.0);
+            MediaMetadata {
+                file_name,
+                file_path: file_path.clone(),
+                duration_sec: 0.0,
+                total_frames: 0.0,
+                codec_name: "image".to_string(),
+                width: 0,
+                height: 0,
+                file_size_mb: size / (1024.0 * 1024.0),
+                is_video: false,
+            }
+        })
+        .collect()
+}
+
+#[tauri::command]
 pub async fn start_video_pipeline<R: tauri::Runtime>(
     app: AppHandle<R>,
     config: ConversionConfig,

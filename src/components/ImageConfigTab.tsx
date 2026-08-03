@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ImageConfig, ImageOutputFormat } from '../types/media';
-import { Folder, Sparkles, Music, Image, Video, Film, FileImage } from 'lucide-react';
+import { Folder, FolderOpen, Sparkles, Music, Image, Video, Film, FileImage } from 'lucide-react';
 import { GlassSelect } from './GlassSelect';
 
 interface ImageConfigTabProps {
@@ -10,6 +10,7 @@ interface ImageConfigTabProps {
   onStart: () => void;
   disabled: boolean;
   fileCount: number;
+  onOpenDestination?: () => void;
 }
 
 export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
@@ -18,6 +19,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
   onStart,
   disabled,
   fileCount,
+  onOpenDestination,
 }) => {
   const [isCustomFpsMode, setIsCustomFpsMode] = useState<boolean>(
     ![24, 30, 60].includes(config.videoFps)
@@ -874,6 +876,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <div
+              onClick={handleBrowseOutputFolder}
               style={{
                 flex: 1,
                 background: 'var(--input-bg)',
@@ -887,35 +890,50 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
                 textOverflow: 'ellipsis',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '8px',
+                cursor: 'pointer',
                 boxSizing: 'border-box',
+                transition: 'all 0.15s ease',
               }}
-              title={config.outputDir || 'Output files will be saved in the same directory as source files'}
+              title="Click to browse destination folder"
             >
-              <Folder size={14} color={config.outputDir ? 'var(--accent-cyan)' : 'var(--text-dim)'} />
-              <span>{config.outputDir || 'Same as Source File Directory'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', minWidth: 0 }}>
+                <Folder
+                  size={14}
+                  color={config.outputDir ? 'var(--accent-cyan)' : 'var(--text-dim)'}
+                  style={{ flexShrink: 0 }}
+                />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {config.outputDir || 'Same as Source File Directory'}
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-cyan)', opacity: 0.8, flexShrink: 0 }}>
+                Browse
+              </span>
             </div>
 
-            <button
-              onClick={handleBrowseOutputFolder}
-              title="Browse Destination Folder"
-              style={{
-                padding: '8px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-glass)',
-                background: 'var(--bg-glass-card)',
-                color: 'var(--text-main)',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Folder size={14} /> Browse
-            </button>
+            {(config.outputDir || fileCount > 0) && (
+              <button
+                onClick={onOpenDestination}
+                title="Open Destination Folder in Explorer"
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-glass)',
+                  background: 'var(--bg-glass-card)',
+                  color: 'var(--accent-cyan)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <FolderOpen size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ImageConfig, ImageOutputFormat } from '../types/media';
-import { Folder, Sparkles, Music, Film, FileText, FileImage } from 'lucide-react';
+import { Folder, Sparkles, Music, Image, Video, Film, FileImage } from 'lucide-react';
 import { GlassSelect } from './GlassSelect';
 
 interface ImageConfigTabProps {
@@ -86,44 +86,95 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
           >
             Target Output Format
           </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-            {(['JPG', 'PDF', 'PNG', 'WEBP', 'VIDEO'] as ImageOutputFormat[]).map((fmt) => {
-              const isActive = config.outputFormat === fmt;
-              return (
-                <button
-                  key={fmt}
-                  onClick={() => onChange({ ...config, outputFormat: fmt })}
-                  style={{
-                    padding: '8px 4px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    borderRadius: '10px',
-                    border: isActive
-                      ? '1px solid var(--accent-cyan)'
-                      : '1px solid var(--border-glass)',
-                    background: isActive ? 'var(--bg-glass-hover)' : 'var(--bg-glass-card)',
-                    color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {fmt === 'VIDEO' ? (
-                    <Film size={14} />
-                  ) : fmt === 'PDF' ? (
-                    <FileText size={14} />
-                  ) : (
-                    <FileImage size={14} />
-                  )}
-                  {fmt === 'VIDEO' ? 'MP4' : fmt}
-                </button>
-              );
-            })}
+
+          {/* Tier 1: Category Switcher */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (config.outputFormat === 'VIDEO') {
+                  onChange({ ...config, outputFormat: 'WEBP' });
+                }
+              }}
+              style={{
+                padding: '9px 12px',
+                fontSize: '13px',
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                borderRadius: '8px',
+                border: config.outputFormat !== 'VIDEO'
+                  ? '1px solid var(--accent-cyan)'
+                  : '1px solid var(--border-glass)',
+                background: config.outputFormat !== 'VIDEO' ? 'var(--accent-primary)' : 'var(--bg-glass-card)',
+                color: config.outputFormat !== 'VIDEO' ? '#ffffff' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Image size={15} strokeWidth={2} /> Image & Document
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onChange({ ...config, outputFormat: 'VIDEO' })}
+              style={{
+                padding: '9px 12px',
+                fontSize: '13px',
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                borderRadius: '8px',
+                border: config.outputFormat === 'VIDEO'
+                  ? '1px solid var(--accent-cyan)'
+                  : '1px solid var(--border-glass)',
+                background: config.outputFormat === 'VIDEO' ? 'var(--accent-primary)' : 'var(--bg-glass-card)',
+                color: config.outputFormat === 'VIDEO' ? '#ffffff' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Video size={15} strokeWidth={2} /> Video (MP4)
+            </button>
           </div>
+
+          {/* Tier 2: Sub-format Pill Selector (For Image Formats) */}
+          {config.outputFormat !== 'VIDEO' && (
+            <div style={{ marginTop: '8px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+              {(['JPG', 'PNG', 'WEBP', 'PDF'] as ImageOutputFormat[]).map((fmt) => {
+                const isActive = config.outputFormat === fmt;
+                return (
+                  <button
+                    key={fmt}
+                    type="button"
+                    onClick={() => onChange({ ...config, outputFormat: fmt })}
+                    style={{
+                      padding: '6px 4px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      border: isActive
+                        ? '1px solid var(--accent-cyan)'
+                        : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: isActive ? 'rgba(6, 182, 212, 0.25)' : 'rgba(0, 0, 0, 0.2)',
+                      color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {fmt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* --- FORMAT SPECIFIC CONTROLS --- */}

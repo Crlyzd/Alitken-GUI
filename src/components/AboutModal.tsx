@@ -102,7 +102,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
                 ALITKEN
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                v0.4 &middot; High-performance Windows media converter & video splitter
+                v0.4 &middot; Universal Video, Image & PDF Suite
               </p>
             </div>
           </div>

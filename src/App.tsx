@@ -99,9 +99,19 @@ export function App() {
   const currentMediaType: 'video' | 'image' =
     files.length > 0 && getFileKind(files[0].path) === 'image' ? 'image' : 'video';
 
+  const videoConfigRef = useRef(videoConfig);
+  useEffect(() => {
+    videoConfigRef.current = videoConfig;
+  }, [videoConfig]);
+
   // Initial setup: Check dependencies and GPU acceleration, disable right-click in release mode
   useEffect(() => {
     checkDepsAndGpu('1');
+
+    const handleFocus = () => {
+      checkDepsAndGpu(videoConfigRef.current.codecChoice);
+    };
+    window.addEventListener('focus', handleFocus);
 
     // Read command line startup arguments (e.g. from Windows "Send to" menu)
     invoke<string[]>('get_initial_files')
@@ -171,6 +181,7 @@ export function App() {
     });
 
     return () => {
+      window.removeEventListener('focus', handleFocus);
       unlistenProgress.then((fn) => fn());
       unlistenImageProgress.then((fn) => fn());
       unlistenDownload.then((fn) => fn());
@@ -180,11 +191,12 @@ export function App() {
   const checkDepsAndGpu = async (codec: string) => {
     try {
       const deps: any = await invoke('check_app_dependencies');
-      setDepsStatus({
+      const status = {
         ffmpeg: deps.ffmpeg_exists,
         ffprobe: deps.ffprobe_exists,
         magick: deps.magick_exists,
-      });
+      };
+      setDepsStatus(status);
 
       if (deps.ffmpeg_exists) {
         const gpu: any = await invoke('detect_gpu_hardware', {
@@ -193,8 +205,10 @@ export function App() {
         });
         setHardwareInfo({ name: gpu.hardware_name, encoder: gpu.encoder });
       }
+      return status;
     } catch (err) {
       console.error('Failed to check dependencies or GPU:', err);
+      return { ffmpeg: false, ffprobe: false, magick: false };
     }
   };
 
@@ -349,6 +363,13 @@ export function App() {
   const handleStartVideoProcessing = async () => {
     if (files.length === 0) return;
 
+    // Pre-flight check: Ensure binaries exist before launching
+    const currentDeps = await checkDepsAndGpu(videoConfig.codecChoice);
+    if (!currentDeps.ffmpeg || !currentDeps.ffprobe) {
+      setValidationError('FFmpeg / FFprobe dependencies are missing or were removed. Please click "Install All Dependencies" to download.');
+      return;
+    }
+
     setProgress({
       isProcessing: true,
       currentFile: files[0].name,
@@ -403,6 +424,20 @@ export function App() {
 
   const handleStartImageProcessing = async () => {
     if (files.length === 0) return;
+
+    // Pre-flight check: Ensure binaries exist before launching
+    const currentDeps = await checkDepsAndGpu(videoConfig.codecChoice);
+    const requiresMagick = imageConfig.outputFormat !== 'VIDEO';
+    const requiresFFmpeg = imageConfig.outputFormat === 'VIDEO';
+
+    if (requiresMagick && !currentDeps.magick) {
+      setValidationError('ImageMagick binary (magick.exe) is missing or was removed. Please click "Install All Dependencies" to download.');
+      return;
+    }
+    if (requiresFFmpeg && (!currentDeps.ffmpeg || !currentDeps.ffprobe)) {
+      setValidationError('FFmpeg / FFprobe dependencies are missing or were removed. Please click "Install All Dependencies" to download.');
+      return;
+    }
 
     setProgress({
       isProcessing: true,

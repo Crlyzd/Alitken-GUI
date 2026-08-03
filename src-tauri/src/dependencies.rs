@@ -75,6 +75,77 @@ fn resolve_binary(local_bin: &Path, exe_name: &str, cmd_name: &str) -> String {
     String::new()
 }
 
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    #[serde(default)]
+    assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubAsset {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    browser_download_url: String,
+}
+
+/// Dynamically resolves the latest FFmpeg portable release zip URL from BtbN GitHub API
+async fn fetch_latest_ffmpeg_url(client: &reqwest::Client) -> String {
+    let fallback_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip".to_string();
+    let api_url = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest";
+
+    let res = match client.get(api_url).send().await {
+        Ok(res) if res.status().is_success() => res,
+        _ => return fallback_url,
+    };
+
+    let release: GitHubRelease = match res.json().await {
+        Ok(rel) => rel,
+        Err(_) => return fallback_url,
+    };
+
+    // Filter for win64-gpl zip asset (prefer latest release build)
+    for asset in &release.assets {
+        let name_lower = asset.name.to_lowercase();
+        if name_lower.ends_with(".zip")
+            && name_lower.contains("win64-gpl")
+            && !name_lower.contains("shared")
+        {
+            return asset.browser_download_url.clone();
+        }
+    }
+
+    fallback_url
+}
+
+/// Dynamically resolves the latest ImageMagick portable release 7z URL from ImageMagick GitHub API
+async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
+    let fallback_url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z".to_string();
+    let api_url = "https://api.github.com/repos/ImageMagick/ImageMagick/releases/latest";
+
+    let res = match client.get(api_url).send().await {
+        Ok(res) if res.status().is_success() => res,
+        _ => return fallback_url,
+    };
+
+    let release: GitHubRelease = match res.json().await {
+        Ok(rel) => rel,
+        Err(_) => return fallback_url,
+    };
+
+    for asset in &release.assets {
+        let name_lower = asset.name.to_lowercase();
+        if name_lower.ends_with(".7z")
+            && name_lower.contains("portable")
+            && name_lower.contains("x64")
+        {
+            return asset.browser_download_url.clone();
+        }
+    }
+
+    fallback_url
+}
+
 /// Asynchronously downloads portable FFmpeg release zip directly from BtbN GitHub releases
 pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -84,7 +155,18 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let download_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip";
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            status: "Fetching latest FFmpeg release info from BtbN GitHub...".to_string(),
+            percent: 0.0,
+            speed_mbps: 0.0,
+            downloaded_mb: 0.0,
+            total_mb: 0.0,
+        },
+    );
+
+    let download_url = fetch_latest_ffmpeg_url(&client).await;
     let target_dir = get_local_bin_dir();
     let zip_path = target_dir.join("ffmpeg_download.zip");
 
@@ -100,7 +182,7 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     );
 
     let res = client
-        .get(download_url)
+        .get(&download_url)
         .send()
         .await
         .map_err(|e| format!("Failed to initiate download: {}", e))?;
@@ -198,8 +280,18 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         .build()
         .map_err(|e| e.to_string())?;
 
-    // Primary release asset for ImageMagick 7.x portable x64
-    let download_url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z";
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            status: "Fetching latest ImageMagick release info from GitHub...".to_string(),
+            percent: 0.0,
+            speed_mbps: 0.0,
+            downloaded_mb: 0.0,
+            total_mb: 0.0,
+        },
+    );
+
+    let download_url = fetch_latest_magick_url(&client).await;
     let target_dir = get_local_bin_dir();
     let archive_path = target_dir.join("magick_download.7z");
 

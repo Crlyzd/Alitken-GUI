@@ -44,6 +44,12 @@ pub struct FfmpegProgressPayload {
 
 /// Probes a media file using ffprobe for metadata analysis without spawning console window
 pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMetadata, String> {
+    if ffprobe_path.is_empty() || !Path::new(ffprobe_path).exists() {
+        let err_msg = format!("ffprobe executable not found at: '{}'. Please download dependencies.", ffprobe_path);
+        log_error(&err_msg);
+        return Err(err_msg);
+    }
+
     let path = Path::new(file_path);
     let file_name = path
         .file_name()
@@ -129,6 +135,17 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
     config: ConversionConfig,
     gpu_caps: crate::gpu::GpuCapability,
 ) -> Result<(), String> {
+    if ffmpeg_path.is_empty() || !Path::new(ffmpeg_path).exists() {
+        let err_msg = format!("FFmpeg executable not found at: '{}'. Please download dependencies.", ffmpeg_path);
+        log_error(&err_msg);
+        return Err(err_msg);
+    }
+    if ffprobe_path.is_empty() || !Path::new(ffprobe_path).exists() {
+        let err_msg = format!("FFprobe executable not found at: '{}'. Please download dependencies.", ffprobe_path);
+        log_error(&err_msg);
+        return Err(err_msg);
+    }
+
     let total_videos = config.video_files.len();
 
     log_info(&format!(

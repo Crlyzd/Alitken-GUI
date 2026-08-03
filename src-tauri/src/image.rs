@@ -40,6 +40,12 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
     magick_path: &str,
     config: ImageConversionConfig,
 ) -> Result<(), String> {
+    if magick_path.is_empty() || !Path::new(magick_path).exists() {
+        let err_msg = format!("ImageMagick executable (magick.exe) not found at: '{}'. Please download dependencies.", magick_path);
+        utils::log_error(&err_msg);
+        return Err(err_msg);
+    }
+
     if config.input_files.is_empty() {
         return Err("No input image files provided.".to_string());
     }

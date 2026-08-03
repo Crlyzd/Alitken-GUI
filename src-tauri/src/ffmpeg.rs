@@ -524,6 +524,7 @@ pub struct ImageToVideoConfig {
 pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     ffmpeg_path: &str,
+    ffprobe_path: &str,
     magick_path: &str,
     config: ImageToVideoConfig,
     gpu_caps: crate::gpu::GpuCapability,
@@ -564,7 +565,33 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         "4k" => (3840, 2160),
         "720p" => (1280, 720),
         "1080p" => (1920, 1080),
-        _ => (1920, 1080),
+        "ORIGINAL" | _ => {
+            let mut max_w = 0u32;
+            let mut max_h = 0u32;
+
+            // Probe sample input files (up to 10) to find maximum width and height
+            let sample_count = std::cmp::min(config.input_files.len(), 10);
+            for file_path in &config.input_files[..sample_count] {
+                if let Ok(meta) = probe_file(ffprobe_path, file_path).await {
+                    if meta.width > max_w {
+                        max_w = meta.width;
+                    }
+                    if meta.height > max_h {
+                        max_h = meta.height;
+                    }
+                }
+            }
+
+            if max_w > 0 && max_h > 0 {
+                let w = if max_w % 2 != 0 { max_w + 1 } else { max_w };
+                let h = if max_h % 2 != 0 { max_h + 1 } else { max_h };
+                log_info(&format!("Probed original resolution canvas for Image-to-Video: {}x{}", w, h));
+                (w, h)
+            } else {
+                log_info("Could not probe image dimensions; falling back to 1920x1080 canvas.");
+                (1920, 1080)
+            }
+        }
     };
 
     let vf_filter = format!(

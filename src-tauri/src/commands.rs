@@ -98,7 +98,15 @@ pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
     }
 
     let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
-    ffmpeg::run_image_to_video_pipeline(&app, &deps.ffmpeg_path, &deps.magick_path, config, gpu_caps).await
+    ffmpeg::run_image_to_video_pipeline(
+        &app,
+        &deps.ffmpeg_path,
+        &deps.ffprobe_path,
+        &deps.magick_path,
+        config,
+        gpu_caps,
+    )
+    .await
 }
 
 #[tauri::command]

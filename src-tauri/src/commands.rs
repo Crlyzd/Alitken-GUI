@@ -139,3 +139,24 @@ pub fn toggle_maximize_window(window: tauri::Window) -> Result<(), String> {
 pub fn close_window(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
+
+/// Expands the fixed startup window (560×440, non-resizable) into the full
+/// working state (980×700, resizable, min 840×580). Called from the frontend
+/// exactly once — when the first file batch is loaded via handleAddFiles.
+/// Window expands in-place; position is NOT changed so the user's placement
+/// is respected.
+#[tauri::command]
+pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
+    use tauri::LogicalSize;
+    // 1. Re-enable resize FIRST so min_size and set_size take effect.
+    window.set_resizable(true).map_err(|e| e.to_string())?;
+    // 2. Apply working-state minimum constraints.
+    window
+        .set_min_size(Some(LogicalSize::new(840u32, 580u32)))
+        .map_err(|e| e.to_string())?;
+    // 3. Expand to the full working dimensions in-place.
+    window
+        .set_size(LogicalSize::new(980u32, 700u32))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

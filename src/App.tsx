@@ -236,6 +236,13 @@ export function App() {
     setFiles((prev) => {
       const currentKeys = new Set(prev.map((f) => canonicalPathKey(f.path)));
       const filteredNew = newItems.filter((item) => !currentKeys.has(canonicalPathKey(item.path)));
+      // Expand from the fixed startup window (560×440) to the full working
+      // window (980×700) exactly once — when the very first file is added.
+      if (prev.length === 0 && filteredNew.length > 0) {
+        invoke('expand_to_working_window').catch((err) =>
+          console.error('Failed to expand to working window:', err)
+        );
+      }
       return [...prev, ...filteredNew];
     });
   };

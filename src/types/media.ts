@@ -8,7 +8,7 @@ export type PdfScalePreset = 'ORIGINAL' | '30%' | '50%' | '80%' | 'CUSTOM';
 export type WebQualityPreset = '50%' | '60%' | '80%' | '90%' | 'CUSTOM';
 export type WebScalePreset = 'ORIGINAL' | '30%' | '50%' | '80%' | 'CUSTOM';
 
-export type VideoFpsPreset = 24 | 30 | 60;
+export type VideoFpsPreset = number;
 export type VideoResolutionPreset = '1080p' | '4k' | '720p' | 'ORIGINAL';
 
 export type ImageToVideoMode = 'SLIDESHOW' | 'SEQUENCE';
@@ -25,7 +25,7 @@ export interface ImageConfig {
   mergePdf: boolean; // True if merging multiple images into single PDF
   
   // Image to Video options
-  videoMode: ImageToVideoMode; // 'SLIDESHOW' (seconds/photo) or 'SEQUENCE' (1 photo = 1 frame for Blender/animations)
+  videoMode: ImageToVideoMode; // 'SLIDESHOW' (seconds/photo) or 'SEQUENCE' (1 photo = 1 frame for image sequences / animations)
   videoDurationSec: number; // Duration for single image (sec) or per image for slideshow
   videoFps: VideoFpsPreset;
   videoResolution: VideoResolutionPreset;

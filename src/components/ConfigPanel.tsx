@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageConfig } from '../types/media';
 import { ImageConfigTab } from './ImageConfigTab';
+import { GlassSelect } from './GlassSelect';
 
 export interface ConfigState {
   videoAction: 'CONVERT' | 'SPLIT';
@@ -417,10 +418,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               >
                 Target Resolution
               </span>
-              <select
+              <GlassSelect
                 value={isCustomHeight ? 'CUSTOM' : config.targetHeight}
-                onChange={(e) => {
-                  const val = e.target.value;
+                onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomHeight(true);
                     onChange({ targetHeight: '1080' });
@@ -429,39 +429,16 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     onChange({ targetHeight: val });
                   }
                 }}
-                style={{
-                  width: '100%',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  color: 'var(--text-main)',
-                  fontSize: '12px',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <option value="ORIGINAL" style={{ background: '#18181b', color: '#fff' }}>
-                  Original Resolution
-                </option>
-                <option value="2160" style={{ background: '#18181b', color: '#fff' }}>
-                  4K Ultra HD (2160p)
-                </option>
-                <option value="1440" style={{ background: '#18181b', color: '#fff' }}>
-                  2K QHD (1440p)
-                </option>
-                <option value="1080" style={{ background: '#18181b', color: '#fff' }}>
-                  1080p Full HD
-                </option>
-                <option value="720" style={{ background: '#18181b', color: '#fff' }}>
-                  720p HD
-                </option>
-                <option value="480" style={{ background: '#18181b', color: '#fff' }}>
-                  480p SD
-                </option>
-                <option value="CUSTOM" style={{ background: '#18181b', color: '#fff' }}>
-                  Custom Height (px)...
-                </option>
-              </select>
+                options={[
+                  { value: 'ORIGINAL', label: 'Original Resolution' },
+                  { value: '2160', label: '4K Ultra HD (2160p)' },
+                  { value: '1440', label: '2K QHD (1440p)' },
+                  { value: '1080', label: '1080p Full HD' },
+                  { value: '720', label: '720p HD' },
+                  { value: '480', label: '480p SD' },
+                  { value: 'CUSTOM', label: 'Custom Height (px)...' },
+                ]}
+              />
             </div>
 
             {/* TARGET BITRATE / QUALITY SECTION */}
@@ -485,10 +462,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               >
                 Target Bitrate / Quality
               </span>
-              <select
+              <GlassSelect
                 value={isCustomBitrate ? 'CUSTOM' : config.targetBitrate}
-                onChange={(e) => {
-                  const val = e.target.value;
+                onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomBitrate(true);
                     onChange({ targetBitrate: '5000' });
@@ -497,42 +473,17 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     onChange({ targetBitrate: val });
                   }
                 }}
-                style={{
-                  width: '100%',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  color: 'var(--text-main)',
-                  fontSize: '12px',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <option value="ORIGINAL" style={{ background: '#18181b', color: '#fff' }}>
-                  Auto / Quality Preserving (CRF 23)
-                </option>
-                <option value="20000" style={{ background: '#18181b', color: '#fff' }}>
-                  Ultra High (20 Mbps)
-                </option>
-                <option value="15000" style={{ background: '#18181b', color: '#fff' }}>
-                  Very High (15 Mbps)
-                </option>
-                <option value="10000" style={{ background: '#18181b', color: '#fff' }}>
-                  High (10 Mbps)
-                </option>
-                <option value="5000" style={{ background: '#18181b', color: '#fff' }}>
-                  Medium (5 Mbps)
-                </option>
-                <option value="2000" style={{ background: '#18181b', color: '#fff' }}>
-                  Low (2 Mbps)
-                </option>
-                <option value="1000" style={{ background: '#18181b', color: '#fff' }}>
-                  Min (1 Mbps)
-                </option>
-                <option value="CUSTOM" style={{ background: '#18181b', color: '#fff' }}>
-                  Custom Bitrate (kbps)...
-                </option>
-              </select>
+                options={[
+                  { value: 'ORIGINAL', label: 'Auto / Quality Preserving (CRF 23)' },
+                  { value: '20000', label: 'Ultra High (20 Mbps)' },
+                  { value: '15000', label: 'Very High (15 Mbps)' },
+                  { value: '10000', label: 'High (10 Mbps)' },
+                  { value: '5000', label: 'Medium (5 Mbps)' },
+                  { value: '2000', label: 'Low (2 Mbps)' },
+                  { value: '1000', label: 'Min (1 Mbps)' },
+                  { value: 'CUSTOM', label: 'Custom Bitrate (kbps)...' },
+                ]}
+              />
             </div>
 
             {/* OUTPUT FOLDER SECTION */}

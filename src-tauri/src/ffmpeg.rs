@@ -604,7 +604,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     let mut has_preprocessing = false;
 
     let manifest_input_paths: Vec<String> = if mode == "SEQUENCE" {
-        // Mode 2: Blender Animation Sequence Mode
+        // Mode 2: Image Sequence Mode
         // Bypass ImageMagick completely for zero overhead on thousands of 3D render frames
         sorted_inputs.clone()
     } else {

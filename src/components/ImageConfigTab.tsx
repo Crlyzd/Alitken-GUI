@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ImageConfig, ImageOutputFormat } from '../types/media';
 import { Folder, Sparkles, Music, Film, FileText, FileImage } from 'lucide-react';
+import { GlassSelect } from './GlassSelect';
 
 interface ImageConfigTabProps {
   config: ImageConfig;
@@ -18,6 +19,9 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
   disabled,
   fileCount,
 }) => {
+  const [isCustomFpsMode, setIsCustomFpsMode] = useState<boolean>(
+    ![24, 30, 60].includes(config.videoFps)
+  );
   const handleBrowseOutputFolder = async () => {
     try {
       const selected = await open({
@@ -500,7 +504,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
                     gap: '5px',
                   }}
                 >
-                  <Film size={13} /> Blender Animation
+                  <Film size={13} /> Image Sequence
                 </button>
               </div>
             </div>
@@ -518,7 +522,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
                   lineHeight: '1.4',
                 }}
               >
-                <strong>🎬 Image Sequence Mode:</strong> Each image is treated as 1 frame.
+                Each image is treated as 1 frame.
                 {fileCount > 0 && (
                   <div style={{ marginTop: '3px', color: 'var(--accent-cyan)', fontWeight: 600 }}>
                     Expected Duration: {(fileCount / config.videoFps).toFixed(2)}s ({fileCount} frames @ {config.videoFps} FPS)
@@ -579,13 +583,17 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
               >
                 Frame Rate (FPS)
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                {[30, 60, 24].map((fps) => {
-                  const isActive = config.videoFps === fps;
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {[24, 30, 60].map((fps) => {
+                  const isActive = !isCustomFpsMode && config.videoFps === fps;
                   return (
                     <button
                       key={fps}
-                      onClick={() => onChange({ ...config, videoFps: fps as any })}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomFpsMode(false);
+                        onChange({ ...config, videoFps: fps });
+                      }}
                       style={{
                         padding: '8px 4px',
                         fontSize: '11px',
@@ -603,7 +611,60 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => setIsCustomFpsMode(true)}
+                  style={{
+                    padding: '8px 4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: isCustomFpsMode || ![24, 30, 60].includes(config.videoFps)
+                      ? '1px solid var(--accent-cyan)'
+                      : '1px solid var(--border-glass)',
+                    background: isCustomFpsMode || ![24, 30, 60].includes(config.videoFps)
+                      ? 'var(--accent-primary)'
+                      : 'transparent',
+                    color: isCustomFpsMode || ![24, 30, 60].includes(config.videoFps)
+                      ? '#ffffff'
+                      : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Custom
+                </button>
               </div>
+
+              {(isCustomFpsMode || ![24, 30, 60].includes(config.videoFps)) && (
+                <div style={{ marginTop: '6px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="240"
+                    value={config.videoFps}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (isNaN(val)) {
+                        onChange({ ...config, videoFps: 30 });
+                      } else {
+                        const clamped = Math.min(240, Math.max(1, val));
+                        onChange({ ...config, videoFps: clamped });
+                      }
+                    }}
+                    placeholder="Enter FPS (1 - 240)"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid var(--accent-cyan)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      color: 'var(--text-main)',
+                      fontSize: '12px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -620,33 +681,16 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
               >
                 Video Resolution
               </label>
-              <select
+              <GlassSelect
                 value={config.videoResolution}
-                onChange={(e) => onChange({ ...config, videoResolution: e.target.value as any })}
-                style={{
-                  width: '100%',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  color: 'var(--text-main)',
-                  fontSize: '12px',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <option value="1080p" style={{ background: '#18181b', color: '#fff' }}>
-                  1080p Full HD (1920x1080)
-                </option>
-                <option value="4k" style={{ background: '#18181b', color: '#fff' }}>
-                  4K Ultra HD (3840x2160)
-                </option>
-                <option value="720p" style={{ background: '#18181b', color: '#fff' }}>
-                  720p HD (1280x720)
-                </option>
-                <option value="ORIGINAL" style={{ background: '#18181b', color: '#fff' }}>
-                  Original Image Resolution (Padded)
-                </option>
-              </select>
+                onChange={(val) => onChange({ ...config, videoResolution: val as any })}
+                options={[
+                  { value: '1080p', label: '1080p Full HD (1920x1080)' },
+                  { value: '4k', label: '4K Ultra HD (3840x2160)' },
+                  { value: '720p', label: '720p HD (1280x720)' },
+                  { value: 'ORIGINAL', label: 'Original Image Resolution (Padded)' },
+                ]}
+              />
             </div>
 
             <div>

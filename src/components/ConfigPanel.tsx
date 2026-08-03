@@ -37,6 +37,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     !PRESET_BITRATES.includes(config.targetBitrate)
   );
 
+  const isFastCopyActive = config.videoAction === 'SPLIT' && config.splitFastCopy;
+
   const handleBrowseFolder = async () => {
     try {
       const selected = await open({
@@ -134,10 +136,37 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
       {/* Target Codec Selection */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
-          TARGET CODEC
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
+            TARGET CODEC
+          </label>
+          {isFastCopyActive && (
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--accent-cyan)',
+                background: 'rgba(6, 182, 212, 0.12)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+              }}
+            >
+              Original Codec Preserved
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: '8px',
+            opacity: isFastCopyActive ? 0.45 : 1,
+            pointerEvents: isFastCopyActive ? 'none' : 'auto',
+            filter: isFastCopyActive ? 'grayscale(0.5)' : 'none',
+            transition: 'all 0.2s ease',
+          }}
+        >
           {[
             { id: '1', label: 'H.264', desc: 'Universal' },
             { id: '2', label: 'H.265', desc: 'HEVC High Comp' },
@@ -145,6 +174,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           ].map((item) => (
             <button
               key={item.id}
+              disabled={isFastCopyActive}
               onClick={() => onChange({ codecChoice: item.id })}
               style={{
                 padding: '10px 8px',
@@ -152,9 +182,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 border: `1px solid ${config.codecChoice === item.id ? 'var(--accent-primary)' : 'var(--border-glass)'}`,
                 background: config.codecChoice === item.id ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-glass-card)',
                 color: config.codecChoice === item.id ? 'var(--text-main)' : 'var(--text-muted)',
-                cursor: 'pointer',
+                cursor: isFastCopyActive ? 'not-allowed' : 'pointer',
                 textAlign: 'center',
-                boxShadow: config.codecChoice === item.id ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
+                boxShadow: config.codecChoice === item.id && !isFastCopyActive ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -163,6 +193,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             </button>
           ))}
         </div>
+        {isFastCopyActive && (
+          <p style={{ fontSize: '10.5px', color: 'var(--text-dim)', margin: 0 }}>
+            🔒 Stream copying passes raw packets directly without re-encoding.
+          </p>
+        )}
       </div>
 
       {/* SPLIT OPTIONS CONTROLS */}

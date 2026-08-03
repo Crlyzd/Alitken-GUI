@@ -15,22 +15,34 @@ export type ImageToVideoMode = 'SLIDESHOW' | 'SEQUENCE';
 
 export interface ImageConfig {
   outputFormat: ImageOutputFormat;
-  jpgQuality: number | null; // null = ORIGINAL or 1-100
-  webQuality: number; // 1-100
+
+  // JPG settings
+  jpgQuality: number;         // 10-100, default 80 (slider)
+  jpgScalePercent: number | null; // 30, 50, 80 or null for ORIGINAL
+  jpgHeight: number | null;
+
+  // WEBP settings
+  webQuality: number;         // 10-100, default 80 (slider)
   webScalePercent: number | null; // 30, 50, 80 or null for ORIGINAL
-  webHeight: number | null; // Custom height in px
-  pdfQuality: number | null; // null = ORIGINAL or 1-100
+  webHeight: number | null;
+
+  // PDF settings
+  pdfQuality: number;         // 10-100, default 80 (slider)
   pdfScalePercent: number | null; // 30, 50, 80 or null for ORIGINAL
-  pdfHeight: number | null; // Custom height in px
-  mergePdf: boolean; // True if merging multiple images into single PDF
-  
+  pdfHeight: number | null;
+  mergePdf: boolean;          // True if merging multiple images into single PDF
+
+  // PNG settings
+  pngScalePercent: number | null; // 30, 50, 80 or null for ORIGINAL
+  pngHeight: number | null;
+
   // Image to Video options
-  videoMode: ImageToVideoMode; // 'SLIDESHOW' (seconds/photo) or 'SEQUENCE' (1 photo = 1 frame for image sequences / animations)
-  videoDurationSec: number; // Duration for single image (sec) or per image for slideshow
+  videoMode: ImageToVideoMode; // 'SLIDESHOW' (seconds/photo) or 'SEQUENCE' (1 photo = 1 frame)
+  videoDurationSec: number;    // Duration for single image (sec) or per image for slideshow
   videoFps: VideoFpsPreset;
   videoResolution: VideoResolutionPreset;
-  audioPath: string | null; // Optional background audio file path
-  
+  audioPath: string | null;    // Optional background audio file path
+
   outputDir: string | null;
 }
 

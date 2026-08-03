@@ -11,12 +11,16 @@ pub struct ImageConversionConfig {
     pub input_files: Vec<String>,
     pub output_format: String, // "JPG", "PDF", "PNG", "WEBP"
     pub jpg_quality: Option<u32>,
+    pub jpg_scale_percent: Option<u32>,
+    pub jpg_height: Option<u32>,
     pub web_quality: Option<u32>,
-    pub pdf_quality: Option<u32>,
     pub web_scale_percent: Option<u32>,
-    pub pdf_scale_percent: Option<u32>,
     pub web_height: Option<u32>,
+    pub pdf_quality: Option<u32>,
+    pub pdf_scale_percent: Option<u32>,
     pub pdf_height: Option<u32>,
+    pub png_scale_percent: Option<u32>,
+    pub png_height: Option<u32>,
     pub merge_pdf: bool,
     pub custom_output_dir: Option<String>,
 }
@@ -87,6 +91,11 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
                 if let Some(q) = config.jpg_quality {
                     cmd.arg("-quality").arg(q.to_string());
                 }
+                if let Some(scale) = config.jpg_scale_percent {
+                    cmd.arg("-resize").arg(format!("{}%", scale));
+                } else if let Some(h) = config.jpg_height {
+                    cmd.arg("-resize").arg(format!("x{}", h));
+                }
             }
             "WEBP" => {
                 if let Some(q) = config.web_quality {
@@ -105,6 +114,13 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
                 if let Some(scale) = config.pdf_scale_percent {
                     cmd.arg("-resize").arg(format!("{}%", scale));
                 } else if let Some(h) = config.pdf_height {
+                    cmd.arg("-resize").arg(format!("x{}", h));
+                }
+            }
+            "PNG" => {
+                if let Some(scale) = config.png_scale_percent {
+                    cmd.arg("-resize").arg(format!("{}%", scale));
+                } else if let Some(h) = config.png_height {
                     cmd.arg("-resize").arg(format!("x{}", h));
                 }
             }

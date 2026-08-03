@@ -136,55 +136,85 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
               borderRadius: '12px',
               background: 'var(--bg-glass-card)',
               border: '1px solid var(--border-glass)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
             }}
           >
-            <label
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                color: 'var(--text-muted)',
-                letterSpacing: '0.8px',
-                display: 'block',
-                marginBottom: '10px',
-                textTransform: 'uppercase',
-              }}
-            >
-              JPG Quality Compression
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-              {[
-                { label: 'Original', val: null },
-                { label: '80% High', val: 80 },
-                { label: '60% Med', val: 60 },
-                { label: '40% Low', val: 40 },
-                { label: '20% Min', val: 20 },
-              ].map((item) => {
-                const isActive = config.jpgQuality === item.val;
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => onChange({ ...config, jpgQuality: item.val })}
-                    style={{
-                      padding: '8px 4px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      borderRadius: '8px',
-                      border: isActive
-                        ? '1px solid var(--accent-cyan)'
-                        : '1px solid var(--border-glass)',
-                      background: isActive ? 'var(--accent-primary)' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-muted)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+            <div>
+              <label
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.8px',
+                  display: 'block',
+                  marginBottom: '8px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                JPG Compression Quality ({config.jpgQuality}%)
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value={config.jpgQuality}
+                onChange={(e) => onChange({ ...config, jpgQuality: parseInt(e.target.value, 10) })}
+                style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.8px',
+                  display: 'block',
+                  marginBottom: '8px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Resolution Scale
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {[
+                  { label: 'Original', val: null },
+                  { label: '80%', val: 80 },
+                  { label: '50%', val: 50 },
+                  { label: '30%', val: 30 },
+                ].map((item) => {
+                  const isActive = config.jpgScalePercent === item.val;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => onChange({ ...config, jpgScalePercent: item.val })}
+                      style={{
+                        padding: '8px 4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: isActive
+                          ? '1px solid var(--accent-cyan)'
+                          : '1px solid var(--border-glass)',
+                        background: isActive ? 'var(--accent-primary)' : 'transparent',
+                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
+
 
         {/* 2. PDF CONTROLS */}
         {config.outputFormat === 'PDF' && (
@@ -240,39 +270,17 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
                   textTransform: 'uppercase',
                 }}
               >
-                Target PDF Quality
+                PDF Compression Quality ({config.pdfQuality}%)
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                {[
-                  { label: 'Original', val: null },
-                  { label: '90% Best', val: 90 },
-                  { label: '80% High', val: 80 },
-                  { label: '60% Med', val: 60 },
-                  { label: '50% Low', val: 50 },
-                ].map((item) => {
-                  const isActive = config.pdfQuality === item.val;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => onChange({ ...config, pdfQuality: item.val })}
-                      style={{
-                        padding: '8px 4px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        borderRadius: '8px',
-                        border: isActive
-                          ? '1px solid var(--accent-cyan)'
-                          : '1px solid var(--border-glass)',
-                        background: isActive ? 'var(--accent-primary)' : 'transparent',
-                        color: isActive ? '#ffffff' : 'var(--text-muted)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <input
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value={config.pdfQuality}
+                onChange={(e) => onChange({ ...config, pdfQuality: parseInt(e.target.value, 10) })}
+                style={{ width: '100%', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+              />
             </div>
 
             <div>
@@ -292,9 +300,9 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {[
                   { label: 'Original', val: null },
-                  { label: '80% Scale', val: 80 },
-                  { label: '50% Scale', val: 50 },
-                  { label: '30% Scale', val: 30 },
+                  { label: '80%', val: 80 },
+                  { label: '50%', val: 50 },
+                  { label: '30%', val: 30 },
                 ].map((item) => {
                   const isActive = config.pdfScalePercent === item.val;
                   return (
@@ -322,6 +330,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
             </div>
           </div>
         )}
+
 
         {/* 3. WEBP CONTROLS */}
         {config.outputFormat === 'WEBP' && (
@@ -417,13 +426,64 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
               borderRadius: '12px',
               background: 'var(--bg-glass-card)',
               border: '1px solid var(--border-glass)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
             }}
           >
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-              PNG conversion outputs uncompressed, lossless Portable Network Graphics format.
+              PNG conversion outputs lossless Portable Network Graphics format.
             </p>
+
+            <div>
+              <label
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.8px',
+                  display: 'block',
+                  marginBottom: '8px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Resolution Scale
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {[
+                  { label: 'Original', val: null },
+                  { label: '80%', val: 80 },
+                  { label: '50%', val: 50 },
+                  { label: '30%', val: 30 },
+                ].map((item) => {
+                  const isActive = config.pngScalePercent === item.val;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => onChange({ ...config, pngScalePercent: item.val })}
+                      style={{
+                        padding: '8px 4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: isActive
+                          ? '1px solid var(--accent-cyan)'
+                          : '1px solid var(--border-glass)',
+                        background: isActive ? 'var(--accent-primary)' : 'transparent',
+                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
+
 
         {/* 5. VIDEO (MP4) CONTROLS */}
         {config.outputFormat === 'VIDEO' && (

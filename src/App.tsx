@@ -5,6 +5,7 @@ import { Titlebar } from './components/Titlebar';
 import { Dropzone, FileItem } from './components/Dropzone';
 import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
+import { AboutModal } from './components/AboutModal';
 import { Download, AlertCircle } from 'lucide-react';
 
 export function normalizePath(p: string): string {
@@ -26,6 +27,8 @@ export function App() {
     setTheme(next);
     localStorage.setItem('alitken_theme', next);
   };
+
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string }>({
     name: 'Detecting GPU...',
@@ -286,6 +289,7 @@ export function App() {
         encoderName={hardwareInfo.encoder}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onOpenAbout={() => setIsAboutOpen(true)}
       />
 
       {/* Dependency Warning Bar if FFmpeg is missing */}
@@ -367,6 +371,13 @@ export function App() {
       <ProgressModal
         progress={progress}
         onClose={() => setProgress((prev) => ({ ...prev, completed: false, error: undefined }))}
+      />
+
+      {/* About ALITKEN v0.4 Modal */}
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
+        hardwareInfo={hardwareInfo}
       />
     </div>
   );

@@ -8,7 +8,7 @@ use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    utils::log_info("Alitken Media Converter v2.0 application initialized");
+    utils::log_info("ALITKEN v0.4 application initialized");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

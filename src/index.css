@@ -46,8 +46,8 @@
   --accent-rose: #e11d48;
 
   --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #64748b;
+  --text-muted: #334155;
+  --text-dim: #475569;
 
   --input-bg: rgba(255, 255, 255, 0.8);
   --input-border: rgba(0, 0, 0, 0.15);
@@ -161,4 +161,18 @@ select,
   -webkit-app-region: no-drag !important;
   app-region: no-drag !important;
   pointer-events: auto !important;
+}
+
+/* Spinner Rotation Keyframe Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }

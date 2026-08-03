@@ -1,13 +1,14 @@
 import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { Minus, Square, X, Cpu, Zap, Sun, Moon } from 'lucide-react';
+import { Minus, Square, X, Cpu, Zap, Sun, Moon, Info } from 'lucide-react';
 
 interface TitlebarProps {
   hardwareName?: string;
   encoderName?: string;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  onOpenAbout?: () => void;
 }
 
 export const Titlebar: React.FC<TitlebarProps> = ({
@@ -15,6 +16,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
   encoderName,
   theme = 'dark',
   onToggleTheme,
+  onOpenAbout,
 }) => {
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -74,26 +76,31 @@ export const Titlebar: React.FC<TitlebarProps> = ({
       }}
     >
       {/* Brand & App Name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} data-tauri-drag-region>
-        <div
+      <div
+        onClick={onOpenAbout}
+        className="no-drag"
+        title="About ALITKEN v0.4"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          cursor: onOpenAbout ? 'pointer' : 'default',
+        }}
+        data-tauri-drag-region
+      >
+        <img
+          src="/app-icon.ico"
+          alt="ALITKEN"
           style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '6px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            color: '#fff',
-            boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
+            width: '22px',
+            height: '22px',
+            objectFit: 'contain',
+            borderRadius: '4px',
+            filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.4))',
           }}
-        >
-          A
-        </div>
+        />
         <span style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
-          ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>Media Converter v2.0</span>
+          ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>v0.4</span>
         </span>
       </div>
 
@@ -101,7 +108,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
       <div data-tauri-drag-region style={{ flex: 1, height: '100%', cursor: 'default' }} />
 
       {/* GPU Hardware Status Badge & Control Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {hardwareName && (
           <div
             data-tauri-drag-region
@@ -115,13 +122,39 @@ export const Titlebar: React.FC<TitlebarProps> = ({
               fontWeight: 500,
               background: isGpu ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
               border: `1px solid ${isGpu ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
-              color: isGpu ? '#34d399' : '#fb7185',
+              color: isGpu ? 'var(--accent-emerald)' : 'var(--accent-rose)',
             }}
           >
             {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
             <span>{hardwareName}</span>
             {encoderName && <span style={{ opacity: 0.7 }}>({encoderName})</span>}
           </div>
+        )}
+
+        {/* Standalone About Info Button (Beside Theme Toggle) */}
+        {onOpenAbout && (
+          <button
+            onClick={onOpenAbout}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="About ALITKEN v0.4"
+            className="no-drag"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Info size={14} color="var(--text-muted)" />
+          </button>
         )}
 
         {/* Theme Toggle Button */}

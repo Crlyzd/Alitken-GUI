@@ -83,6 +83,18 @@ html, body {
   background: transparent !important;
 }
 
+/* Global Button Base Reset to prevent browser default white backgrounds */
+button {
+  font-family: inherit;
+  outline: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Glassmorphism Container with Frosted Backdrop Blur */
 .glass-panel {
   background: var(--bg-glass);

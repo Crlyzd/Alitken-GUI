@@ -1,6 +1,7 @@
 use crate::dependencies::{self, DependencyStatus};
-use crate::ffmpeg::{self, ConversionConfig, MediaMetadata};
+use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata};
 use crate::gpu::{self, GpuCapability};
+use crate::image::{self, ImageConversionConfig};
 use crate::utils;
 use tauri::AppHandle;
 
@@ -14,6 +15,13 @@ pub async fn install_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
     dependencies::download_ffmpeg_dependencies(&app).await
+}
+
+#[tauri::command]
+pub async fn install_magick_dependencies<R: tauri::Runtime>(
+    app: AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    dependencies::download_magick_dependencies(&app).await
 }
 
 #[tauri::command]
@@ -50,6 +58,47 @@ pub async fn start_video_pipeline<R: tauri::Runtime>(
 
     let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
     ffmpeg::run_video_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config, gpu_caps).await
+}
+
+#[tauri::command]
+pub async fn start_image_pipeline<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    config: ImageConversionConfig,
+) -> Result<(), String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.magick_exists {
+        return Err("ImageMagick (magick.exe) binary not found. Please install it first.".to_string());
+    }
+
+    image::run_image_pipeline(&app, &deps.magick_path, config).await
+}
+
+#[tauri::command]
+pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    config: ImageToVideoConfig,
+) -> Result<(), String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists {
+        return Err("FFmpeg binary not found. Please install it first.".to_string());
+    }
+
+    let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
+    let needs_magick = mode != "SEQUENCE"
+        && config
+            .input_files
+            .iter()
+            .any(|p| !ffmpeg::is_ffmpeg_native_image_format(p));
+
+    if needs_magick && !deps.magick_exists {
+        return Err(
+            "ImageMagick (magick.exe) binary not found and is required for non-standard image formats. Please install it first."
+                .to_string(),
+        );
+    }
+
+    let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
+    ffmpeg::run_image_to_video_pipeline(&app, &deps.ffmpeg_path, &deps.magick_path, config, gpu_caps).await
 }
 
 #[tauri::command]

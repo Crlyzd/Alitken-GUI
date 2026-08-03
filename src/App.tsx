@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Titlebar } from './components/Titlebar';
+import { WelcomeDropzone } from './components/WelcomeDropzone';
 import { Dropzone, FileItem } from './components/Dropzone';
 import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
 import { AboutModal } from './components/AboutModal';
-import { Download, AlertCircle } from 'lucide-react';
+import { ImageConfig } from './types/media';
+import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
+import { Download, AlertCircle, X } from 'lucide-react';
 
 export function normalizePath(p: string): string {
   if (!p) return '';
@@ -29,22 +32,24 @@ export function App() {
   };
 
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string }>({
     name: 'Detecting GPU...',
     encoder: '',
   });
 
-  const [depsStatus, setDepsStatus] = useState<{ ffmpeg: boolean; ffprobe: boolean }>({
+  const [depsStatus, setDepsStatus] = useState<{ ffmpeg: boolean; ffprobe: boolean; magick: boolean }>({
     ffmpeg: true,
     ffprobe: true,
+    magick: true,
   });
   const [isDownloadingDeps, setIsDownloadingDeps] = useState(false);
 
   const [files, setFiles] = useState<FileItem[]>([]);
   const pendingPathsRef = useRef(new Set<string>());
 
-  const [config, setConfig] = useState<ConfigState>({
+  const [videoConfig, setVideoConfig] = useState<ConfigState>({
     videoAction: 'CONVERT',
     splitMode: 'DURATION',
     splitValue: 60,
@@ -52,6 +57,24 @@ export function App() {
     targetHeight: 'ORIGINAL',
     targetBitrate: 'ORIGINAL',
     codecChoice: '1',
+    outputDir: null,
+  });
+
+  const [imageConfig, setImageConfig] = useState<ImageConfig>({
+    outputFormat: 'JPG',
+    jpgQuality: null,
+    webQuality: 80,
+    webScalePercent: null,
+    webHeight: null,
+    pdfQuality: null,
+    pdfScalePercent: null,
+    pdfHeight: null,
+    mergePdf: false,
+    videoMode: 'SLIDESHOW',
+    videoDurationSec: 5,
+    videoFps: 30,
+    videoResolution: '1080p',
+    audioPath: null,
     outputDir: null,
   });
 
@@ -66,6 +89,9 @@ export function App() {
     status: '',
     completed: false,
   });
+
+  const currentMediaType: 'video' | 'image' =
+    files.length > 0 && getFileKind(files[0].path) === 'image' ? 'image' : 'video';
 
   // Initial setup: Check dependencies and GPU acceleration
   useEffect(() => {
@@ -86,6 +112,21 @@ export function App() {
       }));
     });
 
+    const unlistenImageProgress = listen('image-progress', (event: any) => {
+      const payload = event.payload;
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: true,
+        currentFile: payload.current_file,
+        fileIndex: payload.file_index,
+        totalFiles: payload.total_files,
+        percent: payload.percent,
+        currentPart: 1,
+        totalParts: 1,
+        status: payload.status || payload.phase,
+      }));
+    });
+
     const unlistenDownload = listen('download-progress', (event: any) => {
       const payload = event.payload;
       setProgress((prev) => ({
@@ -103,6 +144,7 @@ export function App() {
 
     return () => {
       unlistenProgress.then((fn) => fn());
+      unlistenImageProgress.then((fn) => fn());
       unlistenDownload.then((fn) => fn());
     };
   }, []);
@@ -110,7 +152,11 @@ export function App() {
   const checkDepsAndGpu = async (codec: string) => {
     try {
       const deps: any = await invoke('check_app_dependencies');
-      setDepsStatus({ ffmpeg: deps.ffmpeg_exists, ffprobe: deps.ffprobe_exists });
+      setDepsStatus({
+        ffmpeg: deps.ffmpeg_exists,
+        ffprobe: deps.ffprobe_exists,
+        magick: deps.magick_exists,
+      });
 
       if (deps.ffmpeg_exists) {
         const gpu: any = await invoke('detect_gpu_hardware', {
@@ -118,59 +164,68 @@ export function App() {
           ffmpegPath: deps.ffmpeg_path,
         });
         setHardwareInfo({ name: gpu.hardware_name, encoder: gpu.encoder });
-      } else {
-        setHardwareInfo({ name: 'Dependencies Required', encoder: '' });
       }
     } catch (err) {
-      console.error('Failed to check hardware:', err);
+      console.error('Failed to check dependencies or GPU:', err);
     }
   };
 
   const handleConfigChange = (updated: Partial<ConfigState>) => {
-    const next = { ...config, ...updated };
-    setConfig(next);
-    if (updated.codecChoice) {
-      checkDepsAndGpu(updated.codecChoice);
-    }
+    setVideoConfig((prev) => {
+      const next = { ...prev, ...updated };
+      if (updated.codecChoice && updated.codecChoice !== prev.codecChoice) {
+        checkDepsAndGpu(updated.codecChoice);
+      }
+      return next;
+    });
   };
 
   const handleAddFiles = async (paths: string[]) => {
-    const existingKeys = new Set(files.map((f) => canonicalPathKey(f.path)));
+    setValidationError(null);
 
-    // Synchronously lock new paths in pendingPathsRef before any async IPC work
+    // Validate single media type rule
+    const validation = validateSingleMediaBatch(paths, files);
+    if (!validation.isValid) {
+      setValidationError(validation.errorMessage || 'Invalid file batch selection.');
+      return;
+    }
+
     const newPathsToProcess: string[] = [];
-    for (const rawPath of Array.from(new Set(paths))) {
-      if (!rawPath) continue;
-      const normPath = normalizePath(rawPath);
-      const key = canonicalPathKey(normPath);
-
-      if (!existingKeys.has(key) && !pendingPathsRef.current.has(key)) {
-        pendingPathsRef.current.add(key);
-        newPathsToProcess.push(normPath);
-      }
+    for (const rawPath of paths) {
+      const canonical = canonicalPathKey(rawPath);
+      if (pendingPathsRef.current.has(canonical)) continue;
+      if (files.some((f) => canonicalPathKey(f.path) === canonical)) continue;
+      pendingPathsRef.current.add(canonical);
+      newPathsToProcess.push(rawPath);
     }
 
     if (newPathsToProcess.length === 0) return;
 
     const newItems: FileItem[] = [];
     for (const p of newPathsToProcess) {
-      try {
-        const meta: any = await invoke('probe_media_file', {
-          ffprobePath: '',
-          filePath: p,
-        });
-        newItems.push({
-          name: meta.file_name,
-          path: normalizePath(meta.file_path || p),
-          sizeMb: meta.file_size_mb,
-          durationSec: meta.duration_sec,
-          resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
-          codec: meta.codec_name,
-        });
-      } catch (err) {
-        // Fallback for file without metadata
+      const kind = getFileKind(p);
+      if (kind === 'video') {
+        try {
+          const meta: any = await invoke('probe_media_file', {
+            ffprobePath: '',
+            filePath: p,
+          });
+          newItems.push({
+            name: meta.file_name,
+            path: normalizePath(meta.file_path || p),
+            sizeMb: meta.file_size_mb,
+            durationSec: meta.duration_sec,
+            resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+            codec: meta.codec_name,
+            mediaKind: 'video',
+          });
+        } catch (err) {
+          const name = p.split(/[\\/]/).pop() || p;
+          newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+        }
+      } else {
         const name = p.split(/[\\/]/).pop() || p;
-        newItems.push({ name, path: p, sizeMb: 0 });
+        newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
       }
     }
 
@@ -185,7 +240,7 @@ export function App() {
     setIsDownloadingDeps(true);
     setProgress({
       isProcessing: true,
-      currentFile: 'Fetching Portable FFmpeg Build...',
+      currentFile: 'Fetching Portable Dependencies...',
       fileIndex: 1,
       totalFiles: 1,
       percent: 0,
@@ -197,7 +252,7 @@ export function App() {
 
     try {
       await invoke('install_dependencies');
-      await checkDepsAndGpu(config.codecChoice);
+      await checkDepsAndGpu(videoConfig.codecChoice);
       setProgress((prev) => ({
         ...prev,
         isProcessing: false,
@@ -215,7 +270,7 @@ export function App() {
     }
   };
 
-  const handleStartProcessing = async () => {
+  const handleStartVideoProcessing = async () => {
     if (files.length === 0) return;
 
     setProgress({
@@ -231,9 +286,11 @@ export function App() {
     });
 
     const effectiveSplitValue =
-      typeof config.splitValue === 'number' && !isNaN(config.splitValue) && config.splitValue > 0
-        ? config.splitValue
-        : config.splitMode === 'PARTS'
+      typeof videoConfig.splitValue === 'number' &&
+      !isNaN(videoConfig.splitValue) &&
+      videoConfig.splitValue > 0
+        ? videoConfig.splitValue
+        : videoConfig.splitMode === 'PARTS'
         ? 2
         : 60;
 
@@ -241,14 +298,14 @@ export function App() {
       await invoke('start_video_pipeline', {
         config: {
           video_files: files.map((f) => f.path),
-          video_action: config.videoAction,
-          split_mode: config.splitMode,
+          video_action: videoConfig.videoAction,
+          split_mode: videoConfig.splitMode,
           split_value: effectiveSplitValue,
-          split_fast_copy: config.splitFastCopy,
-          target_height: config.targetHeight || 'ORIGINAL',
-          target_bitrate: config.targetBitrate || 'ORIGINAL',
-          codec_choice: config.codecChoice,
-          custom_output_dir: config.outputDir || null,
+          split_fast_copy: videoConfig.splitFastCopy,
+          target_height: videoConfig.targetHeight || 'ORIGINAL',
+          target_bitrate: videoConfig.targetBitrate || 'ORIGINAL',
+          codec_choice: videoConfig.codecChoice,
+          custom_output_dir: videoConfig.outputDir || null,
         },
       });
 
@@ -257,7 +314,73 @@ export function App() {
         isProcessing: false,
         percent: 100,
         completed: true,
-        status: 'All media files processed successfully!',
+        status: 'All video files processed successfully!',
+      }));
+    } catch (err: any) {
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: false,
+        error: err.toString(),
+      }));
+    }
+  };
+
+  const handleStartImageProcessing = async () => {
+    if (files.length === 0) return;
+
+    setProgress({
+      isProcessing: true,
+      currentFile: files[0].name,
+      fileIndex: 1,
+      totalFiles: files.length,
+      percent: 0,
+      currentPart: 1,
+      totalParts: 1,
+      status:
+        imageConfig.outputFormat === 'VIDEO'
+          ? 'Converting Image(s) to MP4 Video...'
+          : 'Processing image conversion pipeline...',
+      completed: false,
+    });
+
+    try {
+      if (imageConfig.outputFormat === 'VIDEO') {
+        await invoke('start_image_to_video_pipeline', {
+          config: {
+            input_files: files.map((f) => f.path),
+            mode: imageConfig.videoMode,
+            duration_sec: imageConfig.videoDurationSec,
+            fps: imageConfig.videoFps,
+            resolution: imageConfig.videoResolution,
+            audio_path: imageConfig.audioPath || null,
+            codec_choice: videoConfig.codecChoice,
+            output_dir: imageConfig.outputDir || null,
+          },
+        });
+      } else {
+        await invoke('start_image_pipeline', {
+          config: {
+            input_files: files.map((f) => f.path),
+            output_format: imageConfig.outputFormat,
+            jpg_quality: imageConfig.jpgQuality,
+            web_quality: imageConfig.webQuality,
+            pdf_quality: imageConfig.pdfQuality,
+            web_scale_percent: imageConfig.webScalePercent,
+            pdf_scale_percent: imageConfig.pdfScalePercent,
+            web_height: imageConfig.webHeight,
+            pdf_height: imageConfig.pdfHeight,
+            merge_pdf: imageConfig.mergePdf,
+            custom_output_dir: imageConfig.outputDir || null,
+          },
+        });
+      }
+
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: false,
+        percent: 100,
+        completed: true,
+        status: 'Image processing task completed successfully!',
       }));
     } catch (err: any) {
       setProgress((prev) => ({
@@ -291,6 +414,39 @@ export function App() {
         onToggleTheme={toggleTheme}
         onOpenAbout={() => setIsAboutOpen(true)}
       />
+
+      {/* Validation Error Banner (Single Media Rule Violation) */}
+      {validationError && (
+        <div
+          style={{
+            background: 'rgba(239, 68, 68, 0.2)',
+            borderBottom: '1px solid rgba(239, 68, 68, 0.4)',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            color: '#fca5a5',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{validationError}</span>
+          </div>
+          <button
+            onClick={() => setValidationError(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fca5a5',
+              cursor: 'pointer',
+              padding: '2px',
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Dependency Warning Bar if FFmpeg is missing */}
       {(!depsStatus.ffmpeg || !depsStatus.ffprobe) && (
@@ -332,41 +488,52 @@ export function App() {
         </div>
       )}
 
-      {/* Main Grid Workspace */}
-      <div
-        style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '1fr 360px',
-          gap: '16px',
-          padding: '16px',
-          overflow: 'hidden',
-          minHeight: 0,
-        }}
-      >
-        <Dropzone
-          files={files}
-          onAddFiles={handleAddFiles}
-          onRemoveFile={(idx) => {
-            const fileToRemove = files[idx];
-            if (fileToRemove) {
-              pendingPathsRef.current.delete(canonicalPathKey(fileToRemove.path));
-            }
-            setFiles((prev) => prev.filter((_, i) => i !== idx));
+      {/* Main Workspace Area */}
+      {files.length === 0 ? (
+        /* STATE A: Full-Page Welcome Landing Dropzone */
+        <WelcomeDropzone onAddFiles={handleAddFiles} />
+      ) : (
+        /* STATE B & C: Active Workspace Split View */
+        <div
+          style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: '1fr 360px',
+            gap: '16px',
+            padding: '16px',
+            overflow: 'hidden',
+            minHeight: 0,
           }}
-          onClearFiles={() => {
-            pendingPathsRef.current.clear();
-            setFiles([]);
-          }}
-        />
+        >
+          <Dropzone
+            files={files}
+            onAddFiles={handleAddFiles}
+            onRemoveFile={(idx) => {
+              const fileToRemove = files[idx];
+              if (fileToRemove) {
+                pendingPathsRef.current.delete(canonicalPathKey(fileToRemove.path));
+              }
+              setFiles((prev) => prev.filter((_, i) => i !== idx));
+            }}
+            onClearFiles={() => {
+              pendingPathsRef.current.clear();
+              setFiles([]);
+            }}
+          />
 
-        <ConfigPanel
-          config={config}
-          onChange={handleConfigChange}
-          onStart={handleStartProcessing}
-          disabled={files.length === 0 || !depsStatus.ffmpeg || progress.isProcessing}
-        />
-      </div>
+          <ConfigPanel
+            mediaType={currentMediaType}
+            config={videoConfig}
+            onChange={handleConfigChange}
+            onStart={handleStartVideoProcessing}
+            imageConfig={imageConfig}
+            onImageConfigChange={setImageConfig}
+            onStartImage={handleStartImageProcessing}
+            disabled={files.length === 0 || progress.isProcessing}
+            fileCount={files.length}
+          />
+        </div>
+      )}
 
       {/* Real-time Telemetry Modal */}
       <ProgressModal

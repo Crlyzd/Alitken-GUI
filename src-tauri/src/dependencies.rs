@@ -189,3 +189,84 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
 
     Ok(check_dependencies())
 }
+
+pub async fn download_magick_dependencies<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("AlitkenMediaConverter/2.0")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let download_url = "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-33-portable-Q16-x64.7z";
+    let target_dir = get_local_bin_dir();
+    let archive_path = target_dir.join("magick_download.7z");
+
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            status: "Connecting to ImageMagick server...".to_string(),
+            percent: 0.0,
+            speed_mbps: 0.0,
+            downloaded_mb: 0.0,
+            total_mb: 0.0,
+        },
+    );
+
+    let res = client
+        .get(download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download request error: {}", e))?;
+
+    let total_size = res.content_length().unwrap_or(0);
+    let mut file = tokio::fs::File::create(&archive_path)
+        .await
+        .map_err(|e| format!("File creation error: {}", e))?;
+
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let start_time = std::time::Instant::now();
+
+    use futures_util::StreamExt;
+    use tokio::io::AsyncWriteExt;
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        file.write_all(&chunk)
+            .await
+            .map_err(|e| format!("Write error: {}", e))?;
+
+        downloaded += chunk.len() as u64;
+        let elapsed = start_time.elapsed().as_secs_f64();
+        let speed_mbps = if elapsed > 0.0 {
+            (downloaded as f64 / (1024.0 * 1024.0)) / elapsed
+        } else {
+            0.0
+        };
+
+        let percent = if total_size > 0 {
+            (downloaded as f64 / total_size as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let _ = app.emit(
+            "download-progress",
+            DownloadProgressPayload {
+                status: format!("Downloading ImageMagick portable binaries ({:.1} MB/s)...", speed_mbps),
+                percent,
+                speed_mbps,
+                downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
+                total_mb: total_size as f64 / (1024.0 * 1024.0),
+            },
+        );
+    }
+
+    file.flush().await.map_err(|e| format!("Flush error: {}", e))?;
+
+    let _ = fs::remove_file(archive_path);
+
+    Ok(check_dependencies())
+}
+

@@ -2,6 +2,7 @@ mod commands;
 mod dependencies;
 mod ffmpeg;
 mod gpu;
+mod image;
 mod utils;
 
 use commands::*;
@@ -16,9 +17,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             check_app_dependencies,
             install_dependencies,
+            install_magick_dependencies,
             detect_gpu_hardware,
             probe_media_file,
             start_video_pipeline,
+            start_image_pipeline,
+            start_image_to_video_pipeline,
             open_log_folder,
             open_folder,
             minimize_window,

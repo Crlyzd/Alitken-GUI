@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, FileVideo, Trash2, Film, Clock, HardDrive } from 'lucide-react';
+import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive } from 'lucide-react';
+import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 
 export interface FileItem {
   name: string;
@@ -10,6 +11,7 @@ export interface FileItem {
   durationSec?: number;
   resolution?: string;
   codec?: string;
+  mediaKind?: 'video' | 'image';
 }
 
 interface DropzoneProps {
@@ -78,8 +80,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         multiple: true,
         filters: [
           {
-            name: 'Media Files',
-            extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'flv', 'wmv', 'ts'],
+            name: 'Supported Media',
+            extensions: [
+              ...VIDEO_EXTENSIONS.map((e) => e.replace('.', '')),
+              ...IMAGE_EXTENSIONS.map((e) => e.replace('.', '')),
+            ],
           },
         ],
       });
@@ -100,9 +105,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     return `${m}m ${s}s`;
   };
 
+  const currentMediaKind = files.length > 0 ? getFileKind(files[0].path) : 'unknown';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, minWidth: 0, gap: '14px' }}>
-      {/* Drop Target Header / Action Area */}
+      {/* Compact Drop Zone Header */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -116,43 +123,43 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         className="glass-panel"
         style={{
           borderRadius: '16px',
-          padding: files.length > 0 ? '20px' : '36px 24px',
+          padding: '16px 20px',
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '12px',
-          border: `2px dashed ${isDragOver ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.16)'}`,
-          background: isDragOver ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+          border: `2px dashed ${isDragOver ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.16)'}`,
+          background: isDragOver ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.02)',
           cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: isDragOver ? '0 0 30px rgba(99, 102, 241, 0.25)' : undefined,
+          transition: 'all 0.25s ease',
         }}
         onClick={handlePickFiles}
       >
         <div
           style={{
-            width: '52px',
-            height: '52px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background:
+              currentMediaKind === 'image'
+                ? 'rgba(168, 85, 247, 0.2)'
+                : 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
             border: '1px solid rgba(255, 255, 255, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--accent-cyan)',
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
+            color: currentMediaKind === 'image' ? '#c084fc' : 'var(--accent-cyan)',
           }}
         >
-          <UploadCloud size={26} />
+          <UploadCloud size={20} />
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)', letterSpacing: '0.3px' }}>
-            Drag & Drop video files here
-          </h3>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Supports MP4, MKV, WEBM, MOV, AVI, AV1 Level 7.3 game clips
-          </p>
+        <div style={{ textAlign: 'left' }}>
+          <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>
+            Drop or click to add more {currentMediaKind === 'image' ? 'images' : 'videos'}
+          </h4>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            {currentMediaKind === 'image' ? 'PNG, JPG, WEBP, BMP, HEIC, TIFF' : 'MP4, MKV, WEBM, MOV, AVI, AV1'}
+          </span>
         </div>
       </div>
 
@@ -166,8 +173,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
             padding: '0 4px',
           }}
         >
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
-            QUEUE ({files.length} {files.length === 1 ? 'FILE' : 'FILES'})
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
+            QUEUE ({files.length} {currentMediaKind.toUpperCase()} {files.length === 1 ? 'FILE' : 'FILES'})
           </span>
           <button
             onClick={onClearFiles}
@@ -199,110 +206,114 @@ export const Dropzone: React.FC<DropzoneProps> = ({
           paddingRight: '4px',
         }}
       >
-        {files.map((file, idx) => (
-          <div
-            key={idx}
-            className="glass-card"
-            style={{
-              padding: '12px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
-                  background: 'rgba(6, 182, 212, 0.15)',
-                  border: '1px solid rgba(6, 182, 212, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--accent-cyan)',
-                  flexShrink: 0,
-                }}
-              >
-                <FileVideo size={20} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h4
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                  title={file.name}
-                >
-                  {file.name}
-                </h4>
+        {files.map((file, idx) => {
+          const isImg = getFileKind(file.path) === 'image';
+          return (
+            <div
+              key={idx}
+              className="glass-card"
+              style={{
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                 <div
                   style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: isImg ? 'rgba(168, 85, 247, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                    border: `1px solid ${isImg ? 'rgba(168, 85, 247, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    fontSize: '11px',
-                    color: 'var(--text-dim)',
-                    marginTop: '3px',
+                    justifyContent: 'center',
+                    color: isImg ? '#c084fc' : 'var(--accent-cyan)',
+                    flexShrink: 0,
                   }}
                 >
-                  {file.resolution && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Film size={11} /> {file.resolution}
-                    </span>
-                  )}
-                  {file.durationSec && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Clock size={11} /> {formatDuration(file.durationSec)}
-                    </span>
-                  )}
-                  {file.sizeMb > 0 && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
-                    </span>
-                  )}
-                  {file.codec && (
-                    <span
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        textTransform: 'uppercase',
-                        fontWeight: 600,
-                        color: 'var(--accent-cyan)',
-                      }}
-                    >
-                      {file.codec}
-                    </span>
-                  )}
+                  {isImg ? <FileImage size={20} /> : <FileVideo size={20} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-main)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      margin: 0,
+                    }}
+                    title={file.name}
+                  >
+                    {file.name}
+                  </h4>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      fontSize: '11px',
+                      color: 'var(--text-dim)',
+                      marginTop: '3px',
+                    }}
+                  >
+                    {file.resolution && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Film size={11} /> {file.resolution}
+                      </span>
+                    )}
+                    {!isImg && file.durationSec && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Clock size={11} /> {formatDuration(file.durationSec)}
+                      </span>
+                    )}
+                    {file.sizeMb > 0 && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
+                      </span>
+                    )}
+                    {file.codec && (
+                      <span
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          color: isImg ? '#c084fc' : 'var(--accent-cyan)',
+                        }}
+                      >
+                        {file.codec}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => onRemoveFile(idx)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-dim)',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '6px',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => onRemoveFile(idx)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2, CheckCircle2, AlertCircle, FolderOpen } from 'lucide-react';
 
 export interface ProgressState {
+  type?: 'conversion' | 'download';
   isProcessing: boolean;
   currentFile: string;
   fileIndex: number;
@@ -28,6 +29,25 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
   if (!progress.isProcessing && !progress.completed && !progress.error) {
     return null;
   }
+
+  const isDownload = progress.type === 'download';
+
+  const getTitle = () => {
+    if (progress.completed) {
+      return isDownload ? 'Dependencies Installed!' : 'Processing Complete!';
+    }
+    if (progress.error) {
+      return isDownload ? 'Download Failed' : 'Processing Failed';
+    }
+    return isDownload ? 'Downloading Dependencies...' : 'Processing Media...';
+  };
+
+  const getSubtitle = () => {
+    if (isDownload) {
+      return progress.currentFile || 'Fetching portable binary packages...';
+    }
+    return progress.currentFile || 'Initializing FFmpeg pipeline...';
+  };
 
   return (
     <div
@@ -69,14 +89,10 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
 
           <div>
             <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>
-              {progress.completed
-                ? 'Processing Complete!'
-                : progress.error
-                ? 'Processing Failed'
-                : 'Processing Media...'}
+              {getTitle()}
             </h3>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {progress.currentFile || 'Initializing FFmpeg pipeline...'}
+              {getSubtitle()}
             </p>
           </div>
         </div>
@@ -85,8 +101,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
             <span>
-              File {progress.fileIndex} of {progress.totalFiles}
-              {progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''}
+              {isDownload
+                ? 'Download Progress'
+                : `File ${progress.fileIndex} of ${progress.totalFiles}${
+                    progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
+                  }`}
             </span>
             <span style={{ color: 'var(--accent-cyan)' }}>{progress.percent.toFixed(1)}%</span>
           </div>
@@ -120,7 +139,7 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
         {/* Action Buttons on completion / error */}
         {progress.completed && (
           <div style={{ display: 'flex', gap: '10px' }}>
-            {onOpenDestination && (
+            {!isDownload && onOpenDestination && (
               <button
                 onClick={onOpenDestination}
                 style={{
@@ -146,6 +165,7 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
             <button
               onClick={onClose}
               style={{
+                flex: isDownload ? 1 : undefined,
                 padding: '12px 20px',
                 borderRadius: '10px',
                 border: '1px solid var(--border-glass)',

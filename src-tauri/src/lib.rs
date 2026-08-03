@@ -20,6 +20,7 @@ pub fn run() {
             get_initial_files,
             install_dependencies,
             install_magick_dependencies,
+            install_all_dependencies,
             detect_gpu_hardware,
             probe_media_file,
             probe_image_batch,

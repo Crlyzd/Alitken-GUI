@@ -124,6 +124,7 @@ export function App() {
       const payload = event.payload;
       setProgress((prev) => ({
         ...prev,
+        type: 'conversion',
         isProcessing: true,
         currentFile: payload.current_file,
         fileIndex: payload.file_index,
@@ -139,6 +140,7 @@ export function App() {
       const payload = event.payload;
       setProgress((prev) => ({
         ...prev,
+        type: 'conversion',
         isProcessing: true,
         currentFile: payload.current_file,
         fileIndex: payload.file_index,
@@ -154,14 +156,17 @@ export function App() {
       const payload = event.payload;
       setProgress((prev) => ({
         ...prev,
+        type: 'download',
         isProcessing: true,
-        currentFile: 'Downloading Portable Dependencies...',
+        currentFile: payload.status,
         fileIndex: 1,
         totalFiles: 1,
         percent: payload.percent,
         currentPart: 1,
         totalParts: 1,
-        status: payload.status,
+        status: payload.speed_mbps > 0 
+          ? `${payload.downloaded_mb.toFixed(1)} MB / ${payload.total_mb.toFixed(1)} MB (${payload.speed_mbps.toFixed(1)} MB/s)`
+          : payload.status,
       }));
     });
 
@@ -293,11 +298,17 @@ export function App() {
     });
   };
 
-  const handleDownloadDependencies = async () => {
+  const handleDownloadDependencies = async (mode: 'all' | 'ffmpeg' | 'magick' = 'all') => {
     setIsDownloadingDeps(true);
     setProgress({
+      type: 'download',
       isProcessing: true,
-      currentFile: 'Fetching Portable Dependencies...',
+      currentFile:
+        mode === 'all'
+          ? 'Fetching FFmpeg & ImageMagick Dependencies...'
+          : mode === 'magick'
+          ? 'Fetching ImageMagick Portable Binary...'
+          : 'Fetching FFmpeg Portable Binaries...',
       fileIndex: 1,
       totalFiles: 1,
       percent: 0,
@@ -308,10 +319,17 @@ export function App() {
     });
 
     try {
-      await invoke('install_dependencies');
+      if (mode === 'all') {
+        await invoke('install_all_dependencies');
+      } else if (mode === 'magick') {
+        await invoke('install_magick_dependencies');
+      } else {
+        await invoke('install_dependencies');
+      }
       await checkDepsAndGpu(videoConfig.codecChoice);
       setProgress((prev) => ({
         ...prev,
+        type: 'download',
         isProcessing: false,
         completed: true,
         status: 'Portable binaries installed successfully!',
@@ -319,6 +337,7 @@ export function App() {
     } catch (err: any) {
       setProgress((prev) => ({
         ...prev,
+        type: 'download',
         isProcessing: false,
         error: err.toString(),
       }));
@@ -536,49 +555,102 @@ export function App() {
         </div>
       )}
 
-      {/* Dependency Warning Bar if FFmpeg is missing */}
-      {(!depsStatus.ffmpeg || !depsStatus.ffprobe) && (
+      {/* Sleek Floating Frosted Glass Dependency Warning Banner */}
+      {(!depsStatus.ffmpeg || !depsStatus.ffprobe || !depsStatus.magick) && (
         <div
           style={{
+            margin: '8px 12px 0 12px',
+            padding: '7px 14px',
+            borderRadius: '10px',
             background:
               theme === 'light'
-                ? 'rgba(254, 205, 211, 0.95)'
-                : 'rgba(244, 63, 94, 0.15)',
-            borderBottom:
+                ? 'rgba(255, 241, 242, 0.92)'
+                : 'rgba(244, 63, 94, 0.12)',
+            border:
               theme === 'light'
-                ? '1px solid rgba(244, 63, 94, 0.3)'
+                ? '1px solid rgba(244, 63, 94, 0.25)'
                 : '1px solid rgba(244, 63, 94, 0.3)',
-            padding: '10px 16px',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            fontSize: '12px',
-            fontWeight: 600,
-            color: theme === 'light' ? '#881337' : '#fb7185',
+            gap: '10px',
+            boxShadow:
+              theme === 'light'
+                ? '0 4px 12px rgba(244, 63, 94, 0.08)'
+                : '0 4px 16px rgba(0, 0, 0, 0.2)',
+            flexShrink: 0,
+            zIndex: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertCircle size={16} color={theme === 'light' ? '#9f1239' : '#fb7185'} />
-            <span>Portable FFmpeg dependencies are missing in your local bin/ folder.</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
+            <AlertCircle
+              size={15}
+              color={theme === 'light' ? '#be123c' : '#fb7185'}
+              style={{ flexShrink: 0 }}
+            />
+            <span
+              style={{
+                fontSize: '11.5px',
+                fontWeight: 600,
+                color: theme === 'light' ? '#9f1239' : '#fda4af',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {!depsStatus.ffmpeg && !depsStatus.magick
+                ? 'Media dependencies missing (FFmpeg & ImageMagick)'
+                : !depsStatus.ffmpeg || !depsStatus.ffprobe
+                ? 'FFmpeg portable binaries missing'
+                : 'ImageMagick binary (magick.exe) missing'}
+            </span>
           </div>
+
           <button
-            onClick={handleDownloadDependencies}
+            onClick={() =>
+              handleDownloadDependencies(
+                !depsStatus.ffmpeg && !depsStatus.magick
+                  ? 'all'
+                  : !depsStatus.ffmpeg || !depsStatus.ffprobe
+                  ? 'ffmpeg'
+                  : 'magick'
+              )
+            }
             disabled={isDownloadingDeps}
             style={{
-              background: '#f43f5e',
-              color: '#fff',
+              background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+              color: '#ffffff',
               border: 'none',
-              borderRadius: '6px',
+              borderRadius: '7px',
               padding: '4px 12px',
               fontSize: '11px',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: isDownloadingDeps ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '5px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              boxShadow: '0 2px 10px rgba(244, 63, 94, 0.35)',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
             }}
           >
-            <Download size={13} /> Auto-Download FFmpeg
+            <Download size={12} />
+            {!depsStatus.ffmpeg && !depsStatus.magick
+              ? 'Auto-Download All'
+              : !depsStatus.ffmpeg || !depsStatus.ffprobe
+              ? 'Auto-Download FFmpeg'
+              : 'Auto-Download ImageMagick'}
           </button>
         </div>
       )}

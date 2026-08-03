@@ -198,14 +198,15 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let download_url = "https://imagemagick.org/archive/binaries/ImageMagick-7.1.1-33-portable-Q16-x64.7z";
+    // Primary release asset for ImageMagick 7.x portable x64
+    let download_url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z";
     let target_dir = get_local_bin_dir();
     let archive_path = target_dir.join("magick_download.7z");
 
     let _ = app.emit(
         "download-progress",
         DownloadProgressPayload {
-            status: "Connecting to ImageMagick server...".to_string(),
+            status: "Connecting to ImageMagick GitHub releases...".to_string(),
             percent: 0.0,
             speed_mbps: 0.0,
             downloaded_mb: 0.0,
@@ -218,6 +219,10 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         .send()
         .await
         .map_err(|e| format!("Download request error: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("Server returned HTTP {}", res.status()));
+    }
 
     let total_size = res.content_length().unwrap_or(0);
     let mut file = tokio::fs::File::create(&archive_path)
@@ -265,8 +270,54 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 
     file.flush().await.map_err(|e| format!("Flush error: {}", e))?;
 
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgressPayload {
+            status: "Extracting magick.exe to local bin/ folder...".to_string(),
+            percent: 100.0,
+            speed_mbps: 0.0,
+            downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
+            total_mb: total_size as f64 / (1024.0 * 1024.0),
+        },
+    );
+
+    // Extract magick.exe using Windows native tar command
+    let extract_status = crate::utils::create_hidden_cmd("tar")
+        .args(&[
+            "-xf",
+            archive_path.to_str().unwrap_or_default(),
+            "-C",
+            target_dir.to_str().unwrap_or_default(),
+            "magick.exe",
+        ])
+        .status();
+
+    if let Err(e) = extract_status {
+        let _ = fs::remove_file(&archive_path);
+        return Err(format!("Failed to execute extraction process: {}", e));
+    }
+
     let _ = fs::remove_file(archive_path);
 
+    let status = check_dependencies();
+    if !status.magick_exists {
+        return Err("magick.exe extraction failed or binary missing.".to_string());
+    }
+
+    Ok(status)
+}
+
+pub async fn download_all_dependencies<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    let current = check_dependencies();
+    if !current.ffmpeg_exists || !current.ffprobe_exists {
+        download_ffmpeg_dependencies(app).await?;
+    }
+    if !current.magick_exists {
+        download_magick_dependencies(app).await?;
+    }
     Ok(check_dependencies())
 }
+
 

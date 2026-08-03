@@ -38,6 +38,14 @@ pub async fn install_magick_dependencies<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn install_all_dependencies<R: tauri::Runtime>(
+    app: AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    dependencies::download_all_dependencies(&app).await
+}
+
+
+#[tauri::command]
 pub fn detect_gpu_hardware(codec_choice: String, ffmpeg_path: String) -> GpuCapability {
     let path = if ffmpeg_path.is_empty() {
         dependencies::check_dependencies().ffmpeg_path

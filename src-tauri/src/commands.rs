@@ -3,6 +3,7 @@ use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata};
 use crate::gpu::{self, GpuCapability};
 use crate::image::{self, ImageConversionConfig};
 use crate::utils;
+use crate::win_integration::{self, IntegrationStatus};
 use tauri::AppHandle;
 
 #[tauri::command]
@@ -209,3 +210,25 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_system_integration_status() -> IntegrationStatus {
+    tokio::task::spawn_blocking(win_integration::get_integration_status)
+        .await
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub async fn set_sendto_status(enable: bool) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || win_integration::set_sendto_shortcut(enable))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn set_win11_context_menu_status(enable: bool) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || win_integration::set_win11_context_menu(enable))
+        .await
+        .map_err(|e| e.to_string())?
+}
+

@@ -4,6 +4,7 @@ mod ffmpeg;
 mod gpu;
 mod image;
 mod utils;
+mod win_integration;
 
 use commands::*;
 
@@ -30,7 +31,10 @@ pub fn run() {
             minimize_window,
             toggle_maximize_window,
             close_window,
-            expand_to_working_window
+            expand_to_working_window,
+            get_system_integration_status,
+            set_sendto_status,
+            set_win11_context_menu_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

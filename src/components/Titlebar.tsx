@@ -1,22 +1,20 @@
 import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { Minus, Square, X, Cpu, Zap, Sun, Moon, Info } from 'lucide-react';
+import { Minus, Square, X, Cpu, Zap, Info, Settings } from 'lucide-react';
 
 interface TitlebarProps {
   hardwareName?: string;
   encoderName?: string;
-  theme?: 'dark' | 'light';
-  onToggleTheme?: () => void;
   onOpenAbout?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const Titlebar: React.FC<TitlebarProps> = ({
   hardwareName,
   encoderName,
-  theme = 'dark',
-  onToggleTheme,
   onOpenAbout,
+  onOpenSettings,
 }) => {
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,6 +129,32 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           </div>
         )}
 
+        {/* Settings Integration Button */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Settings & Windows Integrations"
+            className="no-drag"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Settings size={14} color="var(--text-muted)" />
+          </button>
+        )}
+
         {/* Standalone About Info Button (Beside Theme Toggle) */}
         {onOpenAbout && (
           <button
@@ -154,32 +178,6 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Info size={14} color="var(--text-muted)" />
-          </button>
-        )}
-
-        {/* Theme Toggle Button */}
-        {onToggleTheme && (
-          <button
-            onClick={onToggleTheme}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-            className="no-drag"
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            {theme === 'dark' ? <Sun size={14} color="#f59e0b" /> : <Moon size={14} color="#6366f1" />}
           </button>
         )}
 

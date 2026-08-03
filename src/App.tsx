@@ -7,6 +7,7 @@ import { Dropzone, FileItem } from './components/Dropzone';
 import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
 import { AboutModal } from './components/AboutModal';
+import { SettingsModal } from './components/SettingsModal';
 import { ImageConfig } from './types/media';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
 import { Download, AlertCircle, X } from 'lucide-react';
@@ -32,6 +33,7 @@ export function App() {
   };
 
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string }>({
@@ -487,9 +489,8 @@ export function App() {
       <Titlebar
         hardwareName={hardwareInfo.name}
         encoderName={hardwareInfo.encoder}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onOpenAbout={() => setIsAboutOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Validation Error Banner (Single Media Rule Violation) */}
@@ -643,6 +644,14 @@ export function App() {
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
         hardwareInfo={hardwareInfo}
+      />
+
+      {/* Settings & System Integrations Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     </div>
   );

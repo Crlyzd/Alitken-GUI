@@ -28,3 +28,10 @@ Thumbs.db
 # Agent Customizations (Local only)
 .agents/
 
+# C++ reference shell extension (unused — superseded by shell_ext_crate/)
+src-tauri/shell_ext/
+
+# COM Shell Extension crate build artifacts
+src-tauri/shell_ext_crate/target/
+src-tauri/shell_ext_crate/Cargo.lock
+

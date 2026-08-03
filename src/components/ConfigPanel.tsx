@@ -69,17 +69,26 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       className="glass-panel"
       style={{
         borderRadius: '16px',
-        padding: '22px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '18px',
         height: '100%',
         minHeight: 0,
         minWidth: 0,
-        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      {/* Mode Selector Tabs */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '22px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
+          minHeight: 0,
+        }}
+      >
+        {/* Mode Selector Tabs */}
       <div
         style={{
           display: 'grid',
@@ -534,5 +543,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </button>
       </div>
     </div>
-  );
+  </div>
+);
 };

@@ -139,6 +139,7 @@ select option {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+  margin: 6px 0;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);

@@ -101,7 +101,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '14px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, minWidth: 0, gap: '14px' }}>
       {/* Drop Target Header / Action Area */}
       <div
         onDragOver={(e) => {

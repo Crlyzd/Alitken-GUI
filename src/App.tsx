@@ -341,6 +341,7 @@ export function App() {
           gap: '16px',
           padding: '16px',
           overflow: 'hidden',
+          minHeight: 0,
         }}
       >
         <Dropzone

@@ -72,6 +72,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         flexDirection: 'column',
         gap: '18px',
         height: '100%',
+        minHeight: 0,
+        minWidth: 0,
         overflowY: 'auto',
       }}
     >

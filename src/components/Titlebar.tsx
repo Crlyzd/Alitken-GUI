@@ -1,14 +1,21 @@
 import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { Minus, Square, X, Cpu, Zap } from 'lucide-react';
+import { Minus, Square, X, Cpu, Zap, Sun, Moon } from 'lucide-react';
 
 interface TitlebarProps {
   hardwareName?: string;
   encoderName?: string;
+  theme?: 'dark' | 'light';
+  onToggleTheme?: () => void;
 }
 
-export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName }) => {
+export const Titlebar: React.FC<TitlebarProps> = ({
+  hardwareName,
+  encoderName,
+  theme = 'dark',
+  onToggleTheme,
+}) => {
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -58,8 +65,8 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 12px 0 16px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(12, 14, 22, 0.4)',
+        borderBottom: '1px solid var(--border-glass)',
+        background: 'var(--bg-titlebar)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         zIndex: 1000,
@@ -85,7 +92,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
         >
           A
         </div>
-        <span style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px' }}>
+        <span style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
           ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>Media Converter v2.0</span>
         </span>
       </div>
@@ -94,7 +101,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
       <div data-tauri-drag-region style={{ flex: 1, height: '100%', cursor: 'default' }} />
 
       {/* GPU Hardware Status Badge & Control Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {hardwareName && (
           <div
             data-tauri-drag-region
@@ -115,6 +122,32 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
             <span>{hardwareName}</span>
             {encoderName && <span style={{ opacity: 0.7 }}>({encoderName})</span>}
           </div>
+        )}
+
+        {/* Theme Toggle Button */}
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            className="no-drag"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              border: 'none',
+              background: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            {theme === 'dark' ? <Sun size={14} color="#f59e0b" /> : <Moon size={14} color="#6366f1" />}
+          </button>
         )}
 
         {/* Window Action Buttons (Explicitly Non-Draggable) */}
@@ -138,14 +171,14 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               WebkitAppRegion: 'no-drag',
             } as React.CSSProperties}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Minus size={14} />
@@ -161,14 +194,14 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               WebkitAppRegion: 'no-drag',
             } as React.CSSProperties}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Square size={12} />
@@ -184,7 +217,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -197,7 +230,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({ hardwareName, encoderName })
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = '#94a3b8';
+              e.currentTarget.style.color = 'var(--text-muted)';
             }}
           >
             <X size={14} />

@@ -60,6 +60,19 @@ pub fn open_log_folder() -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn open_folder(folder_path: String) -> Result<(), String> {
+    if folder_path.is_empty() {
+        return Err("Folder path is empty".to_string());
+    }
+    let path = std::path::Path::new(&folder_path);
+    if !path.exists() {
+        let _ = std::fs::create_dir_all(path);
+    }
+    let _ = utils::create_hidden_cmd("explorer").arg(&folder_path).spawn();
+    Ok(())
+}
+
+#[tauri::command]
 pub fn minimize_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }

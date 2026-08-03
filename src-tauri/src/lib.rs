@@ -20,6 +20,7 @@ pub fn run() {
             probe_media_file,
             start_video_pipeline,
             open_log_folder,
+            open_folder,
             minimize_window,
             toggle_maximize_window,
             close_window

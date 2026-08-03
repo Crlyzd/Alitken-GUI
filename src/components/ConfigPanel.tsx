@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Scissors, RefreshCw, Zap } from 'lucide-react';
+import { Scissors, RefreshCw, Zap, Folder, FolderOpen, RotateCcw } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface ConfigState {
   videoAction: 'CONVERT' | 'SPLIT';
@@ -9,6 +11,7 @@ export interface ConfigState {
   targetHeight: string;
   targetBitrate: string;
   codecChoice: string; // "1"=H264, "2"=HEVC, "3"=AV1
+  outputDir: string | null;
 }
 
 interface ConfigPanelProps {
@@ -34,6 +37,31 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     !PRESET_BITRATES.includes(config.targetBitrate)
   );
 
+  const handleBrowseFolder = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: config.outputDir || undefined,
+      });
+      if (selected && typeof selected === 'string') {
+        onChange({ outputDir: selected });
+      }
+    } catch (err) {
+      console.error('Failed to open directory dialog:', err);
+    }
+  };
+
+  const handleOpenFolder = async () => {
+    if (config.outputDir) {
+      try {
+        await invoke('open_folder', { folderPath: config.outputDir });
+      } catch (err) {
+        console.error('Failed to open folder:', err);
+      }
+    }
+  };
+
   return (
     <div
       className="glass-panel"
@@ -42,8 +70,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         padding: '22px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: '18px',
         height: '100%',
+        overflowY: 'auto',
       }}
     >
       {/* Mode Selector Tabs */}
@@ -51,10 +80,10 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          background: 'rgba(0, 0, 0, 0.35)',
+          background: 'var(--input-bg)',
           padding: '4px',
           borderRadius: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          border: '1px solid var(--border-glass)',
         }}
       >
         <button
@@ -118,9 +147,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               style={{
                 padding: '10px 8px',
                 borderRadius: '10px',
-                border: `1px solid ${config.codecChoice === item.id ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.1)'}`,
-                background: config.codecChoice === item.id ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.02)',
-                color: config.codecChoice === item.id ? '#fff' : 'var(--text-muted)',
+                border: `1px solid ${config.codecChoice === item.id ? 'var(--accent-primary)' : 'var(--border-glass)'}`,
+                background: config.codecChoice === item.id ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-glass-card)',
+                color: config.codecChoice === item.id ? 'var(--text-main)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 textAlign: 'center',
                 boxShadow: config.codecChoice === item.id ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
@@ -142,9 +171,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             flexDirection: 'column',
             gap: '12px',
             padding: '14px',
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--bg-glass-card)',
             borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            border: '1px solid var(--border-glass)',
           }}
         >
           {/* Fast Copy Toggle */}
@@ -178,9 +207,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               style={{
                 padding: '8px',
                 borderRadius: '8px',
-                border: `1px solid ${config.splitMode === 'DURATION' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)'}`,
+                border: `1px solid ${config.splitMode === 'DURATION' ? 'var(--accent-cyan)' : 'var(--border-glass)'}`,
                 background: config.splitMode === 'DURATION' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                color: '#fff',
+                color: 'var(--text-main)',
                 fontSize: '12px',
                 fontWeight: 500,
                 cursor: 'pointer',
@@ -198,9 +227,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               style={{
                 padding: '8px',
                 borderRadius: '8px',
-                border: `1px solid ${config.splitMode === 'PARTS' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)'}`,
+                border: `1px solid ${config.splitMode === 'PARTS' ? 'var(--accent-cyan)' : 'var(--border-glass)'}`,
                 background: config.splitMode === 'PARTS' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                color: '#fff',
+                color: 'var(--text-main)',
                 fontSize: '12px',
                 fontWeight: 500,
                 cursor: 'pointer',
@@ -224,11 +253,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               placeholder={config.splitMode === 'DURATION' ? 'e.g. 60' : 'e.g. 4'}
               min={1}
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
                 borderRadius: '8px',
                 padding: '8px 12px',
-                color: '#fff',
+                color: 'var(--text-main)',
                 fontSize: '13px',
               }}
             />
@@ -258,11 +287,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 }
               }}
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
                 borderRadius: '10px',
                 padding: '10px 12px',
-                color: '#fff',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 cursor: 'pointer',
               }}
@@ -282,11 +311,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 onChange={(e) => onChange({ targetHeight: e.target.value })}
                 placeholder="Enter custom height in px (e.g. 1080)"
                 style={{
-                  background: 'rgba(0, 0, 0, 0.4)',
+                  background: 'var(--input-bg)',
                   border: '1px solid var(--accent-cyan)',
                   borderRadius: '8px',
                   padding: '8px 12px',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   fontSize: '13px',
                 }}
               />
@@ -312,11 +341,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 }
               }}
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
                 borderRadius: '10px',
                 padding: '10px 12px',
-                color: '#fff',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 cursor: 'pointer',
               }}
@@ -336,11 +365,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 onChange={(e) => onChange({ targetBitrate: e.target.value })}
                 placeholder="Enter custom bitrate in kbps (e.g. 6000)"
                 style={{
-                  background: 'rgba(0, 0, 0, 0.4)',
+                  background: 'var(--input-bg)',
                   border: '1px solid var(--accent-cyan)',
                   borderRadius: '8px',
                   padding: '8px 12px',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   fontSize: '13px',
                 }}
               />
@@ -349,7 +378,100 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </>
       )}
 
-      <div style={{ marginTop: 'auto' }}>
+      {/* OUTPUT FOLDER SELECTION */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px' }}>
+            OUTPUT FOLDER
+          </label>
+          {config.outputDir && (
+            <button
+              onClick={() => onChange({ outputDir: null })}
+              title="Reset to source directory"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <RotateCcw size={11} /> Reset
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div
+            style={{
+              flex: 1,
+              background: 'var(--input-bg)',
+              border: '1px solid var(--input-border)',
+              borderRadius: '10px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              color: config.outputDir ? 'var(--text-main)' : 'var(--text-dim)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+            title={config.outputDir || 'Output files will be saved in the same directory as source files'}
+          >
+            <Folder size={14} color={config.outputDir ? 'var(--accent-cyan)' : 'var(--text-dim)'} />
+            <span>{config.outputDir || 'Same as Source File Directory'}</span>
+          </div>
+
+          <button
+            onClick={handleBrowseFolder}
+            title="Browse Destination Folder"
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-glass)',
+              background: 'var(--bg-glass-card)',
+              color: 'var(--text-main)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <FolderOpen size={14} /> Browse
+          </button>
+
+          {config.outputDir && (
+            <button
+              onClick={handleOpenFolder}
+              title="Open Selected Folder in Explorer"
+              style={{
+                padding: '8px 10px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-glass)',
+                background: 'var(--bg-glass-card)',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <FolderOpen size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
         <button
           onClick={onStart}
           disabled={disabled}
@@ -358,8 +480,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             padding: '14px',
             borderRadius: '12px',
             border: 'none',
-            background: disabled ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-            color: disabled ? 'rgba(255, 255, 255, 0.3)' : '#fff',
+            background: disabled ? 'var(--input-bg)' : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+            color: disabled ? 'var(--text-dim)' : '#fff',
             fontWeight: 700,
             fontSize: '14px',
             cursor: disabled ? 'not-allowed' : 'pointer',

@@ -7,7 +7,26 @@ import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
 import { Download, AlertCircle } from 'lucide-react';
 
+export function normalizePath(p: string): string {
+  if (!p) return '';
+  return p.replace(/\\/g, '/').replace(/\/+/g, '/');
+}
+
+export function canonicalPathKey(p: string): string {
+  return normalizePath(p).toLowerCase();
+}
+
 export function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('alitken_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('alitken_theme', next);
+  };
+
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string }>({
     name: 'Detecting GPU...',
     encoder: '',
@@ -30,6 +49,7 @@ export function App() {
     targetHeight: 'ORIGINAL',
     targetBitrate: 'ORIGINAL',
     codecChoice: '1',
+    outputDir: null,
   });
 
   const [progress, setProgress] = useState<ProgressState>({
@@ -112,15 +132,18 @@ export function App() {
   };
 
   const handleAddFiles = async (paths: string[]) => {
-    const existingPaths = new Set(files.map((f) => f.path));
+    const existingKeys = new Set(files.map((f) => canonicalPathKey(f.path)));
 
     // Synchronously lock new paths in pendingPathsRef before any async IPC work
     const newPathsToProcess: string[] = [];
-    for (const p of Array.from(new Set(paths))) {
-      if (!p) continue;
-      if (!existingPaths.has(p) && !pendingPathsRef.current.has(p)) {
-        pendingPathsRef.current.add(p);
-        newPathsToProcess.push(p);
+    for (const rawPath of Array.from(new Set(paths))) {
+      if (!rawPath) continue;
+      const normPath = normalizePath(rawPath);
+      const key = canonicalPathKey(normPath);
+
+      if (!existingKeys.has(key) && !pendingPathsRef.current.has(key)) {
+        pendingPathsRef.current.add(key);
+        newPathsToProcess.push(normPath);
       }
     }
 
@@ -135,7 +158,7 @@ export function App() {
         });
         newItems.push({
           name: meta.file_name,
-          path: meta.file_path,
+          path: normalizePath(meta.file_path || p),
           sizeMb: meta.file_size_mb,
           durationSec: meta.duration_sec,
           resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
@@ -149,8 +172,8 @@ export function App() {
     }
 
     setFiles((prev) => {
-      const currentPaths = new Set(prev.map((f) => f.path));
-      const filteredNew = newItems.filter((item) => !currentPaths.has(item.path));
+      const currentKeys = new Set(prev.map((f) => canonicalPathKey(f.path)));
+      const filteredNew = newItems.filter((item) => !currentKeys.has(canonicalPathKey(item.path)));
       return [...prev, ...filteredNew];
     });
   };
@@ -222,7 +245,7 @@ export function App() {
           target_height: config.targetHeight || 'ORIGINAL',
           target_bitrate: config.targetBitrate || 'ORIGINAL',
           codec_choice: config.codecChoice,
-          custom_output_dir: null,
+          custom_output_dir: config.outputDir || null,
         },
       });
 
@@ -244,18 +267,26 @@ export function App() {
 
   return (
     <div
+      data-theme={theme}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
         width: '100vw',
-        background: 'rgba(10, 12, 20, 0.65)',
+        background: 'var(--bg-app)',
         backdropFilter: 'blur(40px) saturate(180%)',
         WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+        color: 'var(--text-main)',
+        transition: 'background 0.3s ease, color 0.3s ease',
       }}
     >
       {/* Custom Titlebar */}
-      <Titlebar hardwareName={hardwareInfo.name} encoderName={hardwareInfo.encoder} />
+      <Titlebar
+        hardwareName={hardwareInfo.name}
+        encoderName={hardwareInfo.encoder}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       {/* Dependency Warning Bar if FFmpeg is missing */}
       {(!depsStatus.ffmpeg || !depsStatus.ffprobe) && (
@@ -302,7 +333,7 @@ export function App() {
         style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: '1fr 340px',
+          gridTemplateColumns: '1fr 360px',
           gap: '16px',
           padding: '16px',
           overflow: 'hidden',
@@ -314,7 +345,7 @@ export function App() {
           onRemoveFile={(idx) => {
             const fileToRemove = files[idx];
             if (fileToRemove) {
-              pendingPathsRef.current.delete(fileToRemove.path);
+              pendingPathsRef.current.delete(canonicalPathKey(fileToRemove.path));
             }
             setFiles((prev) => prev.filter((_, i) => i !== idx));
           }}

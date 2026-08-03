@@ -35,51 +35,40 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   }, [onAddFiles]);
 
   useEffect(() => {
-    let unlistenFn: (() => void) | null = null;
     let isMounted = true;
 
-    async function setupDragDrop() {
-      try {
-        const appWindow = getCurrentWindow();
-        const unlisten = await appWindow.onDragDropEvent((event: any) => {
-          if (!isMounted) return;
-          if (event.payload.type === 'drop') {
-            setIsDragOver(false);
-            const paths = event.payload.paths || [];
-            if (paths.length > 0) {
-              const now = Date.now();
-              const fingerprint = paths.join('|');
-              if (now - lastDropTimeRef.current < 300 && lastDropPathsRef.current === fingerprint) {
-                return;
-              }
-              lastDropTimeRef.current = now;
-              lastDropPathsRef.current = fingerprint;
-              onAddFilesRef.current(paths);
-            }
-          } else if (event.payload.type === 'enter') {
-            setIsDragOver(true);
-          } else if (event.payload.type === 'leave' || event.payload.type === 'cancel') {
-            setIsDragOver(false);
+    const appWindow = getCurrentWindow();
+    const unlistenPromise = appWindow.onDragDropEvent((event: any) => {
+      if (!isMounted) return;
+      if (event.payload.type === 'drop') {
+        setIsDragOver(false);
+        const paths: string[] = event.payload.paths || [];
+        if (paths.length > 0) {
+          const now = Date.now();
+          const fingerprint = paths.map((p) => p.replace(/\\/g, '/').toLowerCase()).join('|');
+          if (now - lastDropTimeRef.current < 300 && lastDropPathsRef.current === fingerprint) {
+            return;
           }
-        });
-
-        if (isMounted) {
-          unlistenFn = unlisten;
-        } else {
-          unlisten();
+          lastDropTimeRef.current = now;
+          lastDropPathsRef.current = fingerprint;
+          onAddFilesRef.current(paths);
         }
-      } catch (err) {
-        console.error('Failed to register drag-drop event listener:', err);
+      } else if (event.payload.type === 'enter') {
+        setIsDragOver(true);
+      } else if (event.payload.type === 'leave' || event.payload.type === 'cancel') {
+        setIsDragOver(false);
       }
-    }
-
-    setupDragDrop();
+    });
 
     return () => {
       isMounted = false;
-      if (unlistenFn) {
-        unlistenFn();
-      }
+      unlistenPromise
+        .then((unlisten) => {
+          if (typeof unlisten === 'function') {
+            unlisten();
+          }
+        })
+        .catch((err) => console.error('Failed to cleanup drag-drop listener:', err));
     };
   }, []);
 

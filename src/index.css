@@ -1,10 +1,13 @@
-:root {
-  --bg-base: transparent;
+:root,
+[data-theme="dark"] {
+  --bg-app: rgba(10, 12, 20, 0.65);
+  --bg-titlebar: rgba(12, 14, 22, 0.4);
   --bg-glass: rgba(14, 17, 28, 0.55);
   --bg-glass-hover: rgba(28, 34, 52, 0.65);
   --bg-glass-card: rgba(255, 255, 255, 0.03);
   --border-glass: rgba(255, 255, 255, 0.12);
   --border-glass-glow: rgba(99, 102, 241, 0.45);
+  --shadow-panel: 0 16px 40px 0 rgba(0, 0, 0, 0.4);
 
   --accent-primary: #6366f1;
   --accent-primary-hover: #4f46e5;
@@ -15,6 +18,42 @@
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
+
+  --input-bg: rgba(0, 0, 0, 0.4);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --option-bg: #121420;
+  --option-text: #f8fafc;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', 'Inter', sans-serif;
+}
+
+[data-theme="light"] {
+  --bg-app: rgba(240, 243, 248, 0.75);
+  --bg-titlebar: rgba(255, 255, 255, 0.5);
+  --bg-glass: rgba(255, 255, 255, 0.7);
+  --bg-glass-hover: rgba(240, 243, 248, 0.85);
+  --bg-glass-card: rgba(0, 0, 0, 0.03);
+  --border-glass: rgba(0, 0, 0, 0.12);
+  --border-glass-glow: rgba(99, 102, 241, 0.55);
+  --shadow-panel: 0 16px 40px 0 rgba(0, 0, 0, 0.08);
+
+  --accent-primary: #4f46e5;
+  --accent-primary-hover: #4338ca;
+  --accent-cyan: #0891b2;
+  --accent-emerald: #059669;
+  --accent-rose: #e11d48;
+
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(0, 0, 0, 0.15);
+  --option-bg: #ffffff;
+  --option-text: #0f172a;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
 
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', 'Inter', sans-serif;
@@ -50,7 +89,7 @@ html, body {
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border-glass);
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.15), 0 16px 40px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-panel);
 }
 
 .glass-card {
@@ -89,8 +128,8 @@ input[type='number'] {
 }
 
 select option {
-  background: #121420;
-  color: #f8fafc;
+  background: var(--option-bg);
+  color: var(--option-text);
 }
 
 /* Custom Scrollbars */
@@ -102,11 +141,11 @@ select option {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(99, 102, 241, 0.5);
 }
 
 /* Custom Drag Region for Borderless Tauri Titlebar */

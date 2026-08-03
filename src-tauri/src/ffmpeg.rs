@@ -145,6 +145,10 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             input_path.parent().unwrap_or(Path::new(".")).to_path_buf()
         };
 
+        if let Err(e) = std::fs::create_dir_all(&parent_dir) {
+            log_error(&format!("Failed to create output directory {:?}: {}", parent_dir, e));
+        }
+
         // Determine input video decoder (VideoLAN libdav1d for AV1 inputs)
         let mut input_decoder_args = Vec::new();
         if meta.codec_name == "av1" {

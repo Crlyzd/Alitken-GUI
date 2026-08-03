@@ -32,3 +32,11 @@ windows-sys = { version = "0.52", features = [
     "Win32_Graphics_Dwm",
     "Win32_UI_Shell"
 ] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+panic = "abort"
+strip = false
+

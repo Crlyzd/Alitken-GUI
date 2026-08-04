@@ -19,6 +19,8 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         return Err("No input files provided for Image to Video conversion.".to_string());
     }
 
+    crate::utils::reset_cancel_flag();
+
     let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
 
     log_info(&format!(
@@ -200,6 +202,10 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
 
                 let streamer_handle = tokio::spawn(async move {
                     for (idx, path) in sorted_inputs_clone.iter().enumerate() {
+                        if crate::utils::check_cancel_flag() {
+                            return false;
+                        }
+
                         let mut magick_cmd = create_tokio_hidden_cmd(&magick_path_clone);
                         magick_cmd
                             .arg(path)
@@ -269,6 +275,11 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
                 if let Some(stdout) = ffmpeg_child.stdout.take() {
                     let mut reader = BufReader::new(stdout).lines();
                     while let Ok(Some(line)) = reader.next_line().await {
+                        if crate::utils::check_cancel_flag() {
+                            let _ = ffmpeg_child.kill().await;
+                            return Err("Processing aborted by user.".to_string());
+                        }
+
                         if line.starts_with("out_time_ms=") {
                             let ms_str = line.trim_start_matches("out_time_ms=");
                             if let Ok(ms) = ms_str.parse::<f64>() {
@@ -298,6 +309,10 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
                 let ffmpeg_status = ffmpeg_child.wait().await;
                 let stream_res = streamer_handle.await.unwrap_or(false);
                 let stderr_output = stderr_handle.await.unwrap_or_default();
+
+                if crate::utils::check_cancel_flag() {
+                    return Err("Processing aborted by user.".to_string());
+                }
 
                 if let Ok(f_st) = ffmpeg_status {
                     if f_st.success() && stream_res {
@@ -347,6 +362,13 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         );
 
         for (idx, raw_path_str) in sorted_inputs.iter().enumerate() {
+            if crate::utils::check_cancel_flag() {
+                for p in &temp_files_to_cleanup {
+                    let _ = std::fs::remove_file(p);
+                }
+                return Err("Processing aborted by user.".to_string());
+            }
+
             let temp_png = temp_dir.join(format!("alitken_frame_{}_{}.png", batch_id, idx));
             temp_files_to_cleanup.push(temp_png.clone());
 
@@ -394,7 +416,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             }
 
             // For native formats (PNG/JPG/WEBP) or FFmpeg fallback: use FFmpeg scale & pad
-            if !success {
+            if !success && !crate::utils::check_cancel_flag() {
                 let mut ffmpeg_prep = create_tokio_hidden_cmd(ffmpeg_path);
                 ffmpeg_prep.args([
                     "-y",
@@ -415,7 +437,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             }
 
             // Final fallback: ImageMagick direct convert if FFmpeg prep failed
-            if !success && !magick_path.is_empty() && Path::new(magick_path).exists() {
+            if !success && !crate::utils::check_cancel_flag() && !magick_path.is_empty() && Path::new(magick_path).exists() {
                 let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
                 magick_cmd.arg(raw_path_str).arg(&temp_png);
                 if let Ok(st) = magick_cmd.status().await {
@@ -428,6 +450,9 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             if !success {
                 for p in &temp_files_to_cleanup {
                     let _ = std::fs::remove_file(p);
+                }
+                if crate::utils::check_cancel_flag() {
+                    return Err("Processing aborted by user.".to_string());
                 }
                 return Err(format!(
                     "Failed to pre-normalize image {}: {}",
@@ -534,6 +559,14 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     if let Some(stdout) = child.stdout.take() {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
+            if crate::utils::check_cancel_flag() {
+                let _ = child.kill().await;
+                for p in &temp_files_to_cleanup {
+                    let _ = std::fs::remove_file(p);
+                }
+                return Err("Processing aborted by user.".to_string());
+            }
+
             if line.starts_with("out_time_ms=") {
                 let ms_str = line.trim_start_matches("out_time_ms=");
                 if let Ok(ms) = ms_str.parse::<f64>() {
@@ -578,6 +611,10 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     // Stage 4: Cleanup Temp Files
     for temp_path in &temp_files_to_cleanup {
         let _ = std::fs::remove_file(temp_path);
+    }
+
+    if crate::utils::check_cancel_flag() {
+        return Err("Processing aborted by user.".to_string());
     }
 
     if !status.success() {

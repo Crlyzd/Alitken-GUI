@@ -448,8 +448,13 @@ export function App() {
       return;
     }
 
+    const isSingleOutput =
+      imageConfig.outputFormat === 'VIDEO' ||
+      (imageConfig.outputFormat === 'PDF' && imageConfig.mergePdf && files.length > 1);
+
     setProgress({
       isProcessing: true,
+      isSingleOutput,
       currentFile: files[0].name,
       fileIndex: 1,
       totalFiles: files.length,
@@ -459,7 +464,9 @@ export function App() {
       status:
         imageConfig.outputFormat === 'VIDEO'
           ? 'Converting Image(s) to MP4 Video...'
-          : 'Processing image conversion pipeline...',
+          : imageConfig.outputFormat === 'PDF' && imageConfig.mergePdf
+            ? 'Combining Image(s) into PDF document...'
+            : 'Processing image conversion pipeline...',
       completed: false,
     });
 

@@ -4,6 +4,7 @@ import { Loader2, CheckCircle2, AlertCircle, FolderOpen, X } from 'lucide-react'
 export interface ProgressState {
   type?: 'conversion' | 'download';
   isProcessing: boolean;
+  isSingleOutput?: boolean;
   currentFile: string;
   fileIndex: number;
   totalFiles: number;
@@ -35,7 +36,8 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
   }
 
   const isDownload = progress.type === 'download';
-  const completedCount = Math.max(0, progress.fileIndex - 1);
+  const isSingleOutput = Boolean(progress.isSingleOutput);
+  const completedCount = isSingleOutput ? 0 : Math.max(0, progress.fileIndex - 1);
   const isAborted =
     progress.error === 'Processing aborted by user.' ||
     Boolean(progress.error && progress.error.toLowerCase().includes('aborted'));
@@ -47,10 +49,12 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
     if (progress.error) {
       if (isDownload) return 'Download Stopped';
       if (isAborted) {
+        if (isSingleOutput) return 'Task Cancelled';
         return completedCount > 0
           ? `Task Stopped — ${completedCount} of ${progress.totalFiles} Files Converted`
           : 'Task Cancelled';
       }
+      if (isSingleOutput) return 'Processing Interrupted';
       return completedCount > 0
         ? `Interrupted — ${completedCount} of ${progress.totalFiles} Files Converted`
         : 'Processing Interrupted';
@@ -66,9 +70,15 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
     }
     if (progress.error) {
       if (isAborted) {
+        if (isSingleOutput) {
+          return 'Operation was cancelled before output file was completed.';
+        }
         return completedCount > 0
           ? `${completedCount} file(s) converted before operation was stopped.`
           : 'Operation was cancelled before processing started.';
+      }
+      if (isSingleOutput) {
+        return 'Processing encountered an error before output file was completed.';
       }
       return progress.currentFile
         ? `Stopped at: ${progress.currentFile}`
@@ -251,9 +261,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                     ? progress.totalFiles > 1
                       ? `Download Progress (${progress.fileIndex}/${progress.totalFiles})`
                       : 'Download Progress'
-                    : `File ${progress.fileIndex} of ${progress.totalFiles}${
-                        progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
-                      }`}
+                    : isSingleOutput
+                      ? `Image ${progress.fileIndex} of ${progress.totalFiles}`
+                      : `File ${progress.fileIndex} of ${progress.totalFiles}${
+                          progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
+                        }`}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)' }}>
                   {progress.completed ? '100.0' : progress.percent.toFixed(1)}%

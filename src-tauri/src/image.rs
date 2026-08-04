@@ -153,6 +153,9 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
 
         let status = child.wait().await.map_err(|e| e.to_string())?;
         if !status.success() {
+            if utils::check_cancel_flag() {
+                return Err("Processing aborted by user.".to_string());
+            }
             return Err(format!("ImageMagick conversion failed for file: {}", file_name));
         }
 
@@ -216,6 +219,11 @@ async fn run_pdf_merge<R: tauri::Runtime>(
 
     // Pass 1: Sequential Per-Frame Conversion (One image at a time -> Capped RAM)
     for (idx, input_str) in config.input_files.iter().enumerate() {
+        if utils::check_cancel_flag() {
+            let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+            return Err("Processing aborted by user.".to_string());
+        }
+
         let input_path = Path::new(input_str);
         let file_name = input_path
             .file_name()
@@ -230,8 +238,8 @@ async fn run_pdf_merge<R: tauri::Runtime>(
                 file_index: idx + 1,
                 total_files,
                 percent: ((idx as f64) / (total_files as f64)) * 85.0,
-                phase: "Preparing Frames".to_string(),
-                status: format!("Processing image {} of {}: {}", idx + 1, total_files, file_name),
+                phase: "Combining Pages".to_string(),
+                status: format!("Combining image {} of {}: {}", idx + 1, total_files, file_name),
             },
         );
 
@@ -261,6 +269,9 @@ async fn run_pdf_merge<R: tauri::Runtime>(
                 let status = child.wait().await.map_err(|e| e.to_string())?;
                 if !status.success() {
                     let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+                    if utils::check_cancel_flag() {
+                        return Err("Processing aborted by user.".to_string());
+                    }
                     let err = format!("ImageMagick frame preparation failed for: {}", file_name);
                     utils::log_error(&err);
                     return Err(err);
@@ -268,6 +279,9 @@ async fn run_pdf_merge<R: tauri::Runtime>(
             }
             Err(e) => {
                 let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+                if utils::check_cancel_flag() {
+                    return Err("Processing aborted by user.".to_string());
+                }
                 let err = format!("Failed to spawn ImageMagick for {}: {}", file_name, e);
                 utils::log_error(&err);
                 return Err(err);
@@ -278,6 +292,11 @@ async fn run_pdf_merge<R: tauri::Runtime>(
     }
 
     // Pass 2: Final PDF Compilation from lightweight temp JPEGs
+    if utils::check_cancel_flag() {
+        let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+        return Err("Processing aborted by user.".to_string());
+    }
+
     let _ = app.emit(
         "image-progress",
         ImageProgressPayload {
@@ -285,8 +304,8 @@ async fn run_pdf_merge<R: tauri::Runtime>(
             file_index: total_files,
             total_files,
             percent: 90.0,
-            phase: "Compiling PDF".to_string(),
-            status: format!("Compiling {} pages into Merged_Images.pdf...", total_files),
+            phase: "Combining PDF".to_string(),
+            status: format!("Combining {} pages into Merged_Images.pdf...", total_files),
         },
     );
 
@@ -305,11 +324,19 @@ async fn run_pdf_merge<R: tauri::Runtime>(
             let status = child.wait().await.map_err(|e| e.to_string())?;
             if status.success() {
                 Ok(())
+            } else if utils::check_cancel_flag() {
+                Err("Processing aborted by user.".to_string())
             } else {
                 Err("ImageMagick PDF compilation failed.".to_string())
             }
         }
-        Err(e) => Err(format!("Failed to spawn ImageMagick PDF compilation: {}", e)),
+        Err(e) => {
+            if utils::check_cancel_flag() {
+                Err("Processing aborted by user.".to_string())
+            } else {
+                Err(format!("Failed to spawn ImageMagick PDF compilation: {}", e))
+            }
+        }
     };
 
     // Clean up temporary directory
@@ -328,7 +355,7 @@ async fn run_pdf_merge<R: tauri::Runtime>(
             total_files,
             percent: 100.0,
             phase: "Completed".to_string(),
-            status: "PDF Merge completed successfully.".to_string(),
+            status: "PDF combination completed successfully.".to_string(),
         },
     );
 

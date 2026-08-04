@@ -87,3 +87,12 @@ Enjoy a sleek Windows 11-native aesthetic featuring:
 * **Backend**: Rust + Tauri v2 (Tokio asynchronous runtime)
 * **Core Engine**: Built-in FFmpeg & ImageMagick integration with VideoLAN `libdav1d` AV1 decoding
 * **Frontend**: React + TypeScript + Vite with custom glassmorphism design system
+
+---
+
+## ❤️ Support & Donate
+
+Alitken is 100% free and developed with passion by **Kaleksanan Bagus**. If Alitken saved you time, saved your PC from bloatware, or made your video workflow smoother, consider buying me a coffee!
+
+* ☕ **Saweria (Indonesia)**: [saweria.co/curlyzed](https://saweria.co/curlyzed)
+* 💳 **PayPal (Global)**: [paypal.me/BagusMassani](https://paypal.me/BagusMassani)

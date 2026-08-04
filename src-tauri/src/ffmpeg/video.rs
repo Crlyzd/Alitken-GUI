@@ -36,7 +36,13 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         config.video_action, total_videos, gpu_caps.encoder
     ));
 
+    crate::utils::reset_cancel_flag();
+
     for (idx, file_path) in config.video_files.iter().enumerate() {
+        if crate::utils::check_cancel_flag() {
+            return Err("Processing aborted by user.".to_string());
+        }
+
         let meta = probe_file(ffprobe_path, file_path).await?;
         let input_path = Path::new(file_path);
         let parent_dir = if let Some(ref custom_dir) = config.custom_output_dir {

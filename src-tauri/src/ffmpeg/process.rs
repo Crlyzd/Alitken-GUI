@@ -32,6 +32,11 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
     let mut reader = BufReader::new(stdout).lines();
 
     while let Ok(Some(line)) = reader.next_line().await {
+        if crate::utils::check_cancel_flag() {
+            let _ = child.kill().await;
+            return Err("Processing aborted by user.".to_string());
+        }
+
         if line.starts_with("out_time_ms=") {
             let ms_str = line.trim_start_matches("out_time_ms=");
             if let Ok(cur_ms) = ms_str.parse::<f64>() {
@@ -62,10 +67,11 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
                             percent: pct,
                             current_part: cur_part,
                             total_parts,
-                            status: format!(
-                                "Processing file {}/{} ({:.1}%)",
-                                file_index, total_files, pct
-                            ),
+                            status: if total_parts > 1 {
+                                format!("Splitting segment {} of {}...", cur_part, total_parts)
+                            } else {
+                                "Transcoding video stream...".to_string()
+                            },
                         },
                     );
                 }

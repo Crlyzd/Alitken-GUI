@@ -27,14 +27,14 @@ pub fn get_initial_files() -> Vec<String> {
 pub async fn install_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_ffmpeg_dependencies(&app).await
+    dependencies::download_ffmpeg_dependencies(&app, 1, 1).await
 }
 
 #[tauri::command]
 pub async fn install_magick_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_magick_dependencies(&app).await
+    dependencies::download_magick_dependencies(&app, 1, 1).await
 }
 
 #[tauri::command]
@@ -238,5 +238,18 @@ pub async fn set_win11_context_menu_status(enable: bool) -> Result<bool, String>
     tokio::task::spawn_blocking(move || win_integration::set_win11_context_menu(enable))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn abort_processing() -> Result<(), String> {
+    utils::CANCEL_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst);
+    utils::log_info("Abort processing requested by user");
+
+    // Immediately kill active child processes
+    let _ = utils::create_hidden_cmd("taskkill")
+        .args(&["/F", "/IM", "ffmpeg.exe", "/IM", "magick.exe", "/IM", "ffprobe.exe"])
+        .status();
+
+    Ok(())
 }
 

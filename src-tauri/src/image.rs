@@ -55,6 +55,8 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
         config.output_format
     ));
 
+    utils::reset_cancel_flag();
+
     // Handle PDF merge vs individual file conversion
     if config.output_format == "PDF" && config.merge_pdf && config.input_files.len() > 1 {
         return run_pdf_merge(app, magick_path, &config).await;
@@ -62,6 +64,10 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
 
     let total = config.input_files.len();
     for (idx, input_path_str) in config.input_files.iter().enumerate() {
+        if utils::check_cancel_flag() {
+            return Err("Processing aborted by user.".to_string());
+        }
+
         let input_path = Path::new(input_path_str);
         if !input_path.exists() {
             continue;
@@ -81,7 +87,7 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
                 total_files: total,
                 percent: ((idx as f64) / (total as f64)) * 100.0,
                 phase: "Converting".to_string(),
-                status: format!("Processing file {} of {}: {}", idx + 1, total, file_name),
+                status: format!("Converting to {}...", config.output_format),
             },
         );
 

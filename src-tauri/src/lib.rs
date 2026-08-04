@@ -35,7 +35,8 @@ pub fn run() {
             expand_to_working_window,
             get_system_integration_status,
             set_sendto_status,
-            set_win11_context_menu_status
+            set_win11_context_menu_status,
+            abort_processing
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -175,8 +175,8 @@ export function App() {
         type: 'download',
         isProcessing: true,
         currentFile: payload.status,
-        fileIndex: 1,
-        totalFiles: 1,
+        fileIndex: payload.current_step || 1,
+        totalFiles: payload.total_steps || 1,
         percent: payload.percent,
         currentPart: 1,
         totalParts: 1,
@@ -515,6 +515,20 @@ export function App() {
     }
   };
 
+  const handleAbortProcessing = async () => {
+    try {
+      await invoke('abort_processing');
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: false,
+        completed: false,
+        error: 'Processing aborted by user.',
+      }));
+    } catch (err: any) {
+      console.error('Failed to abort processing:', err);
+    }
+  };
+
   const handleOpenDestination = async () => {
     let targetDir = currentMediaType === 'video' ? videoConfig.outputDir : imageConfig.outputDir;
     if (!targetDir && files.length > 0) {
@@ -754,6 +768,7 @@ export function App() {
         progress={progress}
         onClose={() => setProgress((prev) => ({ ...prev, completed: false, error: undefined }))}
         onOpenDestination={handleOpenDestination}
+        onAbort={handleAbortProcessing}
       />
 
       {/* About ALITKEN v0.4 Modal */}

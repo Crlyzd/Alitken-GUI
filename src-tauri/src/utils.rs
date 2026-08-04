@@ -8,6 +8,18 @@ use std::os::windows::process::CommandExt;
 
 pub const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+pub fn reset_cancel_flag() {
+    CANCEL_REQUESTED.store(false, Ordering::SeqCst);
+}
+
+pub fn check_cancel_flag() -> bool {
+    CANCEL_REQUESTED.load(Ordering::SeqCst)
+}
+
 static LOG_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Creates a std::process::Command with CREATE_NO_WINDOW flag on Windows

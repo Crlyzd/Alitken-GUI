@@ -21,6 +21,8 @@ pub struct DownloadProgressPayload {
     pub speed_mbps: f64,
     pub downloaded_mb: f64,
     pub total_mb: f64,
+    pub current_step: usize,
+    pub total_steps: usize,
 }
 
 /// Resolves paths for ffmpeg, ffprobe, and magick binaries in local bin/ or system PATH
@@ -149,6 +151,8 @@ async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
 /// Asynchronously downloads portable FFmpeg release zip directly from BtbN GitHub releases
 pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
+    current_step: usize,
+    total_steps: usize,
 ) -> Result<DependencyStatus, String> {
     let client = reqwest::Client::builder()
         .user_agent("AlitkenMediaConverter/2.0")
@@ -163,6 +167,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: 0.0,
             total_mb: 0.0,
+            current_step,
+            total_steps,
         },
     );
 
@@ -178,6 +184,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: 0.0,
             total_mb: 0.0,
+            current_step,
+            total_steps,
         },
     );
 
@@ -200,6 +208,9 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     use tokio::io::AsyncWriteExt;
 
     while let Some(chunk_result) = stream.next().await {
+        if crate::utils::check_cancel_flag() {
+            return Err("Download aborted by user.".to_string());
+        }
         let chunk = chunk_result.map_err(|e| format!("Download stream error: {}", e))?;
         file.write_all(&chunk)
             .await
@@ -223,11 +234,13 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         let _ = app.emit(
             "download-progress",
             DownloadProgressPayload {
-                status: format!("Downloading FFmpeg portable binaries ({:.1} MB/s)...", speed_mbps),
+                status: "Downloading FFmpeg portable binaries...".to_string(),
                 percent,
                 speed_mbps,
                 downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
                 total_mb: total_size as f64 / (1024.0 * 1024.0),
+                current_step,
+                total_steps,
             },
         );
     }
@@ -242,6 +255,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
             total_mb: total_size as f64 / (1024.0 * 1024.0),
+            current_step,
+            total_steps,
         },
     );
 
@@ -274,6 +289,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
 
 pub async fn download_magick_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
+    current_step: usize,
+    total_steps: usize,
 ) -> Result<DependencyStatus, String> {
     let client = reqwest::Client::builder()
         .user_agent("AlitkenMediaConverter/2.0")
@@ -288,6 +305,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: 0.0,
             total_mb: 0.0,
+            current_step,
+            total_steps,
         },
     );
 
@@ -303,6 +322,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: 0.0,
             total_mb: 0.0,
+            current_step,
+            total_steps,
         },
     );
 
@@ -329,6 +350,9 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     use tokio::io::AsyncWriteExt;
 
     while let Some(chunk_result) = stream.next().await {
+        if crate::utils::check_cancel_flag() {
+            return Err("Download aborted by user.".to_string());
+        }
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
         file.write_all(&chunk)
             .await
@@ -351,11 +375,13 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         let _ = app.emit(
             "download-progress",
             DownloadProgressPayload {
-                status: format!("Downloading ImageMagick portable binaries ({:.1} MB/s)...", speed_mbps),
+                status: "Downloading ImageMagick portable binaries...".to_string(),
                 percent,
                 speed_mbps,
                 downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
                 total_mb: total_size as f64 / (1024.0 * 1024.0),
+                current_step,
+                total_steps,
             },
         );
     }
@@ -370,6 +396,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
             speed_mbps: 0.0,
             downloaded_mb: downloaded as f64 / (1024.0 * 1024.0),
             total_mb: total_size as f64 / (1024.0 * 1024.0),
+            current_step,
+            total_steps,
         },
     );
 
@@ -403,11 +431,25 @@ pub async fn download_all_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
     let current = check_dependencies();
+    let mut total_steps = 0;
     if !current.ffmpeg_exists || !current.ffprobe_exists {
-        download_ffmpeg_dependencies(app).await?;
+        total_steps += 1;
     }
     if !current.magick_exists {
-        download_magick_dependencies(app).await?;
+        total_steps += 1;
+    }
+    if total_steps == 0 {
+        total_steps = 1;
+    }
+
+    let mut current_step = 0;
+    if !current.ffmpeg_exists || !current.ffprobe_exists {
+        current_step += 1;
+        download_ffmpeg_dependencies(app, current_step, total_steps).await?;
+    }
+    if !current.magick_exists {
+        current_step += 1;
+        download_magick_dependencies(app, current_step, total_steps).await?;
     }
     Ok(check_dependencies())
 }

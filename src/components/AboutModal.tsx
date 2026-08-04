@@ -92,7 +92,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
             <div>
               <h2
                 style={{
-                  fontFamily: 'Outfit',
+                  fontFamily: 'var(--font-heading)',
                   fontSize: '20px',
                   fontWeight: 700,
                   letterSpacing: '0.5px',

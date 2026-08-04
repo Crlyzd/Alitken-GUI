@@ -172,7 +172,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div>
               <h2
                 style={{
-                  fontFamily: 'Outfit',
+                  fontFamily: 'var(--font-heading)',
                   fontSize: '15px',
                   fontWeight: 700,
                   color: 'var(--text-main)',

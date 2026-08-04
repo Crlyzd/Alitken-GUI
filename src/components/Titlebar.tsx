@@ -110,7 +110,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.4))',
           }}
         />
-        <span style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
+        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
           ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>v0.4</span>
         </span>
       </div>

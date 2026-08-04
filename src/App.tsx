@@ -104,7 +104,19 @@ export function App() {
     videoConfigRef.current = videoConfig;
   }, [videoConfig]);
 
-  // Initial setup: Check dependencies and GPU acceleration, disable right-click in release mode
+  // Disable right-click context menu in production builds only.
+  // This MUST be its own useEffect — if merged with the listener useEffect below,
+  // the `return` inside `if (import.meta.env.PROD)` would cause an early exit
+  // that skips all three listen() calls, breaking all progress telemetry in release builds.
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+      document.addEventListener('contextmenu', handleContextMenu);
+      return () => document.removeEventListener('contextmenu', handleContextMenu);
+    }
+  }, []);
+
+  // Initial setup: Check dependencies, GPU acceleration, and register all IPC event listeners.
   useEffect(() => {
     checkDepsAndGpu('1');
 
@@ -122,14 +134,8 @@ export function App() {
       })
       .catch((err) => console.error('Failed to get initial files:', err));
 
-    if (import.meta.env.PROD) {
-      const handleContextMenu = (e: MouseEvent) => e.preventDefault();
-      document.addEventListener('contextmenu', handleContextMenu);
-      return () => {
-        document.removeEventListener('contextmenu', handleContextMenu);
-      };
-    }
-
+    // Register IPC event listeners for Rust backend telemetry.
+    // These must be registered unconditionally — in both dev and production builds.
     const unlistenProgress = listen('ffmpeg-progress', (event: any) => {
       const payload = event.payload;
       setProgress((prev) => ({
@@ -174,8 +180,10 @@ export function App() {
         percent: payload.percent,
         currentPart: 1,
         totalParts: 1,
-        status: payload.speed_mbps > 0 
-          ? `${payload.downloaded_mb.toFixed(1)} MB / ${payload.total_mb.toFixed(1)} MB (${payload.speed_mbps.toFixed(1)} MB/s)`
+        status: payload.speed_mbps > 0
+          ? `${payload.downloaded_mb.toFixed(1)} MB / ${
+              payload.total_mb > 0 ? payload.total_mb.toFixed(1) + ' MB' : '?? MB'
+            } (${payload.speed_mbps.toFixed(1)} MB/s)`
           : payload.status,
       }));
     });
@@ -346,6 +354,7 @@ export function App() {
         type: 'download',
         isProcessing: false,
         completed: true,
+        percent: 100, // Guarantee the bar fills to 100% on completion
         status: 'Portable binaries installed successfully!',
       }));
     } catch (err: any) {

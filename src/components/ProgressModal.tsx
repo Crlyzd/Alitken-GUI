@@ -107,7 +107,10 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                     progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
                   }`}
             </span>
-            <span style={{ color: 'var(--accent-cyan)' }}>{progress.percent.toFixed(1)}%</span>
+            {/* Always show 100% on completion regardless of state timing */}
+            <span style={{ color: 'var(--accent-cyan)' }}>
+              {progress.completed ? '100.0' : progress.percent.toFixed(1)}%
+            </span>
           </div>
 
           <div
@@ -122,7 +125,8 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
             <div
               style={{
                 height: '100%',
-                width: `${progress.percent}%`,
+                // Always render at full width on completion regardless of state timing
+                width: `${progress.completed ? 100 : progress.percent}%`,
                 background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
                 borderRadius: '5px',
                 transition: 'width 0.2s ease',

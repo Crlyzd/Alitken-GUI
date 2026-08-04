@@ -655,22 +655,45 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
 
     let total_count = sorted_inputs.len();
 
+    let get_img_info = |sec: f64| -> (usize, String) {
+        if total_count == 0 {
+            return (1, stem.clone());
+        }
+        let idx = if mode == "SEQUENCE" {
+            (sec * config.fps as f64).floor() as usize
+        } else {
+            (sec / config.duration_sec).floor() as usize
+        };
+        let clamped_idx = idx.min(total_count - 1);
+        let name = Path::new(&sorted_inputs[clamped_idx])
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| stem.clone());
+        (clamped_idx + 1, name)
+    };
+
     let has_non_native = sorted_inputs.iter().any(|p| !is_ffmpeg_native_image_format(p));
 
     // STREAM PIPE PATH: Zero-Disk In-Memory Pipe Streaming for Non-Native Formats (e.g. HEIC/TIFF/RAW)
     if has_non_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
         log_info("Non-native images detected (e.g. HEIC/TIFF). Engaging Zero-Disk In-Memory Pipe Stream.");
 
+        let initial_file_name = sorted_inputs
+            .first()
+            .and_then(|p| Path::new(p).file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| stem.clone());
+
         let _ = app.emit(
             "ffmpeg-progress",
             FfmpegProgressPayload {
-                current_file: stem.clone(),
+                current_file: initial_file_name,
                 file_index: 1,
-                total_files: 1,
+                total_files: total_count,
                 percent: 5.0,
                 current_part: 1,
                 total_parts: 1,
-                status: "Initializing in-memory ImageMagick -> FFmpeg pipe stream...".to_string(),
+                status: format!("Initializing in-memory pipe stream for {} images...", total_count),
             },
         );
 
@@ -793,12 +816,13 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
                             if let Ok(ms) = ms_str.parse::<f64>() {
                                 let current_sec = ms / 1_000_000.0;
                                 let pct = ((current_sec / total_expected_sec) * 100.0).clamp(0.0, 100.0);
+                                let (file_idx, file_name) = get_img_info(current_sec);
                                 let _ = app.emit(
                                     "ffmpeg-progress",
                                     FfmpegProgressPayload {
-                                        current_file: stem.clone(),
-                                        file_index: 1,
-                                        total_files: 1,
+                                        current_file: file_name,
+                                        file_index: file_idx,
+                                        total_files: total_count,
                                         percent: pct,
                                         current_part: 1,
                                         total_parts: 1,
@@ -868,12 +892,17 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             let temp_png = temp_dir.join(format!("alitken_frame_{}_{}.png", batch_id, idx));
             temp_files_to_cleanup.push(temp_png.clone());
 
+            let file_name = Path::new(raw_path_str)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| stem.clone());
+
             let _ = app.emit(
                 "ffmpeg-progress",
                 FfmpegProgressPayload {
-                    current_file: stem.clone(),
-                    file_index: 1,
-                    total_files: 1,
+                    current_file: file_name,
+                    file_index: idx + 1,
+                    total_files: total_count,
                     percent: ((idx as f64) / (total_count as f64)) * 20.0,
                     current_part: 1,
                     total_parts: 1,
@@ -1052,18 +1081,19 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
                 if let Ok(ms) = ms_str.parse::<f64>() {
                     let current_sec = ms / 1_000_000.0;
                     let render_pct = (current_sec / total_expected_sec)
-                        * if has_preprocessing { 90.0 } else { 100.0 };
+                        * if has_preprocessing { 80.0 } else { 100.0 };
                     let pct = if has_preprocessing {
-                        (10.0 + render_pct).clamp(10.0, 100.0)
+                        (20.0 + render_pct).clamp(20.0, 100.0)
                     } else {
                         render_pct.clamp(0.0, 100.0)
                     };
+                    let (file_idx, file_name) = get_img_info(current_sec);
                     let _ = app.emit(
                         "ffmpeg-progress",
                         FfmpegProgressPayload {
-                            current_file: stem.clone(),
-                            file_index: 1,
-                            total_files: 1,
+                            current_file: file_name,
+                            file_index: file_idx,
+                            total_files: total_count,
                             percent: pct,
                             current_part: 1,
                             total_parts: 1,

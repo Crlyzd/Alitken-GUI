@@ -1,4 +1,4 @@
-use crate::utils::{create_tokio_hidden_cmd, log_error, log_info};
+use crate::utils::{create_hidden_cmd, create_tokio_hidden_cmd, log_error, log_info};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -654,6 +654,155 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     }
 
     let total_count = sorted_inputs.len();
+
+    let has_non_native = sorted_inputs.iter().any(|p| !is_ffmpeg_native_image_format(p));
+
+    // STREAM PIPE PATH: Zero-Disk In-Memory Pipe Streaming for Non-Native Formats (e.g. HEIC/TIFF/RAW)
+    if has_non_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
+        log_info("Non-native images detected (e.g. HEIC/TIFF). Engaging Zero-Disk In-Memory Pipe Stream.");
+
+        let _ = app.emit(
+            "ffmpeg-progress",
+            FfmpegProgressPayload {
+                current_file: stem.clone(),
+                file_index: 1,
+                total_files: 1,
+                percent: 5.0,
+                current_part: 1,
+                total_parts: 1,
+                status: "Initializing in-memory ImageMagick -> FFmpeg pipe stream...".to_string(),
+            },
+        );
+
+        let mut magick_cmd = create_hidden_cmd(magick_path);
+        for path in &sorted_inputs {
+            magick_cmd.arg(path);
+        }
+
+        magick_cmd
+            .arg("-resize")
+            .arg(format!("{}x{}", scale_w, scale_h))
+            .arg("-background")
+            .arg("black")
+            .arg("-gravity")
+            .arg("center")
+            .arg("-extent")
+            .arg(format!("{}x{}", scale_w, scale_h))
+            .arg("ppm:-");
+
+        magick_cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        if let Ok(mut magick_child) = magick_cmd.spawn() {
+            if let Some(magick_stdout) = magick_child.stdout.take() {
+                let input_fps = if mode == "SEQUENCE" {
+                    config.fps as f64
+                } else {
+                    1.0 / config.duration_sec
+                };
+
+                let mut ffmpeg_cmd = create_tokio_hidden_cmd(ffmpeg_path);
+                ffmpeg_cmd.args([
+                    "-y",
+                    "-f",
+                    "image2pipe",
+                    "-framerate",
+                    &input_fps.to_string(),
+                    "-i",
+                    "-",
+                ]);
+
+                if let Some(ref audio_path) = config.audio_path {
+                    if Path::new(audio_path).exists() {
+                        ffmpeg_cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+                    }
+                }
+
+                ffmpeg_cmd.args(["-c:v", &gpu_caps.encoder]);
+                for arg in gpu_caps.encoder_args.split_whitespace() {
+                    ffmpeg_cmd.arg(arg);
+                }
+                ffmpeg_cmd.args(["-r", &config.fps.to_string()]);
+                ffmpeg_cmd.args(["-fps_mode", "cfr"]);
+                ffmpeg_cmd.args(["-vf", "setsar=1,format=yuv420p"]);
+                ffmpeg_cmd.args(["-progress", "pipe:1"]);
+                ffmpeg_cmd.arg(resolved_out.to_string_lossy().to_string());
+
+                ffmpeg_cmd.stdin(Stdio::from(magick_stdout));
+                ffmpeg_cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+                if let Ok(mut ffmpeg_child) = ffmpeg_cmd.spawn() {
+                    let total_expected_sec = if mode == "SEQUENCE" {
+                        (total_count as f64) / (config.fps as f64)
+                    } else {
+                        config.duration_sec * (total_count as f64)
+                    };
+
+                    let stderr_stream = ffmpeg_child.stderr.take();
+                    let stderr_handle = tokio::spawn(async move {
+                        let mut lines = Vec::new();
+                        if let Some(stderr) = stderr_stream {
+                            let mut reader = BufReader::new(stderr).lines();
+                            while let Ok(Some(line)) = reader.next_line().await {
+                                lines.push(line);
+                            }
+                        }
+                        let start = lines.len().saturating_sub(40);
+                        lines[start..].join("\n")
+                    });
+
+                    if let Some(stdout) = ffmpeg_child.stdout.take() {
+                        let mut reader = BufReader::new(stdout).lines();
+                        while let Ok(Some(line)) = reader.next_line().await {
+                            if line.starts_with("out_time_ms=") {
+                                let ms_str = line.trim_start_matches("out_time_ms=");
+                                if let Ok(ms) = ms_str.parse::<f64>() {
+                                    let current_sec = ms / 1_000_000.0;
+                                    let pct = ((current_sec / total_expected_sec) * 100.0).clamp(0.0, 100.0);
+                                    let _ = app.emit(
+                                        "ffmpeg-progress",
+                                        FfmpegProgressPayload {
+                                            current_file: stem.clone(),
+                                            file_index: 1,
+                                            total_files: 1,
+                                            percent: pct,
+                                            current_part: 1,
+                                            total_parts: 1,
+                                            status: format!(
+                                                "Streaming & Encoding video ({:.1}s / {:.1}s)...",
+                                                current_sec, total_expected_sec
+                                            ),
+                                        },
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    let ffmpeg_status = ffmpeg_child.wait().await;
+                    let magick_status = tokio::task::spawn_blocking(move || magick_child.wait()).await;
+                    let stderr_output = stderr_handle.await.unwrap_or_default();
+
+                    if let (Ok(f_st), Ok(Ok(m_st))) = (ffmpeg_status, magick_status) {
+                        if f_st.success() && m_st.success() {
+                            log_info(&format!(
+                                "Successfully completed Zero-Disk Image-to-Video conversion -> {:?}",
+                                resolved_out
+                            ));
+                            return Ok(());
+                        } else {
+                            log_error(&format!(
+                                "Pipe streaming failed (FFmpeg exit: {:?}, Magick exit: {:?}). Stderr:\n{}",
+                                f_st.code(),
+                                m_st.code(),
+                                stderr_output
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        log_info("Pipe streaming encountered an error; falling back to temporary file pre-normalization routine.");
+    }
 
     let frame_dur = if mode == "SEQUENCE" {
         1.0 / (config.fps as f64)

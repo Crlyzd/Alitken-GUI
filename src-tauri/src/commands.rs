@@ -229,6 +229,27 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     Ok(())
 }
 
+/// Collapses the working window (980×700, resizable, min 840×580) back to the
+/// fixed startup state (560×440, non-resizable). Called from the frontend when
+/// the file queue is cleared (via "Clear All" or last-file removal).
+/// Ordering is critical: disable resize → clear min-size → apply startup size,
+/// otherwise Tauri clamps the new size to the existing 840×580 floor.
+#[tauri::command]
+pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
+    use tauri::LogicalSize;
+    // 1. Lock resize FIRST so the window can shrink below the working min-size.
+    window.set_resizable(false).map_err(|e| e.to_string())?;
+    // 2. Clear the working-state minimum constraints.
+    window
+        .set_min_size(None::<LogicalSize<u32>>)
+        .map_err(|e| e.to_string())?;
+    // 3. Restore fixed startup dimensions.
+    window
+        .set_size(LogicalSize::new(560u32, 440u32))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_system_integration_status() -> IntegrationStatus {
     tokio::task::spawn_blocking(win_integration::get_integration_status)

@@ -553,6 +553,16 @@ export function App() {
     }
   };
 
+  const handleClearFiles = () => {
+    pendingPathsRef.current.clear();
+    setFiles([]);
+    // Collapse back to the fixed startup window (560×440, non-resizable)
+    // whenever the queue is emptied via the "Clear All" button.
+    invoke('collapse_to_startup_window').catch((err) =>
+      console.error('Failed to collapse to startup window:', err)
+    );
+  };
+
   const handleOpenDestination = async () => {
     let targetDir = currentMediaType === 'video' ? videoConfig.outputDir : imageConfig.outputDir;
     if (!targetDir && files.length > 0) {
@@ -763,12 +773,18 @@ export function App() {
               if (fileToRemove) {
                 pendingPathsRef.current.delete(canonicalPathKey(fileToRemove.path));
               }
-              setFiles((prev) => prev.filter((_, i) => i !== idx));
+              setFiles((prev) => {
+                const next = prev.filter((_, i) => i !== idx);
+                // Collapse back to startup window when the last file is removed.
+                if (next.length === 0) {
+                  invoke('collapse_to_startup_window').catch((err) =>
+                    console.error('Failed to collapse to startup window:', err)
+                  );
+                }
+                return next;
+              });
             }}
-            onClearFiles={() => {
-              pendingPathsRef.current.clear();
-              setFiles([]);
-            }}
+            onClearFiles={handleClearFiles}
             onReorderFiles={(sortedFiles) => setFiles(sortedFiles)}
           />
 

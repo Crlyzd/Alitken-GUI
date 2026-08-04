@@ -33,6 +33,7 @@ pub fn run() {
             toggle_maximize_window,
             close_window,
             expand_to_working_window,
+            collapse_to_startup_window,
             get_system_integration_status,
             set_sendto_status,
             set_win11_context_menu_status,

@@ -120,8 +120,25 @@ export function App() {
   useEffect(() => {
     checkDepsAndGpu('1');
 
-    const handleFocus = () => {
-      checkDepsAndGpu(videoConfigRef.current.codecChoice);
+    const handleFocus = async () => {
+      try {
+        const deps: any = await invoke('check_app_dependencies');
+        const nextStatus = {
+          ffmpeg: deps.ffmpeg_exists,
+          ffprobe: deps.ffprobe_exists,
+          magick: deps.magick_exists,
+        };
+
+        setDepsStatus((prev) => {
+          // If ffmpeg was missing previously and now exists, trigger GPU probe
+          if (!prev.ffmpeg && deps.ffmpeg_exists) {
+            checkDepsAndGpu(videoConfigRef.current.codecChoice);
+          }
+          return nextStatus;
+        });
+      } catch (err) {
+        console.error('Focus dependency check failed:', err);
+      }
     };
     window.addEventListener('focus', handleFocus);
 

@@ -1,5 +1,7 @@
 use crate::utils::create_hidden_cmd;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpuCapability {
@@ -10,8 +12,22 @@ pub struct GpuCapability {
     pub details: Option<String>,
 }
 
-/// Tests if a given FFmpeg encoder initializes cleanly on the current hardware
-fn test_encoder_support(ffmpeg_path: &str, encoder: &str) -> bool {
+static GPU_NAME_CACHE: OnceLock<String> = OnceLock::new();
+static ENCODER_TEST_CACHE: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+
+fn get_encoder_cache() -> &'static Mutex<HashMap<String, bool>> {
+    ENCODER_TEST_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Tests if a given FFmpeg encoder initializes cleanly on the current hardware (cached in RAM)
+fn test_encoder_support_cached(ffmpeg_path: &str, encoder: &str) -> bool {
+    let key = format!("{}:{}", ffmpeg_path, encoder);
+    if let Ok(cache) = get_encoder_cache().lock() {
+        if let Some(&result) = cache.get(&key) {
+            return result;
+        }
+    }
+
     let output = create_hidden_cmd(ffmpeg_path)
         .args([
             "-hide_banner",
@@ -29,10 +45,16 @@ fn test_encoder_support(ffmpeg_path: &str, encoder: &str) -> bool {
         ])
         .output();
 
-    match output {
+    let result = match output {
         Ok(out) => out.status.success(),
         Err(_) => false,
+    };
+
+    if let Ok(mut cache) = get_encoder_cache().lock() {
+        cache.insert(key, result);
     }
+
+    result
 }
 
 struct VendorCandidate {
@@ -103,11 +125,11 @@ pub fn get_gpu_encoder(codec_choice: &str, ffmpeg_path: &str) -> GpuCapability {
         });
     }
 
-    // 3. Test candidates in order. If one succeeds, use it!
+    // 3. Test candidates in order using cached encoder support test. If one succeeds, use it!
     let mut failed_notes: Vec<String> = Vec::new();
 
     for cand in candidates {
-        if test_encoder_support(ffmpeg_path, cand.encoder) {
+        if test_encoder_support_cached(ffmpeg_path, cand.encoder) {
             return GpuCapability {
                 hardware_name: cand.hw_name.to_string(),
                 encoder: cand.encoder.to_string(),
@@ -136,27 +158,36 @@ pub fn get_gpu_encoder(codec_choice: &str, ffmpeg_path: &str) -> GpuCapability {
     }
 }
 
-/// Helper function to query GPU vendor strings on Windows
+/// Helper function to query GPU vendor strings on Windows (cached in RAM via OnceLock)
 fn query_system_gpu_name() -> String {
-    let output = create_hidden_cmd("wmic")
-        .args(["path", "win32_videocontroller", "get", "name"])
-        .output();
+    GPU_NAME_CACHE
+        .get_or_init(|| {
+            let output = create_hidden_cmd("wmic")
+                .args(["path", "win32_videocontroller", "get", "name"])
+                .output();
 
-    if let Ok(out) = output {
-        let text = String::from_utf8_lossy(&out.stdout).to_string();
-        if !text.is_empty() {
-            return text;
-        }
-    }
+            if let Ok(out) = output {
+                let text = String::from_utf8_lossy(&out.stdout).to_string();
+                if !text.trim().is_empty() {
+                    return text;
+                }
+            }
 
-    // PowerShell fallback
-    let ps_output = create_hidden_cmd("powershell")
-        .args(["-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"])
-        .output();
+            // PowerShell fallback
+            let ps_output = create_hidden_cmd("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
+                ])
+                .output();
 
-    if let Ok(out) = ps_output {
-        return String::from_utf8_lossy(&out.stdout).to_string();
-    }
+            if let Ok(out) = ps_output {
+                return String::from_utf8_lossy(&out.stdout).to_string();
+            }
 
-    "Generic GPU".to_string()
+            "Generic GPU".to_string()
+        })
+        .clone()
 }
+

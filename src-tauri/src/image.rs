@@ -34,6 +34,32 @@ pub struct ImageProgressPayload {
     pub status: String,
 }
 
+fn validate_image_safety(path: &Path) -> Result<(), String> {
+    let (w, h) = utils::get_image_dimensions(path);
+    if w > 0 && h > 0 {
+        let uncompressed_bytes = (w as u64) * (h as u64) * 4;
+        // 1 GiB limit = 1,073,741,824 bytes (~268 Megapixels)
+        if uncompressed_bytes > 1_073_741_824 {
+            let file_name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            let err = format!(
+                "Image '{}' exceeds maximum supported resolution limit ({}x{}, ~{:.1} MP, ~{:.2} GB uncompressed RAM). Skipped for safety.",
+                file_name,
+                w,
+                h,
+                (w as f64 * h as f64) / 1_000_000.0,
+                uncompressed_bytes as f64 / (1024.0 * 1024.0 * 1024.0)
+            );
+            utils::log_error(&err);
+            return Err(err);
+        }
+    }
+    Ok(())
+}
+
 pub async fn run_image_pipeline<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     magick_path: &str,
@@ -79,6 +105,21 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
             .to_string_lossy()
             .to_string();
 
+        if let Err(e) = validate_image_safety(input_path) {
+            let _ = app.emit(
+                "image-progress",
+                ImageProgressPayload {
+                    current_file: file_name,
+                    file_index: idx + 1,
+                    total_files: total,
+                    percent: (((idx + 1) as f64) / (total as f64)) * 100.0,
+                    phase: "Skipped".to_string(),
+                    status: e,
+                },
+            );
+            continue;
+        }
+
         let _ = app.emit(
             "image-progress",
             ImageProgressPayload {
@@ -94,7 +135,7 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
         let out_file = build_output_filepath(input_path, &config)?;
 
         let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
-        cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
+        cmd.args(["-limit", "memory", "1GiB", "-limit", "map", "2GiB"]);
         cmd.arg(input_path_str);
 
         // Quality and scaling flags
@@ -231,6 +272,21 @@ async fn run_pdf_merge<R: tauri::Runtime>(
             .to_string_lossy()
             .to_string();
 
+        if let Err(e) = validate_image_safety(input_path) {
+            let _ = app.emit(
+                "image-progress",
+                ImageProgressPayload {
+                    current_file: file_name,
+                    file_index: idx + 1,
+                    total_files,
+                    percent: (((idx + 1) as f64) / (total_files as f64)) * 85.0,
+                    phase: "Skipped".to_string(),
+                    status: e,
+                },
+            );
+            continue;
+        }
+
         let _ = app.emit(
             "image-progress",
             ImageProgressPayload {
@@ -246,7 +302,7 @@ async fn run_pdf_merge<R: tauri::Runtime>(
         let temp_jpg = temp_dir.join(format!("frame_{:05}.jpg", idx));
 
         let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
-        cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
+        cmd.args(["-limit", "memory", "1GiB", "-limit", "map", "2GiB"]);
         cmd.arg(input_str);
 
         if let Some(q) = config.pdf_quality {
@@ -310,7 +366,7 @@ async fn run_pdf_merge<R: tauri::Runtime>(
     );
 
     let mut merge_cmd = utils::create_tokio_hidden_cmd(magick_path);
-    merge_cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
+    merge_cmd.args(["-limit", "memory", "1GiB", "-limit", "map", "2GiB"]);
 
     for frame in &temp_frames {
         merge_cmd.arg(frame);

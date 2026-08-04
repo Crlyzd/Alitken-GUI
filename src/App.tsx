@@ -36,7 +36,7 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string }>({
+  const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string; details?: string }>({
     name: 'Detecting GPU...',
     encoder: '',
   });
@@ -211,7 +211,7 @@ export function App() {
           codecChoice: codec,
           ffmpegPath: deps.ffmpeg_path,
         });
-        setHardwareInfo({ name: gpu.hardware_name, encoder: gpu.encoder });
+        setHardwareInfo({ name: gpu.hardware_name, encoder: gpu.encoder, details: gpu.details });
       }
       return status;
     } catch (err) {
@@ -552,6 +552,7 @@ export function App() {
       <Titlebar
         hardwareName={hardwareInfo.name}
         encoderName={hardwareInfo.encoder}
+        hardwareDetails={hardwareInfo.details}
         onOpenAbout={() => setIsAboutOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />

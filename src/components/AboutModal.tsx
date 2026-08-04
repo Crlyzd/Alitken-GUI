@@ -9,6 +9,7 @@ interface AboutModalProps {
   hardwareInfo?: {
     name: string;
     encoder: string;
+    details?: string;
   };
 }
 
@@ -300,10 +301,11 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
           {hardwareInfo?.name && (
             <div
+              title={hardwareInfo.details || undefined}
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
+                gap: '4px',
                 padding: '6px 12px',
                 borderRadius: '8px',
                 background: isGpu ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
@@ -312,11 +314,18 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
                 fontWeight: 600,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
-                <span>Active Encoder: {hardwareInfo.name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
+                  <span>Active Encoder: {hardwareInfo.name}</span>
+                </div>
+                {hardwareInfo.encoder && <span>({hardwareInfo.encoder})</span>}
               </div>
-              {hardwareInfo.encoder && <span>({hardwareInfo.encoder})</span>}
+              {hardwareInfo.details && (
+                <div style={{ fontSize: '10px', opacity: 0.8, fontWeight: 400 }}>
+                  {hardwareInfo.details}
+                </div>
+              )}
             </div>
           )}
 

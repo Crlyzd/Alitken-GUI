@@ -7,6 +7,7 @@ pub struct GpuCapability {
     pub encoder: String,
     pub encoder_args: String,
     pub extension: String,
+    pub details: Option<String>,
 }
 
 /// Tests if a given FFmpeg encoder initializes cleanly on the current hardware
@@ -34,65 +35,104 @@ fn test_encoder_support(ffmpeg_path: &str, encoder: &str) -> bool {
     }
 }
 
+struct VendorCandidate {
+    vendor_name: &'static str,
+    hw_name: &'static str,
+    encoder: &'static str,
+    args: &'static str,
+    ext: &'static str,
+}
+
 /// Queries graphics hardware and maps requested video codec ("1"=H.264, "2"=HEVC, "3"=AV1)
 /// to the optimal hardware-accelerated FFmpeg encoder, falling back to CPU software.
 pub fn get_gpu_encoder(codec_choice: &str, ffmpeg_path: &str) -> GpuCapability {
     // 1. Determine CPU Default Fallbacks
-    let (mut encoder, mut enc_args, mut ext) = match codec_choice {
+    let (encoder, enc_args, ext) = match codec_choice {
         "2" => ("libx265".to_string(), "-preset fast".to_string(), "mp4".to_string()),
         "3" => ("libaom-av1".to_string(), "-cpu-used 6".to_string(), "mkv".to_string()),
         _ => ("libx264".to_string(), "-preset fast".to_string(), "mp4".to_string()),
     };
-    let mut hw_name = "CPU (Software Fallback)".to_string();
 
     // 2. Query Windows Video Controllers via System Information / WMIC / PowerShell fallbacks
     let gpu_string = query_system_gpu_name();
 
-    let mut cand_hw_name = "";
-    let mut cand_encoder = "";
-    let mut cand_args = "";
-    let mut cand_ext = "";
+    let mut candidates: Vec<VendorCandidate> = Vec::new();
 
     if gpu_string.contains("NVIDIA") {
-        cand_hw_name = "NVIDIA NVENC";
-        match codec_choice {
-            "2" => { cand_encoder = "hevc_nvenc"; cand_args = "-preset p4 -tune hq"; cand_ext = "mp4"; }
-            "3" => { cand_encoder = "av1_nvenc"; cand_args = "-preset p4 -tune hq"; cand_ext = "mkv"; }
-            _   => { cand_encoder = "h264_nvenc"; cand_args = "-preset p4 -tune hq"; cand_ext = "mp4"; }
-        }
-    } else if gpu_string.contains("AMD") || gpu_string.contains("Radeon") {
-        cand_hw_name = "AMD AMF";
-        match codec_choice {
-            "2" => { cand_encoder = "hevc_amf"; cand_args = "-quality quality"; cand_ext = "mp4"; }
-            "3" => { cand_encoder = "av1_amf"; cand_args = "-quality quality"; cand_ext = "mkv"; }
-            _   => { cand_encoder = "h264_amf"; cand_args = "-quality quality"; cand_ext = "mp4"; }
-        }
-    } else if gpu_string.contains("Intel") {
-        cand_hw_name = "Intel QuickSync";
-        match codec_choice {
-            "2" => { cand_encoder = "hevc_qsv"; cand_args = "-preset medium"; cand_ext = "mp4"; }
-            "3" => { cand_encoder = "av1_qsv"; cand_args = "-preset medium"; cand_ext = "mkv"; }
-            _   => { cand_encoder = "h264_qsv"; cand_args = "-preset medium"; cand_ext = "mp4"; }
+        let (cand_encoder, cand_args, cand_ext) = match codec_choice {
+            "2" => ("hevc_nvenc", "-preset p4 -tune hq", "mp4"),
+            "3" => ("av1_nvenc", "-preset p4 -tune hq", "mkv"),
+            _   => ("h264_nvenc", "-preset p4 -tune hq", "mp4"),
+        };
+        candidates.push(VendorCandidate {
+            vendor_name: "NVIDIA",
+            hw_name: "NVIDIA NVENC",
+            encoder: cand_encoder,
+            args: cand_args,
+            ext: cand_ext,
+        });
+    }
+
+    if gpu_string.contains("AMD") || gpu_string.contains("Radeon") {
+        let (cand_encoder, cand_args, cand_ext) = match codec_choice {
+            "2" => ("hevc_amf", "-quality quality", "mp4"),
+            "3" => ("av1_amf", "-quality quality", "mkv"),
+            _   => ("h264_amf", "-quality quality", "mp4"),
+        };
+        candidates.push(VendorCandidate {
+            vendor_name: "AMD",
+            hw_name: "AMD AMF",
+            encoder: cand_encoder,
+            args: cand_args,
+            ext: cand_ext,
+        });
+    }
+
+    if gpu_string.contains("Intel") {
+        let (cand_encoder, cand_args, cand_ext) = match codec_choice {
+            "2" => ("hevc_qsv", "-preset medium", "mp4"),
+            "3" => ("av1_qsv", "-preset medium", "mkv"),
+            _   => ("h264_qsv", "-preset medium", "mp4"),
+        };
+        candidates.push(VendorCandidate {
+            vendor_name: "Intel",
+            hw_name: "Intel QuickSync",
+            encoder: cand_encoder,
+            args: cand_args,
+            ext: cand_ext,
+        });
+    }
+
+    // 3. Test candidates in order. If one succeeds, use it!
+    let mut failed_notes: Vec<String> = Vec::new();
+
+    for cand in candidates {
+        if test_encoder_support(ffmpeg_path, cand.encoder) {
+            return GpuCapability {
+                hardware_name: cand.hw_name.to_string(),
+                encoder: cand.encoder.to_string(),
+                encoder_args: cand.args.to_string(),
+                extension: cand.ext.to_string(),
+                details: None,
+            };
+        } else {
+            failed_notes.push(format!("{} GPU lacks {} support", cand.vendor_name, cand.encoder));
         }
     }
 
-    // 3. Verify if Candidate Hardware Encoder dry-runs successfully
-    if !cand_encoder.is_empty() {
-        if test_encoder_support(ffmpeg_path, cand_encoder) {
-            hw_name = cand_hw_name.to_string();
-            encoder = cand_encoder.to_string();
-            enc_args = cand_args.to_string();
-            ext = cand_ext.to_string();
-        } else {
-            hw_name = format!("CPU (Software Fallback - GPU lacks {} support)", cand_encoder);
-        }
-    }
+    // 4. Fallback to CPU Software
+    let details_note = if !failed_notes.is_empty() {
+        Some(format!("CPU Fallback ({}", failed_notes.join(", ")))
+    } else {
+        Some("CPU Software Encoder".to_string())
+    };
 
     GpuCapability {
-        hardware_name: hw_name,
+        hardware_name: "CPU (Software)".to_string(),
         encoder,
         encoder_args: enc_args,
         extension: ext,
+        details: details_note,
     }
 }
 

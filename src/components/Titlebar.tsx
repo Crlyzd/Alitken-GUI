@@ -6,6 +6,7 @@ import { Minus, Square, X, Cpu, Zap, Info, Settings } from 'lucide-react';
 interface TitlebarProps {
   hardwareName?: string;
   encoderName?: string;
+  hardwareDetails?: string;
   onOpenAbout?: () => void;
   onOpenSettings?: () => void;
 }
@@ -13,6 +14,7 @@ interface TitlebarProps {
 export const Titlebar: React.FC<TitlebarProps> = ({
   hardwareName,
   encoderName,
+  hardwareDetails,
   onOpenAbout,
   onOpenSettings,
 }) => {
@@ -57,6 +59,19 @@ export const Titlebar: React.FC<TitlebarProps> = ({
 
   const isGpu = hardwareName && !hardwareName.toLowerCase().includes('cpu');
 
+  // Format concise badge text for narrow header bar
+  const displayHardwareName = hardwareName
+    ? hardwareName.includes('Software Fallback')
+      ? 'CPU (Software)'
+      : hardwareName
+    : '';
+
+  const tooltipText = hardwareDetails
+    ? `${displayHardwareName} ${encoderName ? `(${encoderName})` : ''} - ${hardwareDetails}`
+    : encoderName
+    ? `${hardwareName} (${encoderName})`
+    : hardwareName || '';
+
   return (
     <div
       style={{
@@ -81,6 +96,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           alignItems: 'center',
           gap: '10px',
           cursor: 'default',
+          flexShrink: 0,
         }}
       >
         <img
@@ -100,13 +116,14 @@ export const Titlebar: React.FC<TitlebarProps> = ({
       </div>
 
       {/* Flexible Drag Region Spacer */}
-      <div data-tauri-drag-region style={{ flex: 1, height: '100%', cursor: 'default' }} />
+      <div data-tauri-drag-region style={{ flex: 1, minWidth: '40px', height: '100%', cursor: 'default' }} />
 
       {/* GPU Hardware Status Badge & Control Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 1, minWidth: 0 }}>
         {hardwareName && (
           <div
             data-tauri-drag-region
+            title={tooltipText}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -118,11 +135,18 @@ export const Titlebar: React.FC<TitlebarProps> = ({
               background: isGpu ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
               border: `1px solid ${isGpu ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
               color: isGpu ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+              maxWidth: '200px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flexShrink: 1,
             }}
           >
-            {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
-            <span>{hardwareName}</span>
-            {encoderName && <span style={{ opacity: 0.7 }}>({encoderName})</span>}
+            {isGpu ? <Zap size={12} style={{ flexShrink: 0 }} /> : <Cpu size={12} style={{ flexShrink: 0 }} />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {displayHardwareName}
+            </span>
+            {encoderName && <span style={{ opacity: 0.7, flexShrink: 0 }}>({encoderName})</span>}
           </div>
         )}
 

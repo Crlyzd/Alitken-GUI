@@ -154,6 +154,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     current_step: usize,
     total_steps: usize,
 ) -> Result<DependencyStatus, String> {
+    crate::utils::reset_cancel_flag();
+
     let client = reqwest::Client::builder()
         .user_agent("AlitkenMediaConverter/2.0")
         .build()
@@ -176,6 +178,11 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     let target_dir = get_local_bin_dir();
     let zip_path = target_dir.join("ffmpeg_download.zip");
 
+    // Clean up any stale partial zip from previous attempts
+    if zip_path.exists() {
+        let _ = fs::remove_file(&zip_path);
+    }
+
     let _ = app.emit(
         "download-progress",
         DownloadProgressPayload {
@@ -189,16 +196,22 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         },
     );
 
-    let res = client
-        .get(&download_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to initiate download: {}", e))?;
+    let res = match client.get(&download_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = fs::remove_file(&zip_path);
+            return Err(format!("Failed to initiate download: {}", e));
+        }
+    };
 
     let total_size = res.content_length().unwrap_or(0);
-    let mut file = tokio::fs::File::create(&zip_path)
-        .await
-        .map_err(|e| format!("Failed to create zip file: {}", e))?;
+    let mut file = match tokio::fs::File::create(&zip_path).await {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = fs::remove_file(&zip_path);
+            return Err(format!("Failed to create zip file: {}", e));
+        }
+    };
 
     let mut stream = res.bytes_stream();
     let mut downloaded: u64 = 0;
@@ -209,12 +222,24 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
 
     while let Some(chunk_result) = stream.next().await {
         if crate::utils::check_cancel_flag() {
+            drop(file);
+            let _ = fs::remove_file(&zip_path);
             return Err("Download aborted by user.".to_string());
         }
-        let chunk = chunk_result.map_err(|e| format!("Download stream error: {}", e))?;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Write error: {}", e))?;
+        let chunk = match chunk_result {
+            Ok(c) => c,
+            Err(e) => {
+                drop(file);
+                let _ = fs::remove_file(&zip_path);
+                return Err(format!("Download stream error: {}", e));
+            }
+        };
+
+        if let Err(e) = file.write_all(&chunk).await {
+            drop(file);
+            let _ = fs::remove_file(&zip_path);
+            return Err(format!("Write error: {}", e));
+        }
 
         downloaded += chunk.len() as u64;
 
@@ -245,7 +270,12 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         );
     }
 
-    file.flush().await.map_err(|e| format!("Flush error: {}", e))?;
+    if let Err(e) = file.flush().await {
+        drop(file);
+        let _ = fs::remove_file(&zip_path);
+        return Err(format!("Flush error: {}", e));
+    }
+    drop(file);
 
     let _ = app.emit(
         "download-progress",
@@ -261,11 +291,31 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     );
 
     // Extract zip
-    let zip_file = fs::File::open(&zip_path).map_err(|e| format!("Open zip failed: {}", e))?;
-    let mut archive = zip::ZipArchive::new(zip_file).map_err(|e| format!("Archive read error: {}", e))?;
+    let zip_file = match fs::File::open(&zip_path) {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = fs::remove_file(&zip_path);
+            return Err(format!("Open zip failed: {}", e));
+        }
+    };
+
+    let mut archive = match zip::ZipArchive::new(zip_file) {
+        Ok(a) => a,
+        Err(e) => {
+            let _ = fs::remove_file(&zip_path);
+            return Err(format!("Archive read error: {}", e));
+        }
+    };
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| format!("Zip file index error: {}", e))?;
+        let mut file = match archive.by_index(i) {
+            Ok(f) => f,
+            Err(e) => {
+                let _ = fs::remove_file(&zip_path);
+                return Err(format!("Zip file index error: {}", e));
+            }
+        };
+
         let filename = match file.enclosed_name() {
             Some(path) => path.to_owned(),
             None => continue,
@@ -276,13 +326,22 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         {
             if let Some(target_file_name) = filename.file_name() {
                 let outpath = target_dir.join(target_file_name);
-                let mut outfile = fs::File::create(&outpath).map_err(|e| format!("Extract write error: {}", e))?;
-                std::io::copy(&mut file, &mut outfile).map_err(|e| format!("Copy failed: {}", e))?;
+                let mut outfile = match fs::File::create(&outpath) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = fs::remove_file(&zip_path);
+                        return Err(format!("Extract write error: {}", e));
+                    }
+                };
+                if let Err(e) = std::io::copy(&mut file, &mut outfile) {
+                    let _ = fs::remove_file(&zip_path);
+                    return Err(format!("Copy failed: {}", e));
+                }
             }
         }
     }
 
-    let _ = fs::remove_file(zip_path);
+    let _ = fs::remove_file(&zip_path);
 
     Ok(check_dependencies())
 }
@@ -292,6 +351,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     current_step: usize,
     total_steps: usize,
 ) -> Result<DependencyStatus, String> {
+    crate::utils::reset_cancel_flag();
+
     let client = reqwest::Client::builder()
         .user_agent("AlitkenMediaConverter/2.0")
         .build()
@@ -314,6 +375,11 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     let target_dir = get_local_bin_dir();
     let archive_path = target_dir.join("magick_download.7z");
 
+    // Clean up any stale partial archive from previous attempts
+    if archive_path.exists() {
+        let _ = fs::remove_file(&archive_path);
+    }
+
     let _ = app.emit(
         "download-progress",
         DownloadProgressPayload {
@@ -327,20 +393,27 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         },
     );
 
-    let res = client
-        .get(download_url)
-        .send()
-        .await
-        .map_err(|e| format!("Download request error: {}", e))?;
+    let res = match client.get(download_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = fs::remove_file(&archive_path);
+            return Err(format!("Download request error: {}", e));
+        }
+    };
 
     if !res.status().is_success() {
+        let _ = fs::remove_file(&archive_path);
         return Err(format!("Server returned HTTP {}", res.status()));
     }
 
     let total_size = res.content_length().unwrap_or(0);
-    let mut file = tokio::fs::File::create(&archive_path)
-        .await
-        .map_err(|e| format!("File creation error: {}", e))?;
+    let mut file = match tokio::fs::File::create(&archive_path).await {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = fs::remove_file(&archive_path);
+            return Err(format!("File creation error: {}", e));
+        }
+    };
 
     let mut stream = res.bytes_stream();
     let mut downloaded: u64 = 0;
@@ -351,12 +424,24 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 
     while let Some(chunk_result) = stream.next().await {
         if crate::utils::check_cancel_flag() {
+            drop(file);
+            let _ = fs::remove_file(&archive_path);
             return Err("Download aborted by user.".to_string());
         }
-        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Write error: {}", e))?;
+        let chunk = match chunk_result {
+            Ok(c) => c,
+            Err(e) => {
+                drop(file);
+                let _ = fs::remove_file(&archive_path);
+                return Err(format!("Stream error: {}", e));
+            }
+        };
+
+        if let Err(e) = file.write_all(&chunk).await {
+            drop(file);
+            let _ = fs::remove_file(&archive_path);
+            return Err(format!("Write error: {}", e));
+        }
 
         downloaded += chunk.len() as u64;
         let elapsed = start_time.elapsed().as_secs_f64();
@@ -386,7 +471,12 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         );
     }
 
-    file.flush().await.map_err(|e| format!("Flush error: {}", e))?;
+    if let Err(e) = file.flush().await {
+        drop(file);
+        let _ = fs::remove_file(&archive_path);
+        return Err(format!("Flush error: {}", e));
+    }
+    drop(file);
 
     let _ = app.emit(
         "download-progress",
@@ -417,7 +507,7 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         return Err(format!("Failed to execute extraction process: {}", e));
     }
 
-    let _ = fs::remove_file(archive_path);
+    let _ = fs::remove_file(&archive_path);
 
     let status = check_dependencies();
     if !status.magick_exists {
@@ -430,6 +520,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 pub async fn download_all_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
+    crate::utils::reset_cancel_flag();
+
     let current = check_dependencies();
     let mut total_steps = 0;
     if !current.ffmpeg_exists || !current.ffprobe_exists {

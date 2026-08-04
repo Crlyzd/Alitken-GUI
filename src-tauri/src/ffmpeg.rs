@@ -258,9 +258,14 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 args.extend(["-i".to_string(), file_path.to_string()]);
 
                 if config.target_height != "ORIGINAL" {
+                    let effective_height = if let Ok(h) = config.target_height.parse::<u32>() {
+                        h.clamp(144, 8192).to_string()
+                    } else {
+                        config.target_height.clone()
+                    };
                     args.extend([
                         "-vf".to_string(),
-                        format!("scale=-2:{},format=yuv420p", config.target_height),
+                        format!("scale=-2:{},format=yuv420p", effective_height),
                     ]);
                 }
 
@@ -322,9 +327,14 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         args.extend(["-i".to_string(), file_path.to_string()]);
 
         if config.target_height != "ORIGINAL" {
+            let effective_height = if let Ok(h) = config.target_height.parse::<u32>() {
+                h.clamp(144, 8192).to_string()
+            } else {
+                config.target_height.clone()
+            };
             args.extend([
                 "-vf".to_string(),
-                format!("scale=-2:{},format=yuv420p", config.target_height),
+                format!("scale=-2:{},format=yuv420p", effective_height),
             ]);
         }
 
@@ -387,7 +397,8 @@ fn append_bitrate_flags(args: &mut Vec<String>, target_bitrate: &str, encoder: &
             }
             _ => {}
         }
-    } else if let Ok(bit_int) = target_bitrate.parse::<u32>() {
+    } else if let Ok(raw_bit_int) = target_bitrate.parse::<u32>() {
+        let bit_int = raw_bit_int.clamp(100, 500_000);
         let max_rate = bit_int + (bit_int / 4);
         let buf_size = bit_int * 2;
         args.extend([

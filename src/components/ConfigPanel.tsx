@@ -31,7 +31,7 @@ interface ConfigPanelProps {
 }
 
 const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];
-const PRESET_BITRATES = ['ORIGINAL', '12000', '8000', '5000', '2500', '1200'];
+const PRESET_BITRATES = ['ORIGINAL', '20000', '15000', '10000', '5000', '2000', '1000'];
 
 export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   mediaType,
@@ -198,15 +198,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   <span
                     style={{
                       fontSize: '10px',
-                      fontWeight: 600,
                       color: 'var(--accent-cyan)',
-                      background: 'rgba(6, 182, 212, 0.15)',
-                      border: '1px solid rgba(6, 182, 212, 0.3)',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
+                      fontWeight: 600,
                     }}
                   >
-                    Original Codec Preserved
+                    Bypassed (-c copy)
                   </span>
                 )}
               </div>
@@ -233,17 +229,17 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                       onClick={() => onChange({ codecChoice: codec.id })}
                       style={{
                         padding: '10px 6px',
-                        borderRadius: '12px',
-                        background: isActive ? 'var(--bg-glass-hover)' : 'var(--bg-glass-card)',
+                        borderRadius: '10px',
                         border: isActive
                           ? '1px solid var(--accent-cyan)'
                           : '1px solid var(--border-glass)',
+                        background: isActive ? 'var(--accent-primary-alpha)' : 'var(--input-bg)',
                         color: 'var(--text-main)',
+                        cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
                         transition: 'all 0.2s ease',
                       }}
                     >
@@ -428,7 +424,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomHeight(true);
-                    onChange({ targetHeight: '1080' });
+                    if (PRESET_HEIGHTS.includes(config.targetHeight)) {
+                      onChange({ targetHeight: '1080' });
+                    }
                   } else {
                     setIsCustomHeight(false);
                     onChange({ targetHeight: val });
@@ -444,6 +442,37 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   { value: 'CUSTOM', label: 'Custom Height (px)...' },
                 ]}
               />
+              {isCustomHeight && (
+                <div style={{ marginTop: '8px' }}>
+                  <input
+                    type="number"
+                    min="144"
+                    max="8192"
+                    placeholder="Custom height (144 - 8192 px)"
+                    value={config.targetHeight === 'CUSTOM' ? '1080' : config.targetHeight}
+                    onChange={(e) => onChange({ targetHeight: e.target.value })}
+                    onBlur={() => {
+                      const num = parseInt(config.targetHeight, 10);
+                      if (isNaN(num) || num < 144) {
+                        onChange({ targetHeight: '144' });
+                      } else if (num > 8192) {
+                        onChange({ targetHeight: '8192' });
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      color: 'var(--text-main)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* TARGET BITRATE / QUALITY SECTION */}
@@ -472,7 +501,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomBitrate(true);
-                    onChange({ targetBitrate: '5000' });
+                    if (PRESET_BITRATES.includes(config.targetBitrate)) {
+                      onChange({ targetBitrate: '5000' });
+                    }
                   } else {
                     setIsCustomBitrate(false);
                     onChange({ targetBitrate: val });
@@ -489,6 +520,37 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   { value: 'CUSTOM', label: 'Custom Bitrate (kbps)...' },
                 ]}
               />
+              {isCustomBitrate && (
+                <div style={{ marginTop: '8px' }}>
+                  <input
+                    type="number"
+                    min="100"
+                    max="500000"
+                    placeholder="Custom bitrate (100 - 500000 kbps)"
+                    value={config.targetBitrate === 'CUSTOM' ? '5000' : config.targetBitrate}
+                    onChange={(e) => onChange({ targetBitrate: e.target.value })}
+                    onBlur={() => {
+                      const num = parseInt(config.targetBitrate, 10);
+                      if (isNaN(num) || num < 100) {
+                        onChange({ targetBitrate: '100' });
+                      } else if (num > 500000) {
+                        onChange({ targetBitrate: '500000' });
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      color: 'var(--text-main)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* OUTPUT FOLDER SECTION */}

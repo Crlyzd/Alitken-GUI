@@ -247,7 +247,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
         {/* Action Utility Buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={() => handleOpenLink('https://github.com/curlyzed/alitken/issues')}
+            onClick={() => handleOpenLink('https://forms.gle/rvASPHTJc9f9R24g8')}
             style={{
               flex: 1,
               padding: '10px 14px',
@@ -314,15 +314,17 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, hardwar
                 fontWeight: 600,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {isGpu ? <Zap size={12} /> : <Cpu size={12} />}
-                  <span>Active Encoder: {hardwareInfo.name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  {isGpu ? <Zap size={12} style={{ flexShrink: 0 }} /> : <Cpu size={12} style={{ flexShrink: 0 }} />}
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    Active Encoder: {hardwareInfo.name}
+                  </span>
                 </div>
-                {hardwareInfo.encoder && <span>({hardwareInfo.encoder})</span>}
+                {hardwareInfo.encoder && <span style={{ opacity: 0.85, flexShrink: 0, whiteSpace: 'nowrap' }}>({hardwareInfo.encoder})</span>}
               </div>
               {hardwareInfo.details && (
-                <div style={{ fontSize: '10px', opacity: 0.8, fontWeight: 400 }}>
+                <div style={{ fontSize: '10.5px', opacity: 0.85, fontWeight: 400, wordBreak: 'break-word', lineHeight: '1.35', marginTop: '2px' }}>
                   {hardwareInfo.details}
                 </div>
               )}

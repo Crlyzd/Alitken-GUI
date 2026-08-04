@@ -1,6 +1,6 @@
 use super::types::FfmpegProgressPayload;
 use crate::utils::{create_tokio_hidden_cmd, log_error, log_info};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -113,25 +113,5 @@ pub fn is_ffmpeg_native_image_format(path_str: &str) -> bool {
         }
     } else {
         false
-    }
-}
-
-pub(crate) fn resolve_conflict_path(path: PathBuf) -> PathBuf {
-    if !path.exists() {
-        return path;
-    }
-
-    let parent = path.parent().unwrap_or(Path::new("."));
-    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let ext = path.extension().unwrap_or_default().to_string_lossy();
-
-    let mut counter = 1;
-    loop {
-        let new_name = format!("{}_{}.{}", stem, counter, ext);
-        let candidate = parent.join(new_name);
-        if !candidate.exists() {
-            return candidate;
-        }
-        counter += 1;
     }
 }

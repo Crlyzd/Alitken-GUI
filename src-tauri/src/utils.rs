@@ -1,6 +1,6 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 #[cfg(target_os = "windows")]
@@ -181,6 +181,70 @@ pub fn get_image_dimensions<P: AsRef<std::path::Path>>(path: P) -> (u32, u32) {
         }
     }
 
+
     (0, 0)
 }
 
+// ---------------------------------------------------------------------------
+// Output file conflict resolution — single source of truth for all pipelines
+// ---------------------------------------------------------------------------
+
+/// Given a desired output path, returns it unchanged if it doesn't exist.
+/// If it does exist, appends a numeric suffix (_1, _2, ...) until a free
+/// slot is found. E.g. `photo.jpg` → `photo_1.jpg` → `photo_2.jpg`.
+pub fn resolve_conflict_path(path: PathBuf) -> PathBuf {
+    if !path.exists() {
+        return path;
+    }
+    let parent = path.parent().unwrap_or(Path::new("."));
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = path.extension().unwrap_or_default().to_string_lossy();
+    let mut counter = 1u32;
+    loop {
+        let candidate = parent.join(format!("{}_{}.{}", stem, counter, ext));
+        if !candidate.exists() {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+/// For video split with **no custom output dir** (segments go next to source file).
+/// Returns a unique sub-folder path for the split batch so segments are grouped
+/// and the source directory stays clean.
+/// E.g. first run: `parent/MyStem_parts/`, second run: `parent/MyStem_parts_1/`.
+pub fn resolve_unique_split_dir(parent: &Path, stem: &str) -> PathBuf {
+    let first = parent.join(format!("{}_parts", stem));
+    if !first.exists() {
+        return first;
+    }
+    let mut counter = 1u32;
+    loop {
+        let candidate = parent.join(format!("{}_parts_{}", stem, counter));
+        if !candidate.exists() {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+/// For video split with a **custom output dir chosen by the user**.
+/// Files must stay flat inside that folder (no nested sub-dirs).
+/// Returns a deconflicted stem prefix to plug into FFmpeg's `%03d` pattern.
+/// E.g. if `MyStem_part001.mp4` exists → returns `"MyStem_2"`,
+/// so the pattern becomes `MyStem_2_part%03d.mp4`.
+pub fn resolve_unique_split_stem(dir: &Path, stem: &str, ext: &str) -> String {
+    let probe = dir.join(format!("{}_part001.{}", stem, ext));
+    if !probe.exists() {
+        return stem.to_string();
+    }
+    let mut counter = 2u32;
+    loop {
+        let candidate_stem = format!("{}_{}", stem, counter);
+        let probe = dir.join(format!("{}_part001.{}", candidate_stem, ext));
+        if !probe.exists() {
+            return candidate_stem;
+        }
+        counter += 1;
+    }
+}

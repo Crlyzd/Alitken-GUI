@@ -1,4 +1,5 @@
-use crate::utils;
+use crate::utils::{self, resolve_conflict_path};
+
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -233,7 +234,8 @@ async fn run_pdf_merge<R: tauri::Runtime>(
         first_file.parent().unwrap_or(Path::new(".")).to_path_buf()
     };
 
-    let pdf_out = out_dir.join("Merged_Images.pdf");
+    let pdf_out = resolve_conflict_path(out_dir.join("Merged_Images.pdf"));
+
 
     // Create unique temporary directory for sequential frame normalization
     let batch_id = format!(
@@ -444,10 +446,13 @@ fn build_output_filepath(
 
     let out_file = parent.join(format!("{}.{}", stem, ext));
 
-    // Handle identical path collision
+    // Handle identical path collision (same name, same ext — e.g. PNG→PNG)
     if out_file == input_path {
-        return Ok(parent.join(format!("{}_converted.{}", stem, ext)));
+        return Ok(resolve_conflict_path(
+            parent.join(format!("{}_converted.{}", stem, ext)),
+        ));
     }
 
-    Ok(out_file)
+    // Deconflict against any previously converted output with the same name
+    Ok(resolve_conflict_path(out_file))
 }

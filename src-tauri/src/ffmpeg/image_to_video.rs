@@ -1,7 +1,7 @@
-use super::process::{is_ffmpeg_native_image_format, resolve_conflict_path};
+use super::process::is_ffmpeg_native_image_format;
 use super::probe::probe_file;
 use super::types::{FfmpegProgressPayload, ImageToVideoConfig};
-use crate::utils::{create_tokio_hidden_cmd, log_error, log_info};
+use crate::utils::{create_tokio_hidden_cmd, log_error, log_info, resolve_conflict_path};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tauri::Emitter;

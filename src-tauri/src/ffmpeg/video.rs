@@ -1,8 +1,9 @@
-use super::process::{execute_ffmpeg_process, resolve_conflict_path};
+use super::process::execute_ffmpeg_process;
 use super::probe::probe_file;
 use super::types::ConversionConfig;
-use crate::utils::{log_error, log_info};
+use crate::utils::{log_error, log_info, resolve_conflict_path, resolve_unique_split_dir, resolve_unique_split_stem};
 use std::path::{Path, PathBuf};
+
 
 /// Main execution routine for video transcode and segment splitting
 pub async fn run_video_pipeline<R: tauri::Runtime>(
@@ -111,14 +112,32 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 gpu_caps.extension.clone()
             };
 
-            let pattern_base = if config.split_fast_copy {
-                parent_dir.join(format!("{}_part%03d.{}", file_stem, out_ext))
+            // Deconflict the output location based on whether the user chose a
+            // custom output folder:
+            //   - No custom dir  → group segments in a named sub-folder next to source
+            //   - Custom dir set → keep files flat, deconflict via stem-prefix counter
+            let (pattern_base, split_file_stem) = if config.custom_output_dir.is_none() {
+                let split_dir = resolve_unique_split_dir(&parent_dir, &file_stem);
+                if let Err(e) = std::fs::create_dir_all(&split_dir) {
+                    log_error(&format!("Failed to create split output directory {:?}: {}", split_dir, e));
+                }
+                let pat = if config.split_fast_copy {
+                    split_dir.join(format!("{}_part%03d.{}", file_stem, out_ext))
+                } else {
+                    split_dir.join(format!("{}_part%03d_{}_{}.{}", file_stem, res_tag, bit_tag, out_ext))
+                };
+                (pat, file_stem.clone())
             } else {
-                parent_dir.join(format!(
-                    "{}_part%03d_{}_{}.{}",
-                    file_stem, res_tag, bit_tag, out_ext
-                ))
+                let batch_stem = resolve_unique_split_stem(&parent_dir, &file_stem, &out_ext);
+                let pat = if config.split_fast_copy {
+                    parent_dir.join(format!("{}_part%03d.{}", batch_stem, out_ext))
+                } else {
+                    parent_dir.join(format!("{}_part%03d_{}_{}.{}", batch_stem, res_tag, bit_tag, out_ext))
+                };
+                (pat, batch_stem)
             };
+            let _ = split_file_stem; // used only to keep binding for potential future use
+
 
             let mut args: Vec<String> = vec!["-hide_banner".to_string()];
 

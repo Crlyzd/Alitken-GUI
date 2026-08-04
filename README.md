@@ -61,6 +61,13 @@ Enjoy a sleek Windows 11-native aesthetic featuring:
 
 ---
 
+<img width="1609" height="905" alt="7" src="https://github.com/user-attachments/assets/b047a729-cfc6-4278-b8ed-ad0fdb53e00c" />
+<img width="1609" height="905" alt="6" src="https://github.com/user-attachments/assets/724e6365-0d75-4925-a093-c72ecb1086fc" />
+<img width="1609" height="905" alt="4" src="https://github.com/user-attachments/assets/11f38012-9ad3-4b49-a922-7e14b89a4f06" />
+<img width="1609" height="905" alt="1" src="https://github.com/user-attachments/assets/a44db6d1-5a0f-434d-9da0-f0456b50bf33" />
+
+---
+
 ## 📖 Quick Start Guide
 
 1. **Add Your Media**: Drag and drop single files, multiple clips, or entire folders into the Alitken window (or right-click a file in Windows Explorer and select *Send to → Alitken*).

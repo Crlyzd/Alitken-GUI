@@ -1,5 +1,4 @@
 use crate::utils;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -89,6 +88,7 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
         let out_file = build_output_filepath(input_path, &config)?;
 
         let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
+        cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
         cmd.arg(input_path_str);
 
         // Quality and scaling flags
@@ -171,6 +171,11 @@ async fn run_pdf_merge<R: tauri::Runtime>(
     magick_path: &str,
     config: &ImageConversionConfig,
 ) -> Result<(), String> {
+    let total_files = config.input_files.len();
+    if total_files == 0 {
+        return Err("No input files for PDF merge.".to_string());
+    }
+
     let first_file = Path::new(&config.input_files[0]);
     let out_dir = if let Some(ref d) = config.custom_output_dir {
         PathBuf::from(d)
@@ -180,58 +185,148 @@ async fn run_pdf_merge<R: tauri::Runtime>(
 
     let pdf_out = out_dir.join("Merged_Images.pdf");
 
-    let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
-    cmd.arg("-monitor");
-
-    for input in &config.input_files {
-        cmd.arg(input);
+    // Create unique temporary directory for sequential frame normalization
+    let batch_id = format!(
+        "{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+    let temp_dir = std::env::temp_dir().join(format!("alitken_pdf_{}", batch_id));
+    if let Err(e) = tokio::fs::create_dir_all(&temp_dir).await {
+        let err = format!("Failed to create temp directory for PDF merge: {}", e);
+        utils::log_error(&err);
+        return Err(err);
     }
 
-    if let Some(q) = config.pdf_quality {
-        cmd.arg("-quality").arg(q.to_string());
-    }
-    if let Some(scale) = config.pdf_scale_percent {
-        cmd.arg("-resize").arg(format!("{}%", scale));
-    } else if let Some(h) = config.pdf_height {
-        cmd.arg("-resize").arg(format!("x{}", h));
-    }
+    utils::log_info(&format!(
+        "Starting sequential two-pass PDF merge for {} images into {:?}",
+        total_files, pdf_out
+    ));
 
-    cmd.arg(&pdf_out);
-    cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+    let mut temp_frames: Vec<PathBuf> = Vec::new();
 
-    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn ImageMagick PDF merge: {}", e))?;
+    // Pass 1: Sequential Per-Frame Conversion (One image at a time -> Capped RAM)
+    for (idx, input_str) in config.input_files.iter().enumerate() {
+        let input_path = Path::new(input_str);
+        let file_name = input_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
-    let regex_monitor = Regex::new(r"^([^\[]+)\[([^\]]+)\]:\s*(?:(\d+)\s+of\s+(\d+),\s*)?(\d+)%\s+complete").unwrap();
-    let total_files = config.input_files.len();
+        let _ = app.emit(
+            "image-progress",
+            ImageProgressPayload {
+                current_file: file_name.clone(),
+                file_index: idx + 1,
+                total_files,
+                percent: ((idx as f64) / (total_files as f64)) * 85.0,
+                phase: "Preparing Frames".to_string(),
+                status: format!("Processing image {} of {}: {}", idx + 1, total_files, file_name),
+            },
+        );
 
-    if let Some(stderr) = child.stderr.take() {
-        let mut reader = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            if let Some(caps) = regex_monitor.captures(&line) {
-                let phase_raw = caps.get(1).map_or("", |m| m.as_str()).trim();
-                let pct: f64 = caps.get(5).and_then(|m| m.as_str().parse().ok()).unwrap_or(0.0);
-                let current_step: usize = caps.get(3).and_then(|m| m.as_str().parse().ok()).unwrap_or(1);
+        let temp_jpg = temp_dir.join(format!("frame_{:05}.jpg", idx));
 
-                let _ = app.emit(
-                    "image-progress",
-                    ImageProgressPayload {
-                        current_file: "Merged_Images.pdf".to_string(),
-                        file_index: current_step.min(total_files),
-                        total_files,
-                        percent: pct.min(100.0),
-                        phase: phase_raw.to_string(),
-                        status: format!("Merging to PDF (Step {}/{}): {}%", current_step, total_files, pct as u32),
-                    },
-                );
+        let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
+        cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
+        cmd.arg(input_str);
+
+        if let Some(q) = config.pdf_quality {
+            cmd.arg("-quality").arg(q.to_string());
+        } else {
+            cmd.arg("-quality").arg("85");
+        }
+
+        if let Some(scale) = config.pdf_scale_percent {
+            cmd.arg("-resize").arg(format!("{}%", scale));
+        } else if let Some(h) = config.pdf_height {
+            cmd.arg("-resize").arg(format!("x{}", h));
+        }
+
+        cmd.arg(&temp_jpg);
+        cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+
+        match cmd.spawn() {
+            Ok(mut child) => {
+                let status = child.wait().await.map_err(|e| e.to_string())?;
+                if !status.success() {
+                    let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+                    let err = format!("ImageMagick frame preparation failed for: {}", file_name);
+                    utils::log_error(&err);
+                    return Err(err);
+                }
+            }
+            Err(e) => {
+                let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+                let err = format!("Failed to spawn ImageMagick for {}: {}", file_name, e);
+                utils::log_error(&err);
+                return Err(err);
             }
         }
+
+        temp_frames.push(temp_jpg);
     }
 
-    let status = child.wait().await.map_err(|e| e.to_string())?;
-    if !status.success() {
-        return Err("ImageMagick PDF merge process failed.".to_string());
+    // Pass 2: Final PDF Compilation from lightweight temp JPEGs
+    let _ = app.emit(
+        "image-progress",
+        ImageProgressPayload {
+            current_file: "Merged_Images.pdf".to_string(),
+            file_index: total_files,
+            total_files,
+            percent: 90.0,
+            phase: "Compiling PDF".to_string(),
+            status: format!("Compiling {} pages into Merged_Images.pdf...", total_files),
+        },
+    );
+
+    let mut merge_cmd = utils::create_tokio_hidden_cmd(magick_path);
+    merge_cmd.args(["-limit", "memory", "64MiB", "-limit", "map", "128MiB"]);
+
+    for frame in &temp_frames {
+        merge_cmd.arg(frame);
     }
 
+    merge_cmd.arg(&pdf_out);
+    merge_cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+
+    let res = match merge_cmd.spawn() {
+        Ok(mut child) => {
+            let status = child.wait().await.map_err(|e| e.to_string())?;
+            if status.success() {
+                Ok(())
+            } else {
+                Err("ImageMagick PDF compilation failed.".to_string())
+            }
+        }
+        Err(e) => Err(format!("Failed to spawn ImageMagick PDF compilation: {}", e)),
+    };
+
+    // Clean up temporary directory
+    let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+
+    if let Err(ref e) = res {
+        utils::log_error(e);
+        return res;
+    }
+
+    let _ = app.emit(
+        "image-progress",
+        ImageProgressPayload {
+            current_file: "Merged_Images.pdf".to_string(),
+            file_index: total_files,
+            total_files,
+            percent: 100.0,
+            phase: "Completed".to_string(),
+            status: "PDF Merge completed successfully.".to_string(),
+        },
+    );
+
+    utils::log_info(&format!("Successfully created merged PDF: {:?}", pdf_out));
     Ok(())
 }
 

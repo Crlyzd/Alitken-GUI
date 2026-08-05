@@ -235,3 +235,27 @@ select,
 .spin {
   animation: spin 0.8s linear infinite;
 }
+
+/* Pulsating Info Icon for Titlebar Update Notification */
+@keyframes titlebar-update-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+    background: rgba(16, 185, 129, 0.15);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    background: rgba(16, 185, 129, 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    background: rgba(16, 185, 129, 0.15);
+  }
+}
+
+.titlebar-info-update-pulse {
+  animation: titlebar-update-pulse 2s infinite;
+  border: 1px solid rgba(16, 185, 129, 0.5) !important;
+  color: #10b981 !important;
+  position: relative;
+}
+

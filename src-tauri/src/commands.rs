@@ -2,6 +2,7 @@ use crate::dependencies::{self, DependencyStatus};
 use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata};
 use crate::gpu::{self, GpuCapability};
 use crate::image::{self, ImageConversionConfig};
+use crate::updater::{self, UpdateInfo};
 use crate::utils;
 use crate::win_integration::{self, IntegrationStatus};
 use tauri::AppHandle;
@@ -283,4 +284,15 @@ pub async fn abort_processing() -> Result<(), String> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn check_app_update() -> Result<UpdateInfo, String> {
+    updater::check_for_updates().await
+}
+
+#[tauri::command]
+pub async fn install_app_update(window: tauri::Window, download_url: String) -> Result<(), String> {
+    updater::download_and_install_update(window, download_url).await
+}
+
 

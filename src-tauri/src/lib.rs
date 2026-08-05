@@ -3,6 +3,7 @@ mod dependencies;
 mod ffmpeg;
 mod gpu;
 mod image;
+mod updater;
 mod utils;
 mod win_integration;
 
@@ -15,6 +16,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|_app| {
+            // Clean up lingering ALITKEN.exe.old from previous 1-click update
+            updater::cleanup_old_version();
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             check_app_dependencies,
             get_initial_files,
@@ -37,7 +43,9 @@ pub fn run() {
             get_system_integration_status,
             set_sendto_status,
             set_win11_context_menu_status,
-            abort_processing
+            abort_processing,
+            check_app_update,
+            install_app_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

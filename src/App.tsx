@@ -6,7 +6,7 @@ import { WelcomeDropzone } from './components/WelcomeDropzone';
 import { Dropzone, FileItem } from './components/Dropzone';
 import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
-import { AboutModal } from './components/AboutModal';
+import { AboutModal, UpdateInfo, UpdateProgressPayload } from './components/AboutModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ImageConfig } from './types/media';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
@@ -35,6 +35,12 @@ export function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Auto-Update State Management
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgressPayload | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string; details?: string }>({
     name: 'Detecting GPU...',
@@ -205,13 +211,57 @@ export function App() {
       }));
     });
 
+    const unlistenUpdateProgress = listen('update-progress', (event: any) => {
+      setUpdateProgress(event.payload as UpdateProgressPayload);
+    });
+
+    // Automatic background update check on app launch
+    invoke<UpdateInfo>('check_app_update')
+      .then((info) => setUpdateInfo(info))
+      .catch((err) => console.error('Initial background update check failed:', err));
+
     return () => {
       window.removeEventListener('focus', handleFocus);
       unlistenProgress.then((fn) => fn());
       unlistenImageProgress.then((fn) => fn());
       unlistenDownload.then((fn) => fn());
+      unlistenUpdateProgress.then((fn) => fn());
     };
   }, []);
+
+  const handleCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateError(null);
+    try {
+      const info = await invoke<UpdateInfo>('check_app_update');
+      setUpdateInfo(info);
+    } catch (err: any) {
+      console.error('Update check failed:', err);
+      setUpdateError(typeof err === 'string' ? err : 'Failed to check for updates');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleInstallUpdate = async (downloadUrl: string) => {
+    if (!downloadUrl) return;
+    setUpdateError(null);
+    setUpdateProgress({
+      status: 'Downloading update package...',
+      percent: 0,
+      downloaded_mb: 0,
+      total_mb: 0,
+      speed_mbps: 0,
+    });
+
+    try {
+      await invoke('install_app_update', { downloadUrl });
+    } catch (err: any) {
+      console.error('Failed to install update:', err);
+      setUpdateError(typeof err === 'string' ? err : 'Update installation failed');
+      setUpdateProgress(null);
+    }
+  };
 
   const checkDepsAndGpu = async (codec: string) => {
     try {
@@ -601,6 +651,8 @@ export function App() {
         hardwareName={hardwareInfo.name}
         encoderName={hardwareInfo.encoder}
         hardwareDetails={hardwareInfo.details}
+        hasUpdate={!!updateInfo?.available}
+        latestVersion={updateInfo?.latest_version}
         onOpenAbout={() => setIsAboutOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
@@ -816,6 +868,12 @@ export function App() {
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
         hardwareInfo={hardwareInfo}
+        updateInfo={updateInfo}
+        onCheckUpdate={handleCheckUpdate}
+        onInstallUpdate={handleInstallUpdate}
+        isCheckingUpdate={isCheckingUpdate}
+        updateProgress={updateProgress}
+        updateError={updateError}
       />
 
       {/* Settings & System Integrations Modal */}

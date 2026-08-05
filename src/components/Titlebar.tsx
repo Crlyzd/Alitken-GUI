@@ -7,6 +7,8 @@ interface TitlebarProps {
   hardwareName?: string;
   encoderName?: string;
   hardwareDetails?: string;
+  hasUpdate?: boolean;
+  latestVersion?: string;
   onOpenAbout?: () => void;
   onOpenSettings?: () => void;
 }
@@ -15,6 +17,8 @@ export const Titlebar: React.FC<TitlebarProps> = ({
   hardwareName,
   encoderName,
   hardwareDetails,
+  hasUpdate,
+  latestVersion,
   onOpenAbout,
   onOpenSettings,
 }) => {
@@ -181,24 +185,43 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           <button
             onClick={onOpenAbout}
             onMouseDown={(e) => e.stopPropagation()}
-            title="About ALITKEN v0.4"
-            className="no-drag"
+            title={hasUpdate ? `Update Available! (v${latestVersion || 'new'}) - Click to view` : "About ALITKEN v0.4"}
+            className={`no-drag ${hasUpdate ? 'titlebar-info-update-pulse' : ''}`}
             style={{
               width: '28px',
               height: '28px',
               borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
+              border: hasUpdate ? '1px solid rgba(16, 185, 129, 0.5)' : 'none',
+              background: hasUpdate ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              position: 'relative',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            onMouseEnter={(e) => {
+              if (!hasUpdate) e.currentTarget.style.background = 'var(--border-glass)';
+            }}
+            onMouseLeave={(e) => {
+              if (!hasUpdate) e.currentTarget.style.background = 'transparent';
+            }}
           >
-            <Info size={14} color="var(--text-muted)" />
+            <Info size={14} color={hasUpdate ? '#10b981' : 'var(--text-muted)'} />
+            {hasUpdate && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+            )}
           </button>
         )}
 

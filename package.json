@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "version:sync": "node scripts/sync-version.cjs",
-    "version": "node scripts/sync-version.cjs && git add -A"
+    "version": "node scripts/sync-version.cjs && git add -A",
+    "bump": "powershell -ExecutionPolicy Bypass -File ./bump-version.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",

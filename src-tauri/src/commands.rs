@@ -326,13 +326,6 @@ pub async fn set_sendto_status(enable: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub async fn set_win11_context_menu_status(enable: bool) -> Result<bool, String> {
-    tokio::task::spawn_blocking(move || win_integration::set_win11_context_menu(enable))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn abort_processing() -> Result<(), String> {
     utils::CANCEL_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst);
     utils::log_info("Abort processing requested by user");

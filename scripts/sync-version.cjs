@@ -5,7 +5,6 @@ const rootDir = path.resolve(__dirname, '..');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const tauriConfPath = path.join(rootDir, 'src-tauri', 'tauri.conf.json');
 const cargoTomlPath = path.join(rootDir, 'src-tauri', 'Cargo.toml');
-const shellCargoTomlPath = path.join(rootDir, 'src-tauri', 'shell_ext_crate', 'Cargo.toml');
 
 if (!fs.existsSync(packageJsonPath)) {
   console.error('Error: package.json not found at:', packageJsonPath);
@@ -34,14 +33,6 @@ if (fs.existsSync(cargoTomlPath)) {
   content = content.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
   fs.writeFileSync(cargoTomlPath, content);
   console.log(`  ✓ Updated src-tauri/Cargo.toml → v${version}`);
-}
-
-// 3. Update src-tauri/shell_ext_crate/Cargo.toml
-if (fs.existsSync(shellCargoTomlPath)) {
-  let content = fs.readFileSync(shellCargoTomlPath, 'utf8');
-  content = content.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
-  fs.writeFileSync(shellCargoTomlPath, content);
-  console.log(`  ✓ Updated src-tauri/shell_ext_crate/Cargo.toml → v${version}`);
 }
 
 console.log(`\n🎉 Single Source of Truth version sync complete! All targets updated to v${version}.\n`);

@@ -26,7 +26,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [deps, setDeps] = useState<DependencyStatus | null>(null);
   const [loadingSendTo, setLoadingSendTo] = useState(false);
-  const [loadingWin11, setLoadingWin11] = useState(false);
   const [loadingDeps, setLoadingDeps] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -80,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setStatus((prev) =>
         prev
           ? { ...prev, sendto_active: res }
-          : { sendto_active: res, win11_menu_active: false, executable_path: '' }
+          : { sendto_active: res, executable_path: '' }
       );
       setSuccessMsg(res ? 'Added to Windows "Send to" menu!' : 'Removed from Windows "Send to" menu.');
     } catch (err: any) {
@@ -91,42 +90,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setErrorMsg(err?.toString() || 'Failed to update SendTo shortcut.');
     } finally {
       setLoadingSendTo(false);
-    }
-  };
-
-  const handleToggleWin11Menu = async () => {
-    if (loadingWin11) return;
-    setLoadingWin11(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    const targetState = !(status?.win11_menu_active ?? false);
-
-    // Optimistic update — flip state immediately so the toggle feels instant
-    setStatus((prev) =>
-      prev ? { ...prev, win11_menu_active: targetState } : prev
-    );
-
-    try {
-      const res = await invoke<boolean>('set_win11_context_menu_status', { enable: targetState });
-      // Confirm with actual backend result
-      setStatus((prev) =>
-        prev
-          ? { ...prev, win11_menu_active: res }
-          : { sendto_active: false, win11_menu_active: res, executable_path: '' }
-      );
-      setSuccessMsg(
-        res
-          ? 'Registered on Windows Context Menu!'
-          : 'Unregistered from Windows Context Menu.'
-      );
-    } catch (err: any) {
-      // Revert optimistic update on failure
-      setStatus((prev) =>
-        prev ? { ...prev, win11_menu_active: !targetState } : prev
-      );
-      setErrorMsg(err?.toString() || 'Failed to update Context Menu registration.');
-    } finally {
-      setLoadingWin11(false);
     }
   };
 
@@ -894,119 +857,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         position: 'absolute',
                         top: '3px',
                         left: status?.sendto_active ? '21px' : '3px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
-                      }}
-                    />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Toggle 2: Windows 11 Main Menu (Option A) */}
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: '10px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-glass)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    background: 'rgba(168, 85, 247, 0.12)',
-                    color: '#a855f7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: '2px',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Sparkles size={16} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', lineHeight: '1.3' }}>
-                    Windows 11 Main Right-Click Menu
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Adds "Convert with Alitken" directly on primary Win11 main menu
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Pill stacked vertically ABOVE Switch */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                  justifyContent: 'center',
-                  gap: '5px',
-                  flexShrink: 0,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '9px',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: theme === 'light' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(168, 85, 247, 0.25)',
-                    color: theme === 'light' ? '#6b21a8' : '#d8b4fe',
-                    border: `1px solid ${theme === 'light' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.4)'}`,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Sparse Package
-                </span>
-
-                <button
-                  onClick={handleToggleWin11Menu}
-                  disabled={loadingWin11}
-                  style={{
-                    width: '38px',
-                    height: '20px',
-                    borderRadius: '10px',
-                    background: status?.win11_menu_active
-                      ? 'var(--accent-primary)'
-                      : 'rgba(148, 163, 184, 0.25)',
-                    border: 'none',
-                    cursor: loadingWin11 ? 'wait' : 'pointer',
-                    position: 'relative',
-                    transition: 'background 0.2s ease',
-                    flexShrink: 0,
-                  }}
-                >
-                  {loadingWin11 ? (
-                    <RefreshCw
-                      size={10}
-                      className="spin"
-                      style={{
-                        position: 'absolute',
-                        top: '5px',
-                        left: status?.win11_menu_active ? '22px' : '5px',
-                        color: '#fff',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '14px',
-                        height: '14px',
-                        borderRadius: '50%',
-                        background: '#fff',
-                        position: 'absolute',
-                        top: '3px',
-                        left: status?.win11_menu_active ? '21px' : '3px',
                         transition: 'left 0.2s ease',
                         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
                       }}

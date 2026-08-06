@@ -58,7 +58,6 @@ export interface MediaFileItem {
 
 export interface IntegrationStatus {
   sendto_active: boolean;
-  win11_menu_active: boolean;
   executable_path: string;
 }
 

@@ -43,7 +43,6 @@ pub fn run() {
             collapse_to_startup_window,
             get_system_integration_status,
             set_sendto_status,
-            set_win11_context_menu_status,
             abort_processing,
             check_app_update,
             install_app_update,

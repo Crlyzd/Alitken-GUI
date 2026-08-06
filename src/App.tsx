@@ -419,8 +419,7 @@ export function App() {
 
   const handleDownloadDependencies = async (
     mode: 'all' | 'ffmpeg' | 'magick' | 'app' = 'all',
-    downloadUrl?: string,
-    targetChoice?: 'AppData' | 'Portable'
+    downloadUrl?: string
   ) => {
     setIsDownloadingDeps(true);
     setProgress({
@@ -446,7 +445,6 @@ export function App() {
     try {
       await invoke('update_engine', {
         target: mode,
-        targetChoice: targetChoice || null,
         downloadUrl: downloadUrl || updateInfo?.download_url || null,
       });
       await checkDepsAndGpu(videoConfig.codecChoice);
@@ -916,9 +914,9 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onUpdateEngine={(engine, targetChoice) => {
+        onUpdateEngine={(engine) => {
           setIsSettingsOpen(false);
-          handleDownloadDependencies(engine, undefined, targetChoice);
+          handleDownloadDependencies(engine);
         }}
       />
     </div>

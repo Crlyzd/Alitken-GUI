@@ -8,7 +8,7 @@ interface SettingsModalProps {
   onClose: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
-  onUpdateEngine?: (engine: 'ffmpeg' | 'magick' | 'all', targetChoice?: 'AppData' | 'Portable') => void;
+  onUpdateEngine?: (engine: 'ffmpeg' | 'magick' | 'all') => void;
 }
 
 const formatEngineVersion = (versionStr?: string): string => {
@@ -439,9 +439,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     : deps?.ffmpeg_exists
                     ? 'Installed'
                     : 'Not Installed'}
-                  {deps?.active_location && deps.active_location !== '' && deps.active_location !== 'Missing'
-                    ? ` (${deps.active_location})`
-                    : ''}
                 </span>
 
                 {/* Right Aligned Status Badge */}
@@ -450,8 +447,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => {
                       if (!deps?.ffmpeg_exists || !deps?.ffmpeg_valid || deps?.has_update) {
                         onClose();
-                        const choice = deps?.active_location === 'AppData' ? 'AppData' : undefined;
-                        onUpdateEngine ? onUpdateEngine('ffmpeg', choice) : handleInstallAppData();
+                        onUpdateEngine ? onUpdateEngine('ffmpeg') : handleInstallAppData();
                       }
                     }}
                     title={
@@ -551,9 +547,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     : deps?.magick_exists
                     ? 'Installed'
                     : 'Not Installed'}
-                  {deps?.active_location && deps.active_location !== '' && deps.active_location !== 'Missing'
-                    ? ` (${deps.active_location})`
-                    : ''}
                 </span>
 
                 {/* Right Aligned Status Badge */}
@@ -562,8 +555,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => {
                       if (!deps?.magick_exists || !deps?.magick_valid || deps?.magick_has_update) {
                         onClose();
-                        const choice = deps?.active_location === 'AppData' ? 'AppData' : undefined;
-                        onUpdateEngine ? onUpdateEngine('magick', choice) : handleInstallAppData();
+                        onUpdateEngine ? onUpdateEngine('magick') : handleInstallAppData();
                       }
                     }}
                     title={
@@ -642,54 +634,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Dynamic Action Button & Contextual Sub-caption */}
             {(() => {
+              const isAllInstalledAndValid =
+                deps?.ffmpeg_exists &&
+                deps?.magick_exists &&
+                deps?.ffmpeg_valid &&
+                deps?.magick_valid &&
+                !deps?.has_update &&
+                !deps?.magick_has_update;
+
               const isAnyOutdated =
                 deps?.has_update ||
                 deps?.magick_has_update ||
-                !deps?.ffmpeg_valid ||
-                !deps?.magick_valid;
+                (!deps?.ffmpeg_valid && deps?.ffmpeg_exists) ||
+                (!deps?.magick_valid && deps?.magick_exists);
 
-              if (deps?.active_location === 'AppData') {
-                if (isAnyOutdated) {
-                  return (
-                    <>
-                      <button
-                        onClick={() => {
-                          onClose();
-                          onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
-                        }}
-                        disabled={loadingDeps}
-                        style={{
-                          marginTop: '4px',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: '#f59e0b',
-                          color: '#000',
-                          border: 'none',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: loadingDeps ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
-                        <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
-                      </button>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                        Updates AppData binaries to the latest release in{' '}
-                        <span
-                          onClick={handleOpenAppDataFolder}
-                          style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
-                          title="Open AppData folder in Windows File Explorer"
-                        >
-                          AppData
-                        </span>.
-                      </div>
-                    </>
-                  );
-                }
+              if (isAllInstalledAndValid) {
                 return (
                   <>
                     <button
@@ -716,116 +675,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
                     </button>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                      Binaries are installed in{' '}
+                      Binaries and logs are in{' '}
                       <span
                         onClick={handleOpenAppDataFolder}
                         style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
                         title="Open AppData folder in Windows File Explorer"
                       >
                         AppData
-                      </span>. Click uninstall to remove them.
+                      </span>. Click uninstall to delete all binaries, logs, and AppData folder.
                     </div>
                   </>
                 );
               }
 
-              if (deps?.active_location === 'System PATH') {
-                if (isAnyOutdated) {
-                  return (
-                    <>
-                      <button
-                        onClick={() => {
-                          onClose();
-                          onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
-                        }}
-                        disabled={loadingDeps}
-                        style={{
-                          marginTop: '4px',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          background: '#f59e0b',
-                          color: '#000',
-                          border: 'none',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: loadingDeps ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
-                        <span>{loadingDeps ? 'Updating...' : 'Update Binaries (Install to AppData)'}</span>
-                      </button>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                        System PATH binaries are outdated. Click to download latest binaries into{' '}
-                        <span
-                          onClick={handleOpenAppDataFolder}
-                          style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
-                          title="Open AppData folder in Windows File Explorer"
-                        >
-                          AppData
-                        </span>{' '}
-                        to upgrade.
-                      </div>
-                    </>
-                  );
-                }
-                return (
-                  <>
-                    <button
-                      disabled={true}
-                      style={{
-                        marginTop: '4px',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        color: 'var(--text-muted)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'not-allowed',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        opacity: 0.8,
-                      }}
-                    >
-                      <CheckCircle2 size={12} style={{ color: '#10b981' }} />
-                      <span>Using System PATH Binaries</span>
-                    </button>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                      System PATH binaries are up-to-date and active. No{' '}
-                      <span
-                        onClick={handleOpenAppDataFolder}
-                        style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
-                        title="Open AppData folder in Windows File Explorer"
-                      >
-                        AppData
-                      </span>{' '}
-                      installation needed.
-                    </div>
-                  </>
-                );
-              }
-
-              if (deps?.active_location === '' && deps?.ffmpeg_exists) {
+              if (isAnyOutdated) {
                 return (
                   <>
                     <button
                       onClick={() => {
                         onClose();
-                        onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                        onUpdateEngine ? onUpdateEngine('all') : handleInstallAppData();
                       }}
                       disabled={loadingDeps}
                       style={{
                         marginTop: '4px',
                         padding: '6px 12px',
                         borderRadius: '6px',
-                        background: 'var(--accent-primary)',
-                        color: '#fff',
+                        background: '#f59e0b',
+                        color: '#000',
                         border: 'none',
                         fontSize: '11px',
                         fontWeight: 600,
@@ -836,18 +713,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         gap: '6px',
                       }}
                     >
-                      {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
-                      <span>{loadingDeps ? 'Installing...' : 'Install to AppData'}</span>
+                      {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
+                      <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
                     </button>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                      Currently using local bin/ folder. Click to install a standalone copy to{' '}
+                      Updates binaries in{' '}
                       <span
                         onClick={handleOpenAppDataFolder}
                         style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
                         title="Open AppData folder in Windows File Explorer"
                       >
                         AppData
-                      </span>.
+                      </span> to the latest releases.
                     </div>
                   </>
                 );
@@ -859,7 +736,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     onClick={() => {
                       onClose();
-                      onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                      onUpdateEngine ? onUpdateEngine('all') : handleInstallAppData();
                     }}
                     disabled={loadingDeps}
                     style={{
@@ -879,18 +756,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                   >
                     {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
-                    <span>{loadingDeps ? 'Installing...' : 'Install Binaries'}</span>
+                    <span>{loadingDeps ? 'Installing...' : 'Install Binaries to AppData'}</span>
                   </button>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                    Installs binaries to{' '}
+                    Downloads and installs binaries directly into{' '}
                     <span
                       onClick={handleOpenAppDataFolder}
                       style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
                       title="Open AppData folder in Windows File Explorer"
                     >
                       AppData
-                    </span>{' '}
-                    so Alitken.exe can move anywhere on your PC.
+                    </span>.
                   </div>
                 </>
               );

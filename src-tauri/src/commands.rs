@@ -27,25 +27,22 @@ pub fn get_initial_files() -> Vec<String> {
 #[tauri::command]
 pub async fn install_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
-    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_ffmpeg_dependencies(&app, 1, 1, target_choice.as_deref()).await
+    dependencies::download_ffmpeg_dependencies(&app, 1, 1).await
 }
 
 #[tauri::command]
 pub async fn install_magick_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
-    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_magick_dependencies(&app, 1, 1, target_choice.as_deref()).await
+    dependencies::download_magick_dependencies(&app, 1, 1).await
 }
 
 #[tauri::command]
 pub async fn install_all_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
-    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_all_dependencies(&app, target_choice).await
+    dependencies::download_all_dependencies(&app).await
 }
 
 #[tauri::command]
@@ -53,14 +50,12 @@ pub async fn update_engine<R: tauri::Runtime>(
     app: AppHandle<R>,
     window: tauri::Window,
     target: String,
-    target_choice: Option<String>,
     download_url: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    let choice = target_choice.as_deref();
     match target.to_lowercase().as_str() {
-        "ffmpeg" => dependencies::download_ffmpeg_dependencies(&app, 1, 1, choice).await,
-        "magick" => dependencies::download_magick_dependencies(&app, 1, 1, choice).await,
-        "all" | "appdata" => dependencies::download_all_dependencies(&app, target_choice).await,
+        "ffmpeg" => dependencies::download_ffmpeg_dependencies(&app, 1, 1).await,
+        "magick" => dependencies::download_magick_dependencies(&app, 1, 1).await,
+        "all" | "appdata" => dependencies::download_all_dependencies(&app).await,
         "app" => {
             let url = match download_url {
                 Some(u) if !u.is_empty() => u,
@@ -83,7 +78,7 @@ pub async fn update_engine<R: tauri::Runtime>(
 pub async fn install_to_appdata<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::install_to_appdata(&app).await
+    dependencies::download_all_dependencies(&app).await
 }
 
 #[tauri::command]

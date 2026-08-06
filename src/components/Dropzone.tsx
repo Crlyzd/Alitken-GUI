@@ -262,6 +262,35 @@ export const Dropzone: React.FC<DropzoneProps> = ({
               />
             </div>
 
+            {files.some((f) => f.isMissing) && (
+              <button
+                onClick={() => {
+                  const filtered = files.filter((f) => !f.isMissing);
+                  if (onReorderFiles) {
+                    onReorderFiles(filtered);
+                  }
+                  if (filtered.length === 0) {
+                    onClearFiles();
+                  }
+                }}
+                style={{
+                  background: 'rgba(244, 63, 94, 0.15)',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  borderRadius: '6px',
+                  padding: '3px 8px',
+                  color: '#fb7185',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Trash2 size={12} /> Clear Missing
+              </button>
+            )}
+
             <button
               onClick={onClearFiles}
               style={{

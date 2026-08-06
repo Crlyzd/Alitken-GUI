@@ -213,6 +213,61 @@ export function App() {
     };
   }, []);
 
+  const verifyFileAvailability = async (targetFiles?: FileItem[]): Promise<boolean> => {
+    const currentQueue = targetFiles || filesRef.current;
+    if (currentQueue.length === 0) return true;
+
+    try {
+      const missingPaths = await invoke<string[]>('check_missing_files', {
+        filePaths: currentQueue.map((f) => f.path),
+      });
+
+      const missingSet = new Set(missingPaths.map((p) => canonicalPathKey(p)));
+      const hasAnyMissingNow = missingSet.size > 0;
+      const stateHasMissing = currentQueue.some((f) => f.isMissing);
+
+      // Differential zero-re-render optimization for 1,000+ file queues:
+      if (!hasAnyMissingNow && !stateHasMissing) {
+        return true;
+      }
+
+      setFiles((prev) => {
+        let changed = false;
+        const updated = prev.map((f) => {
+          const isMissing = missingSet.has(canonicalPathKey(f.path));
+          if (f.isMissing !== isMissing) {
+            changed = true;
+            return { ...f, isMissing };
+          }
+          return f;
+        });
+        return changed ? updated : prev;
+      });
+
+      return !hasAnyMissingNow;
+    } catch (err) {
+      console.error('Failed to verify file availability:', err);
+      return true;
+    }
+  };
+
+  // Re-check queue file availability when app window regains focus (e.g. after modifying files in Explorer)
+  useEffect(() => {
+    let timer: number | null = null;
+    const handleFocus = () => {
+      if (timer) clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        verifyFileAvailability();
+      }, 300);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   const handleCheckUpdate = async () => {
     setIsCheckingUpdate(true);
     setUpdateError(null);
@@ -411,6 +466,13 @@ export function App() {
   const handleStartVideoProcessing = async () => {
     if (files.length === 0) return;
 
+    // Pre-flight check: Ensure physical files exist on disk before launching
+    const isAllAvailable = await verifyFileAvailability();
+    if (!isAllAvailable) {
+      setValidationError('One or more files in the queue are missing or no longer accessible on disk. Please remove missing files before starting.');
+      return;
+    }
+
     // Pre-flight check: Ensure binaries exist before launching
     const currentDeps = await checkDepsAndGpu(videoConfig.codecChoice);
     if (!currentDeps.ffmpeg || !currentDeps.ffprobe) {
@@ -472,6 +534,13 @@ export function App() {
 
   const handleStartImageProcessing = async () => {
     if (files.length === 0) return;
+
+    // Pre-flight check: Ensure physical files exist on disk before launching
+    const isAllAvailable = await verifyFileAvailability();
+    if (!isAllAvailable) {
+      setValidationError('One or more files in the queue are missing or no longer accessible on disk. Please remove missing files before starting.');
+      return;
+    }
 
     // Pre-flight check: Ensure binaries exist before launching
     const currentDeps = await checkDepsAndGpu(videoConfig.codecChoice);

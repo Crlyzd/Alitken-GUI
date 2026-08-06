@@ -355,11 +355,16 @@ pub async fn install_app_update(window: tauri::Window, download_url: String) -> 
 }
 
 #[tauri::command]
-pub fn check_missing_files(file_paths: Vec<String>) -> Vec<String> {
-    file_paths
-        .into_iter()
-        .filter(|file_path| !std::path::Path::new(file_path).exists())
-        .collect()
+pub async fn check_missing_files(file_paths: Vec<String>) -> Vec<String> {
+    tokio::task::spawn_blocking(move || {
+        file_paths
+            .into_iter()
+            .filter(|file_path| !std::path::Path::new(file_path).exists())
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
 }
+
 
 

@@ -247,11 +247,33 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                 <Loader2 size={32} color="var(--accent-primary)" className="animate-spin" style={{ flexShrink: 0 }} />
               )}
 
-              <div>
-                <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    color: 'var(--text-main)',
+                    margin: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={getTitle()}
+                >
                   {getTitle()}
                 </h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', margin: 0 }}>
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                    marginTop: '2px',
+                    margin: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={getSubtitle()}
+                >
                   {getSubtitle()}
                 </p>
               </div>
@@ -259,8 +281,8 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
 
             {/* Real-time Percentage Bar */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
-                <span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, gap: '8px' }}>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                   {isDownload
                     ? progress.totalFiles > 1
                       ? `Download Progress (${progress.fileIndex}/${progress.totalFiles})`
@@ -271,7 +293,7 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                           progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
                         }`}
                 </span>
-                <span style={{ color: 'var(--accent-cyan)' }}>
+                <span style={{ color: 'var(--accent-cyan)', flexShrink: 0 }}>
                   {progress.completed ? '100.0' : progress.percent.toFixed(1)}%
                 </span>
               </div>
@@ -298,7 +320,19 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
               </div>
 
               {!progress.error && (
-                <span style={{ fontSize: '11px', color: 'var(--text-dim)', alignSelf: 'flex-end', marginTop: '2px' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-dim)',
+                    alignSelf: 'flex-end',
+                    marginTop: '2px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                  }}
+                  title={progress.status}
+                >
                   {progress.status}
                 </span>
               )}

@@ -182,11 +182,12 @@ pub fn open_folder(folder_path: String) -> Result<(), String> {
     if folder_path.is_empty() {
         return Err("Folder path is empty".to_string());
     }
-    let path = std::path::Path::new(&folder_path);
+    let normalized_path = folder_path.replace('/', "\\");
+    let path = std::path::Path::new(&normalized_path);
     if !path.exists() {
         let _ = std::fs::create_dir_all(path);
     }
-    let _ = utils::create_hidden_cmd("explorer").arg(&folder_path).spawn();
+    let _ = utils::create_hidden_cmd("explorer").arg(&normalized_path).spawn();
     Ok(())
 }
 

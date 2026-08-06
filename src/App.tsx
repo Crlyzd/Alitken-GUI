@@ -131,66 +131,7 @@ export function App() {
   useEffect(() => {
     checkDepsAndGpu('1');
 
-    let lastFocusCheckTime = 0;
-    const handleFocus = async () => {
-      const now = Date.now();
-      // Throttle window focus dependency check to at most once every 15 seconds
-      // to avoid slowing down window drag-and-drop focus transitions.
-      if (now - lastFocusCheckTime < 15000) {
-        if (filesRef.current.length > 0) {
-          try {
-            const missingPaths: string[] = await invoke('check_missing_files', {
-              filePaths: filesRef.current.map((f) => f.path),
-            });
-            const missingSet = new Set(missingPaths.map((p) => canonicalPathKey(p)));
-            setFiles((prev) =>
-              prev.map((f) => {
-                const isMissing = missingSet.has(canonicalPathKey(f.path));
-                return f.isMissing === isMissing ? f : { ...f, isMissing };
-              })
-            );
-          } catch (err) {
-            console.error('Focus missing files check failed:', err);
-          }
-        }
-        return;
-      }
-      lastFocusCheckTime = now;
 
-      try {
-        const deps: any = await invoke('check_app_dependencies');
-        const nextStatus = {
-          ffmpeg: deps.ffmpeg_exists,
-          ffprobe: deps.ffprobe_exists,
-          magick: deps.magick_exists,
-        };
-
-        setDepsStatus((prev) => {
-          // If ffmpeg was missing previously and now exists, trigger GPU probe
-          if (!prev.ffmpeg && deps.ffmpeg_exists) {
-            checkDepsAndGpu(videoConfigRef.current.codecChoice);
-          }
-          return nextStatus;
-        });
-
-        // Live check if any queued files were deleted or moved on disk
-        if (filesRef.current.length > 0) {
-          const missingPaths: string[] = await invoke('check_missing_files', {
-            filePaths: filesRef.current.map((f) => f.path),
-          });
-          const missingSet = new Set(missingPaths.map((p) => canonicalPathKey(p)));
-          setFiles((prev) =>
-            prev.map((f) => {
-              const isMissing = missingSet.has(canonicalPathKey(f.path));
-              return f.isMissing === isMissing ? f : { ...f, isMissing };
-            })
-          );
-        }
-      } catch (err) {
-        console.error('Focus dependency check failed:', err);
-      }
-    };
-    window.addEventListener('focus', handleFocus);
 
     // Read command line startup arguments (e.g. from Windows "Send to" menu)
     invoke<string[]>('get_initial_files')
@@ -265,7 +206,6 @@ export function App() {
       .catch((err) => console.error('Initial background update check failed:', err));
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
       unlistenProgress.then((fn) => fn());
       unlistenImageProgress.then((fn) => fn());
       unlistenDownload.then((fn) => fn());
@@ -686,7 +626,10 @@ export function App() {
         hasUpdate={!!updateInfo?.available}
         latestVersion={updateInfo?.latest_version}
         onOpenAbout={() => setIsAboutOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => {
+          checkDepsAndGpu(videoConfig.codecChoice);
+          setIsSettingsOpen(true);
+        }}
       />
 
       {/* Validation Error Banner (Single Media Rule Violation) */}

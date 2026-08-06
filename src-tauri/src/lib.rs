@@ -11,7 +11,7 @@ use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    utils::log_info("ALITKEN v0.4 application initialized");
+    utils::log_info(&format!("ALITKEN v{} application initialized", env!("CARGO_PKG_VERSION")));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

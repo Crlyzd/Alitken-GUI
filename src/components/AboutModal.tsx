@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { X, Heart, Coffee, ExternalLink, Folder, Bug, Cpu, Zap, RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ArrowUpCircle } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
+import { APP_VERSION, APP_VERSION_TITLE } from '../utils/version';
 
 export interface UpdateInfo {
   available: boolean;
@@ -138,7 +139,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 ALITKEN
               </h2>
               <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                v0.4 &middot; Universal Video, Image & PDF Suite
+                {APP_VERSION_TITLE} &middot; Universal Video, Image & PDF Suite
               </p>
             </div>
           </div>
@@ -390,7 +391,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-main)' }}>
               <CheckCircle2 size={14} color="#10b981" />
               <span>
-                ALITKEN v{updateInfo ? updateInfo.current_version : '0.4.0'}{' '}
+                ALITKEN v{updateInfo ? updateInfo.current_version : APP_VERSION}{' '}
                 <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>(Latest Version)</span>
               </span>
             </div>

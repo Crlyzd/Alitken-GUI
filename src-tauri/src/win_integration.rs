@@ -283,6 +283,7 @@ fn generate_manifest(exe_path: &Path) -> String {
         .file_name()
         .unwrap_or_default()
         .to_string_lossy();
+    let pkg_ver = format!("{}.0", env!("CARGO_PKG_VERSION"));
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <Package
@@ -293,7 +294,7 @@ fn generate_manifest(exe_path: &Path) -> String {
   xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   IgnorableNamespaces="uap uap10 desktop4 rescap">
 
-  <Identity Name="AlitkenMediaConverter" Publisher="CN=Alitken" Version="0.4.0.0" />
+  <Identity Name="AlitkenMediaConverter" Publisher="CN=Alitken" Version="{pkg_ver}" />
 
   <Properties>
     <DisplayName>Alitken Media Converter</DisplayName>

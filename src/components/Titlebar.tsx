@@ -2,6 +2,7 @@ import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { Minus, Square, X, Cpu, Zap, Info, Settings } from 'lucide-react';
+import { APP_VERSION_TITLE } from '../utils/version';
 
 interface TitlebarProps {
   hardwareName?: string;
@@ -115,7 +116,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           }}
         />
         <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '14px', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
-          ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>v0.4</span>
+          ALITKEN <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '12px' }}>{APP_VERSION_TITLE}</span>
         </span>
       </div>
 
@@ -185,7 +186,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           <button
             onClick={onOpenAbout}
             onMouseDown={(e) => e.stopPropagation()}
-            title={hasUpdate ? `Update Available! (v${latestVersion || 'new'}) - Click to view` : "About ALITKEN v0.4"}
+            title={hasUpdate ? `Update Available! (v${latestVersion || 'new'}) - Click to view` : `About ALITKEN ${APP_VERSION_TITLE}`}
             className={`no-drag ${hasUpdate ? 'titlebar-info-update-pulse' : ''}`}
             style={{
               width: '28px',

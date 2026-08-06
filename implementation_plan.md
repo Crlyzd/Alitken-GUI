@@ -1,62 +1,57 @@
-# Plan: Concise Hardware Detector & Always-on-Top Titlebar Toggle
+# Plan: Workspace Audit & Cleanup (Option B Approved)
 
-Streamline the hardware acceleration status badge in `Titlebar.tsx` to eliminate redundant text, preventing truncation (`NVIDIA NVE...`) and freeing up horizontal space to introduce an **Always on Top** window pin toggle button.
+Clean up the **Alitken Media Converter** workspace by removing unnecessary loose files (`magick.exe`), obsolete IDE folders (`.vscode/`), and Rust build caches (`src-tauri/target/`), while retaining `dist/` per user selection alongside all core application source code, assets, and project configurations.
 
 ---
 
-## User Review Required
+## Approved Execution Actions
 
-> [!IMPORTANT]
-> **Titlebar Layout & Pin Button Placement:**
-> The new **Always on Top Pin button** will be positioned directly before the Settings gear icon in the titlebar action group:
-> `[App Logo ALITKEN v0.4]` $\rightarrow$ `(Drag Region)` $\rightarrow$ `[⚡ NVIDIA NVENC]` `[📌 Pin]` `[⚙️ Settings]` `[ⓘ Info]` `|` `[—]` `[🔲]` `[✕]`
+1. **Delete Loose Stray Binary (`magick.exe`)**:
+   - `d:\ALitken\Alitken-GUI-s\magick.exe` (31.1 MB).
+   - *Reasoning*: Binaries are dynamically managed in `%LOCALAPPDATA%\Alitken\bin\` or local `bin/`. Loose executable in root is unnecessary workspace clutter.
 
-> [!IMPORTANT]
-> **Concise Hardware Badge Format:**
-> Currently, the hardware badge renders `NVIDIA NVENC (h264_nvenc)`, taking up ~200px and resulting in truncation (`NVIDIA NVE...`).
-> We will refine the badge display to:
-> - **Primary concise label**: `NVIDIA NVENC` (or `NVENC` / `AMD AMF` / `Intel QSV` / `CPU (Software)`).
-> - **Tooltip on hover**: Shows full details: e.g., `NVIDIA NVENC (h264_nvenc) - Hardware acceleration active`.
+2. **Delete Obsolete VS Code Directory (`.vscode/`)**:
+   - Contains `c_cpp_properties.json` from legacy C++ shell extension work (superseded by Rust `shell_ext_crate`).
 
-> [!TIP]
-> **Always on Top Pin Button Behavior:**
-> - **State**: Persisted in `localStorage` (`alitken_always_on_top`).
-> - **Visual Feedback**: Glowing active badge style (`rgba(99, 102, 241, 0.2)`) when pinned (`ON`), muted subtle style when unpinned (`OFF`).
+3. **Clean Rust Build Cache (`src-tauri/target/`)**:
+   - Execute `cargo clean` in `src-tauri/` to clean multi-gigabyte build artifacts.
+
+4. **Preserved Folders & Files (Per Option B)**:
+   - `dist/` (Kept per user selection).
+   - `src/` (All React TypeScript components, styles, fonts, hooks, utilities).
+   - `src-tauri/` (All Rust backend modules and Tauri configs).
+   - `.agents/`, `public/`, `scripts/`, `package.json`, `vite.config.ts`, `tsconfig.json`, `build.ps1`, `LICENSE`, `README.md`, `.gitignore`.
 
 ---
 
 ## Proposed Changes
 
-### Rust Backend (`src-tauri`)
+### Project Root Directory
 
-#### [MODIFY] [commands.rs](file:///d:/ALitken/Alitken-GUI-s/src-tauri/src/commands.rs)
-- Add `set_always_on_top(window: tauri::Window, always_on_top: bool) -> Result<(), String>` IPC command.
+#### [DELETE] [magick.exe](file:///d:/ALitken/Alitken-GUI-s/magick.exe)
+- Delete stray ImageMagick binary from root.
 
-#### [MODIFY] [lib.rs](file:///d:/ALitken/Alitken-GUI-s/src-tauri/src/lib.rs)
-- Register `set_always_on_top` in `tauri::generate_handler![]`.
+#### [DELETE] [.vscode](file:///d:/ALitken/Alitken-GUI-s/.vscode)
+- Delete stale VS Code C++ properties configuration directory.
+
+#### [DELETE] [src-tauri/target](file:///d:/ALitken/Alitken-GUI-s/src-tauri/target)
+- Run `cargo clean` inside `src-tauri/` directory.
+
+#### [MODIFY] [implementation_plan.md](file:///d:/ALitken/Alitken-GUI-s/implementation_plan.md)
+- Updated with Option B approved strategy.
 
 ---
 
-### React Frontend (`src`)
+## Step-by-Step Execution Plan
 
-#### [MODIFY] [Titlebar.tsx](file:///d:/ALitken/Alitken-GUI-s/src/components/Titlebar.tsx)
-- Import `Pin` icon from `lucide-react`.
-- Format `displayHardwareName` cleanly (e.g. `NVIDIA NVENC`, `AMD AMF`, `Intel QSV`, `CPU`) without duplicating `(h264_nvenc)` inside the visible badge text.
-- Add `isAlwaysOnTop` state initialized from `localStorage` (`alitken_always_on_top`).
-- Add `handleToggleAlwaysOnTop` function invoking Tauri IPC / `@tauri-apps/api/window`.
-- Render the Always on Top `<button>` right before the Settings button.
+1. Remove `magick.exe` from `d:\ALitken\Alitken-GUI-s\magick.exe`.
+2. Remove `.vscode` directory recursively from `d:\ALitken\Alitken-GUI-s\.vscode`.
+3. Run `cargo clean` in `d:\ALitken\Alitken-GUI-s\src-tauri`.
+4. Run `npx tsc --noEmit` to verify frontend TypeScript compilation.
 
 ---
 
 ## Verification Plan
 
-### Manual Verification
-1. Launch Alitken dev app (`npm run tauri dev`).
-2. Verify Titlebar Layout:
-   - Confirm order: `[Badge]` `[Pin]` `[Settings]` `[Info]` `|` `[-]` `[Square]` `[Close]`.
-   - Confirm Hardware Badge text displays cleanly (e.g., `⚡ NVIDIA NVENC`) without ellipsis truncation.
-   - Hover over badge to confirm full technical info (`NVIDIA NVENC (h264_nvenc)`) is displayed in tooltip.
-3. Verify Always on Top functionality:
-   - Click the Pin button: icon turns active (glowing indigo/emerald), window stays pinned above all other desktop windows.
-   - Click again to unpin: window reverts to normal stacking.
-   - Restart app: confirm state persists based on stored preference.
+- Verify file deletion in workspace root.
+- Run `npx tsc --noEmit` to confirm zero TypeScript compile errors.

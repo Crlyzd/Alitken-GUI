@@ -131,7 +131,32 @@ export function App() {
   useEffect(() => {
     checkDepsAndGpu('1');
 
+    let lastFocusCheckTime = 0;
     const handleFocus = async () => {
+      const now = Date.now();
+      // Throttle window focus dependency check to at most once every 15 seconds
+      // to avoid slowing down window drag-and-drop focus transitions.
+      if (now - lastFocusCheckTime < 15000) {
+        if (filesRef.current.length > 0) {
+          try {
+            const missingPaths: string[] = await invoke('check_missing_files', {
+              filePaths: filesRef.current.map((f) => f.path),
+            });
+            const missingSet = new Set(missingPaths.map((p) => canonicalPathKey(p)));
+            setFiles((prev) =>
+              prev.map((f) => {
+                const isMissing = missingSet.has(canonicalPathKey(f.path));
+                return f.isMissing === isMissing ? f : { ...f, isMissing };
+              })
+            );
+          } catch (err) {
+            console.error('Focus missing files check failed:', err);
+          }
+        }
+        return;
+      }
+      lastFocusCheckTime = now;
+
       try {
         const deps: any = await invoke('check_app_dependencies');
         const nextStatus = {

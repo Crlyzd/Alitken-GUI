@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{OnceLock, RwLock};
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +25,24 @@ pub struct DependencyStatus {
     pub ffmpeg_path: String,
     pub ffprobe_path: String,
     pub magick_path: String,
+}
+
+#[derive(Debug, Clone)]
+struct CachedStatus {
+    timestamp: Instant,
+    status: DependencyStatus,
+}
+
+static CACHED_DEPS: OnceLock<RwLock<Option<CachedStatus>>> = OnceLock::new();
+
+fn get_cache() -> &'static RwLock<Option<CachedStatus>> {
+    CACHED_DEPS.get_or_init(|| RwLock::new(None))
+}
+
+pub fn invalidate_dependency_cache() {
+    if let Ok(mut guard) = get_cache().write() {
+        *guard = None;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,8 +138,31 @@ pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
     (String::new(), 0, 0)
 }
 
-/// Resolves paths for ffmpeg, ffprobe, and magick binaries in local bin/ or system PATH
+/// Resolves paths for ffmpeg, ffprobe, and magick binaries in local bin/ or system PATH (cached for 15s)
 pub fn check_dependencies() -> DependencyStatus {
+    const TTL: Duration = Duration::from_secs(15);
+    if let Ok(guard) = get_cache().read() {
+        if let Some(ref cached) = *guard {
+            if cached.timestamp.elapsed() < TTL {
+                return cached.status.clone();
+            }
+        }
+    }
+
+    let status = compute_dependencies();
+
+    if let Ok(mut guard) = get_cache().write() {
+        *guard = Some(CachedStatus {
+            timestamp: Instant::now(),
+            status: status.clone(),
+        });
+    }
+
+    status
+}
+
+/// Performs heavy binary version probing process executions
+fn compute_dependencies() -> DependencyStatus {
     let local_bin = get_local_bin_dir();
 
     let ffmpeg_path = resolve_binary(&local_bin, "ffmpeg.exe", "ffmpeg");
@@ -483,6 +526,7 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
 
     let _ = fs::remove_file(&zip_path);
 
+    invalidate_dependency_cache();
     Ok(check_dependencies())
 }
 
@@ -650,6 +694,7 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 
     let _ = fs::remove_file(&archive_path);
 
+    invalidate_dependency_cache();
     let status = check_dependencies();
     if !status.magick_exists {
         return Err("magick.exe extraction failed or binary missing.".to_string());
@@ -704,6 +749,7 @@ pub async fn install_to_appdata<R: tauri::Runtime>(
         let _ = fs::copy(&portable_ffmpeg, appdata_dir.join("ffmpeg.exe"));
         let _ = fs::copy(&portable_ffprobe, appdata_dir.join("ffprobe.exe"));
         let _ = fs::copy(&portable_magick, appdata_dir.join("magick.exe"));
+        invalidate_dependency_cache();
         return Ok(check_dependencies());
     }
 
@@ -716,6 +762,7 @@ pub fn uninstall_appdata() -> Result<DependencyStatus, String> {
     let _ = fs::remove_file(appdata_dir.join("ffmpeg.exe"));
     let _ = fs::remove_file(appdata_dir.join("ffprobe.exe"));
     let _ = fs::remove_file(appdata_dir.join("magick.exe"));
+    invalidate_dependency_cache();
     Ok(check_dependencies())
 }
 

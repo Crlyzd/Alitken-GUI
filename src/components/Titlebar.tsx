@@ -250,41 +250,28 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             onClick={onOpenAbout}
             onMouseDown={(e) => e.stopPropagation()}
             title={hasUpdate ? `Update Available! (v${latestVersion || 'new'}) - Click to view` : `About ALITKEN ${APP_VERSION_TITLE}`}
-            className={`no-drag ${hasUpdate ? 'titlebar-info-update-pulse' : ''}`}
+            className="no-drag"
             style={{
               width: '28px',
               height: '28px',
               borderRadius: '6px',
-              border: hasUpdate ? '1px solid rgba(16, 185, 129, 0.5)' : 'none',
-              background: hasUpdate ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              border: 'none',
+              background: 'transparent',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              position: 'relative',
             }}
-            onMouseEnter={(e) => {
-              if (!hasUpdate) e.currentTarget.style.background = 'var(--border-glass)';
-            }}
-            onMouseLeave={(e) => {
-              if (!hasUpdate) e.currentTarget.style.background = 'transparent';
-            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <Info size={14} color={hasUpdate ? '#10b981' : 'var(--text-muted)'} />
-            {hasUpdate && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '2px',
-                  right: '2px',
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: '#10b981',
-                  boxShadow: '0 0 6px #10b981',
-                }}
-              />
+            {hasUpdate ? (
+              <div className="titlebar-outer-red-ring">
+                <Info size={12} color="#10b981" className="titlebar-info-update-pulse" />
+              </div>
+            ) : (
+              <Info size={14} color="var(--text-muted)" />
             )}
           </button>
         )}

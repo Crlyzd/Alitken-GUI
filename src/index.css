@@ -238,25 +238,41 @@ select,
 
 /* Pulsating Info Icon for Titlebar Update Notification */
 @keyframes titlebar-update-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
-    background: rgba(16, 185, 129, 0.15);
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4));
+    opacity: 0.85;
   }
-  70% {
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-    background: rgba(16, 185, 129, 0.25);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-    background: rgba(16, 185, 129, 0.15);
+  50% {
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 1)) drop-shadow(0 0 4px rgba(16, 185, 129, 0.8));
+    opacity: 1;
   }
 }
 
 .titlebar-info-update-pulse {
-  animation: titlebar-update-pulse 2s infinite;
-  border: 1px solid rgba(16, 185, 129, 0.5) !important;
-  color: #10b981 !important;
-  position: relative;
+  animation: titlebar-update-pulse 1.8s ease-in-out infinite;
+}
+
+/* Pulsating Tight Outer Red Ring for Titlebar Update Notification */
+@keyframes outer-red-circle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 3px rgba(244, 63, 94, 0.4);
+    border-color: rgba(244, 63, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.9);
+    border-color: rgba(244, 63, 94, 1);
+  }
+}
+
+.titlebar-outer-red-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #f43f5e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: outer-red-circle-pulse 1.8s ease-in-out infinite;
 }
 
 /* Pulsating Glowing Status Dot */

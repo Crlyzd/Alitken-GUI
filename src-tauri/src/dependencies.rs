@@ -76,11 +76,21 @@ pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
         _ => return (String::new(), 0, 0),
     };
 
-    let lower = output.to_lowercase();
-    if let Some(idx) = lower.find("version") {
-        let substring = &output[idx..];
-        for word in substring.split_whitespace() {
-            let clean = word.trim_matches(|c: char| !c.is_numeric() && c != '.' && c != '-');
+    // Restrict parsing strictly to line 1 to prevent compiler/library output on lower lines from bleeding into version probing
+    let first_line = match output.lines().next() {
+        Some(l) if !l.trim().is_empty() => l.trim(),
+        _ => return (String::new(), 0, 0),
+    };
+
+    let first_line_lower = first_line.to_lowercase();
+
+    // Case 1: Standard semver in line 1 (e.g., "ffmpeg version 7.1", "ImageMagick 7.1.2-29", "n7.1.0")
+    if let Some(idx) = first_line_lower.find("version") {
+        let substring = &first_line[idx..];
+        for raw_word in substring.split_whitespace() {
+            let trimmed = raw_word
+                .trim_start_matches(|c: char| c == 'v' || c == 'V' || c == 'n' || c == 'N');
+            let clean = trimmed.trim_matches(|c: char| !c.is_numeric() && c != '.' && c != '-');
             if clean.contains('.') {
                 let parts: Vec<&str> = clean.split(|c| c == '.' || c == '-').collect();
                 if let (Ok(maj), Ok(min)) = (
@@ -93,8 +103,31 @@ pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
         }
     }
 
-    if lower.contains("ffmpeg") || lower.contains("imagemagick") {
-        return ("Latest".to_string(), 999, 0);
+    // Case 2: Handle BtbN / FFmpeg git master build identifiers on line 1 (e.g. "ffmpeg version N-125978-g95c43d7df7-20260806")
+    if first_line_lower.contains("ffmpeg") {
+        if first_line_lower.contains("n-")
+            || first_line_lower.contains("-g")
+            || first_line_lower.contains("latest")
+        {
+            return ("7.1".to_string(), 7, 1);
+        }
+    }
+
+    // Case 3: ImageMagick fallback parsing on line 1
+    if first_line_lower.contains("imagemagick") {
+        for raw_word in first_line.split_whitespace() {
+            let clean = raw_word.trim_matches(|c: char| !c.is_numeric() && c != '.' && c != '-');
+            if clean.contains('.') {
+                let parts: Vec<&str> = clean.split(|c| c == '.' || c == '-').collect();
+                if let (Ok(maj), Ok(min)) = (
+                    parts[0].parse::<u32>(),
+                    parts.get(1).unwrap_or(&"0").parse::<u32>(),
+                ) {
+                    return (clean.to_string(), maj, min);
+                }
+            }
+        }
+        return ("7.1.2-29".to_string(), 7, 1);
     }
 
     (String::new(), 0, 0)
@@ -633,23 +666,33 @@ pub async fn download_all_dependencies<R: tauri::Runtime>(
     crate::utils::reset_cancel_flag();
 
     let current = check_dependencies();
+    let mut need_ffmpeg = !current.ffmpeg_exists
+        || !current.ffprobe_exists
+        || !current.ffmpeg_valid
+        || current.has_update;
+    let mut need_magick =
+        !current.magick_exists || !current.magick_valid || current.magick_has_update;
+
+    // If neither specifically requires updating, re-download both (e.g. forced reinstall)
+    if !need_ffmpeg && !need_magick {
+        need_ffmpeg = true;
+        need_magick = true;
+    }
+
     let mut total_steps = 0;
-    if !current.ffmpeg_exists || !current.ffprobe_exists {
+    if need_ffmpeg {
         total_steps += 1;
     }
-    if !current.magick_exists {
+    if need_magick {
         total_steps += 1;
-    }
-    if total_steps == 0 {
-        total_steps = 1;
     }
 
     let mut current_step = 0;
-    if !current.ffmpeg_exists || !current.ffprobe_exists {
+    if need_ffmpeg {
         current_step += 1;
         download_ffmpeg_dependencies(app, current_step, total_steps).await?;
     }
-    if !current.magick_exists {
+    if need_magick {
         current_step += 1;
         download_magick_dependencies(app, current_step, total_steps).await?;
     }

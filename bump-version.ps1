@@ -46,14 +46,25 @@ Write-Host "Current Application Version: " -NoNewline
 Write-Host "v$oldVersion" -ForegroundColor Yellow
 Write-Host ""
 
+# Parse semver for dynamic example calculation
+$semverClean = $oldVersion.Split('-')[0]
+$parts = $semverClean.Split('.')
+$major = if ($parts.Length -gt 0) { [int]$parts[0] } else { 0 }
+$minor = if ($parts.Length -gt 1) { [int]$parts[1] } else { 0 }
+$patch = if ($parts.Length -gt 2) { [int]$parts[2] } else { 0 }
+
+$exPatch = "$major.$minor.$($patch + 1)"
+$exMinor = "$major.$($minor + 1).0"
+$exMajor = "$($major + 1).0.0"
+
 # 3. Interactive Menu (if parameters not specified)
 $targetArg = ""
 
 if ([string]::IsNullOrEmpty($Type) -and [string]::IsNullOrEmpty($Version)) {
     Write-Host "Select Version Increment Type:" -ForegroundColor Yellow
-    Write-Host "  [1] Patch  (Bug fixes / minor tweaks, e.g. v$oldVersion -> Patch)" -ForegroundColor Cyan
-    Write-Host "  [2] Minor  (New features / functionality, e.g. v$oldVersion -> Minor)" -ForegroundColor Green
-    Write-Host "  [3] Major  (Breaking changes / major overhaul)" -ForegroundColor Red
+    Write-Host "  [1] Patch  (Bug fixes / minor tweaks, e.g. v$oldVersion -> v$exPatch)" -ForegroundColor Cyan
+    Write-Host "  [2] Minor  (New features / functionality, e.g. v$oldVersion -> v$exMinor)" -ForegroundColor Green
+    Write-Host "  [3] Major  (Breaking changes / major overhaul, e.g. v$oldVersion -> v$exMajor)" -ForegroundColor Red
     Write-Host "  [4] Custom (Specify exact version string)" -ForegroundColor Magenta
     Write-Host ""
     $choice = Read-Host "Enter choice [1-4] (Default: 1 - Patch)"

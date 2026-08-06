@@ -46,7 +46,9 @@ pub fn run() {
             abort_processing,
             check_app_update,
             install_app_update,
-            check_missing_files
+            check_missing_files,
+            install_to_appdata,
+            uninstall_appdata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

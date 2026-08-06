@@ -27,22 +27,37 @@ pub fn get_initial_files() -> Vec<String> {
 #[tauri::command]
 pub async fn install_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
+    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_ffmpeg_dependencies(&app, 1, 1).await
+    dependencies::download_ffmpeg_dependencies(&app, 1, 1, target_choice.as_deref()).await
 }
 
 #[tauri::command]
 pub async fn install_magick_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
+    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_magick_dependencies(&app, 1, 1).await
+    dependencies::download_magick_dependencies(&app, 1, 1, target_choice.as_deref()).await
 }
 
 #[tauri::command]
 pub async fn install_all_dependencies<R: tauri::Runtime>(
     app: AppHandle<R>,
+    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
-    dependencies::download_all_dependencies(&app).await
+    dependencies::download_all_dependencies(&app, target_choice).await
+}
+
+#[tauri::command]
+pub async fn install_to_appdata<R: tauri::Runtime>(
+    app: AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    dependencies::install_to_appdata(&app).await
+}
+
+#[tauri::command]
+pub fn uninstall_appdata() -> Result<DependencyStatus, String> {
+    dependencies::uninstall_appdata()
 }
 
 
@@ -114,7 +129,13 @@ pub async fn start_video_pipeline<R: tauri::Runtime>(
 ) -> Result<(), String> {
     let deps = dependencies::check_dependencies();
     if !deps.ffmpeg_exists || !deps.ffprobe_exists {
-        return Err("FFmpeg dependencies not found. Please install them first.".to_string());
+        return Err("FFmpeg dependencies not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.ffmpeg_valid {
+        return Err(format!(
+            "FFmpeg version ({}) is below the required version 5.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.ffmpeg_version
+        ));
     }
 
     let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
@@ -128,7 +149,13 @@ pub async fn start_image_pipeline<R: tauri::Runtime>(
 ) -> Result<(), String> {
     let deps = dependencies::check_dependencies();
     if !deps.magick_exists {
-        return Err("ImageMagick (magick.exe) binary not found. Please install it first.".to_string());
+        return Err("ImageMagick (magick.exe) binary not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.magick_valid {
+        return Err(format!(
+            "ImageMagick version ({}) is below the required version 7.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.magick_version
+        ));
     }
 
     image::run_image_pipeline(&app, &deps.magick_path, config).await
@@ -141,7 +168,13 @@ pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
 ) -> Result<(), String> {
     let deps = dependencies::check_dependencies();
     if !deps.ffmpeg_exists {
-        return Err("FFmpeg binary not found. Please install it first.".to_string());
+        return Err("FFmpeg binary not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.ffmpeg_valid {
+        return Err(format!(
+            "FFmpeg version ({}) is below the required version 5.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.ffmpeg_version
+        ));
     }
 
     let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
@@ -153,7 +186,7 @@ pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
 
     if needs_magick && !deps.magick_exists {
         return Err(
-            "ImageMagick (magick.exe) binary not found and is required for non-standard image formats. Please install it first."
+            "ImageMagick (magick.exe) binary not found and is required for non-standard image formats. Please install it in Settings."
                 .to_string(),
         );
     }

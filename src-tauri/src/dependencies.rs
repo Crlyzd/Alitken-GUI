@@ -9,6 +9,17 @@ pub struct DependencyStatus {
     pub ffmpeg_exists: bool,
     pub ffprobe_exists: bool,
     pub magick_exists: bool,
+    pub ffmpeg_valid: bool,
+    pub magick_valid: bool,
+    pub ffmpeg_version: String,
+    pub ffprobe_version: String,
+    pub magick_version: String,
+    pub path_ffmpeg_version: String,
+    pub path_magick_version: String,
+    pub has_newer_path_ffmpeg: bool,
+    pub has_update: bool,
+    pub active_location: String,
+    pub appdata_path: String,
     pub ffmpeg_path: String,
     pub ffprobe_path: String,
     pub magick_path: String,
@@ -25,25 +36,16 @@ pub struct DownloadProgressPayload {
     pub total_steps: usize,
 }
 
-/// Resolves paths for ffmpeg, ffprobe, and magick binaries in local bin/ or system PATH
-pub fn check_dependencies() -> DependencyStatus {
-    let local_bin = get_local_bin_dir();
-
-    let ffmpeg_path = resolve_binary(&local_bin, "ffmpeg.exe", "ffmpeg");
-    let ffprobe_path = resolve_binary(&local_bin, "ffprobe.exe", "ffprobe");
-    let magick_path = resolve_binary(&local_bin, "magick.exe", "magick");
-
-    DependencyStatus {
-        ffmpeg_exists: !ffmpeg_path.is_empty(),
-        ffprobe_exists: !ffprobe_path.is_empty(),
-        magick_exists: !magick_path.is_empty(),
-        ffmpeg_path,
-        ffprobe_path,
-        magick_path,
+pub fn get_appdata_bin_dir() -> PathBuf {
+    if let Some(data_dir) = dirs::data_local_dir() {
+        let app_bin = data_dir.join("Alitken").join("bin");
+        let _ = fs::create_dir_all(&app_bin);
+        return app_bin;
     }
+    PathBuf::from("bin")
 }
 
-pub fn get_local_bin_dir() -> PathBuf {
+pub fn get_portable_bin_dir() -> PathBuf {
     if let Ok(exe_path) = env::current_exe() {
         if let Some(parent) = exe_path.parent() {
             let bin = parent.join("bin");
@@ -52,15 +54,144 @@ pub fn get_local_bin_dir() -> PathBuf {
             }
         }
     }
+    get_appdata_bin_dir()
+}
 
-    // Fallback to LocalAppData
-    if let Some(data_dir) = dirs::data_local_dir() {
-        let app_bin = data_dir.join("Alitken").join("bin");
-        let _ = fs::create_dir_all(&app_bin);
-        return app_bin;
+pub fn get_local_bin_dir() -> PathBuf {
+    let appdata = get_appdata_bin_dir();
+    let appdata_ffmpeg = appdata.join("ffmpeg.exe");
+    if appdata_ffmpeg.exists() {
+        let (_, maj, _) = probe_binary_version(&appdata_ffmpeg.to_string_lossy());
+        if maj >= 5 || maj == 999 {
+            // AppData has valid binary -> AppData priority wins!
+            return appdata;
+        }
     }
 
-    PathBuf::from("bin")
+    let portable = get_portable_bin_dir();
+    if portable.join("ffmpeg.exe").exists() || portable.join("magick.exe").exists() {
+        return portable;
+    }
+
+    if appdata.join("ffmpeg.exe").exists() || appdata.join("magick.exe").exists() {
+        return appdata;
+    }
+
+    // Default target for new installs is AppData (safest)
+    appdata
+}
+
+pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
+    if binary_path.is_empty() || !Path::new(binary_path).exists() {
+        return (String::new(), 0, 0);
+    }
+
+    let output = match crate::utils::create_hidden_cmd(binary_path)
+        .arg("-version")
+        .output()
+    {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
+        _ => return (String::new(), 0, 0),
+    };
+
+    let lower = output.to_lowercase();
+    if let Some(idx) = lower.find("version") {
+        let substring = &output[idx..];
+        for word in substring.split_whitespace() {
+            let clean = word.trim_matches(|c: char| !c.is_numeric() && c != '.');
+            if clean.contains('.') {
+                let parts: Vec<&str> = clean.split('.').collect();
+                if let (Ok(maj), Ok(min)) = (
+                    parts[0].parse::<u32>(),
+                    parts.get(1).unwrap_or(&"0").parse::<u32>(),
+                ) {
+                    return (clean.to_string(), maj, min);
+                }
+            }
+        }
+    }
+
+    if lower.contains("ffmpeg") || lower.contains("imagemagick") {
+        return ("Latest".to_string(), 999, 0);
+    }
+
+    (String::new(), 0, 0)
+}
+
+/// Resolves paths for ffmpeg, ffprobe, and magick binaries in local bin/ or system PATH
+pub fn check_dependencies() -> DependencyStatus {
+    let local_bin = get_local_bin_dir();
+
+    let ffmpeg_path = resolve_binary(&local_bin, "ffmpeg.exe", "ffmpeg");
+    let ffprobe_path = resolve_binary(&local_bin, "ffprobe.exe", "ffprobe");
+    let magick_path = resolve_binary(&local_bin, "magick.exe", "magick");
+
+    let (ffmpeg_version, ffmpeg_maj, ffmpeg_min) = probe_binary_version(&ffmpeg_path);
+    let (ffprobe_version, _, _) = probe_binary_version(&ffprobe_path);
+    let (magick_version, magick_maj, _) = probe_binary_version(&magick_path);
+
+    let ffmpeg_exists = !ffmpeg_path.is_empty();
+    let ffprobe_exists = !ffprobe_path.is_empty();
+    let magick_exists = !magick_path.is_empty();
+
+    let ffmpeg_valid = ffmpeg_exists && (ffmpeg_maj >= 5 || ffmpeg_maj == 0 || ffmpeg_maj == 999);
+    let magick_valid = magick_exists && (magick_maj >= 7 || magick_maj == 0 || magick_maj == 999);
+
+    let portable_bin = get_portable_bin_dir();
+    let appdata_bin = get_appdata_bin_dir();
+    let appdata_path = appdata_bin.to_string_lossy().to_string();
+
+    let active_location = if ffmpeg_path.starts_with(&appdata_bin.to_string_lossy().to_string()) {
+        "AppData".to_string()
+    } else if ffmpeg_path.starts_with(&portable_bin.to_string_lossy().to_string()) {
+        "".to_string() // App Folder: No extra location tag in UI!
+    } else if ffmpeg_exists {
+        "System PATH".to_string()
+    } else {
+        "Missing".to_string()
+    };
+
+    let mut path_ffmpeg_version = String::new();
+    let mut path_magick_version = String::new();
+    let mut has_newer_path_ffmpeg = false;
+
+    if active_location != "System PATH" {
+        if let Ok(sys_path) = which::which("ffmpeg") {
+            let sys_path_str = sys_path.to_string_lossy().to_string();
+            let (sys_ver, sys_maj, sys_min) = probe_binary_version(&sys_path_str);
+            path_ffmpeg_version = sys_ver;
+            if (sys_maj, sys_min) > (ffmpeg_maj, ffmpeg_min) && ffmpeg_maj != 999 {
+                has_newer_path_ffmpeg = true;
+            }
+        }
+        if let Ok(sys_path) = which::which("magick") {
+            let sys_path_str = sys_path.to_string_lossy().to_string();
+            let (sys_ver, _, _) = probe_binary_version(&sys_path_str);
+            path_magick_version = sys_ver;
+        }
+    }
+
+    let has_update = has_newer_path_ffmpeg || (ffmpeg_maj > 0 && ffmpeg_maj < 7);
+
+    DependencyStatus {
+        ffmpeg_exists,
+        ffprobe_exists,
+        magick_exists,
+        ffmpeg_valid,
+        magick_valid,
+        ffmpeg_version,
+        ffprobe_version,
+        magick_version,
+        path_ffmpeg_version,
+        path_magick_version,
+        has_newer_path_ffmpeg,
+        has_update,
+        active_location,
+        appdata_path,
+        ffmpeg_path,
+        ffprobe_path,
+        magick_path,
+    }
 }
 
 fn resolve_binary(local_bin: &Path, exe_name: &str, cmd_name: &str) -> String {
@@ -148,11 +279,20 @@ async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
     fallback_url
 }
 
+fn resolve_target_dir(target_choice: Option<&str>) -> PathBuf {
+    match target_choice {
+        Some("Portable") => get_portable_bin_dir(),
+        Some("AppData") => get_appdata_bin_dir(),
+        _ => get_local_bin_dir(),
+    }
+}
+
 /// Asynchronously downloads portable FFmpeg release zip directly from BtbN GitHub releases
 pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     current_step: usize,
     total_steps: usize,
+    target_choice: Option<&str>,
 ) -> Result<DependencyStatus, String> {
     crate::utils::reset_cancel_flag();
 
@@ -175,7 +315,7 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     );
 
     let download_url = fetch_latest_ffmpeg_url(&client).await;
-    let target_dir = get_local_bin_dir();
+    let target_dir = resolve_target_dir(target_choice);
     let zip_path = target_dir.join("ffmpeg_download.zip");
 
     // Clean up any stale partial zip from previous attempts
@@ -350,6 +490,7 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     current_step: usize,
     total_steps: usize,
+    target_choice: Option<&str>,
 ) -> Result<DependencyStatus, String> {
     crate::utils::reset_cancel_flag();
 
@@ -372,7 +513,7 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     );
 
     let download_url = fetch_latest_magick_url(&client).await;
-    let target_dir = get_local_bin_dir();
+    let target_dir = resolve_target_dir(target_choice);
     let archive_path = target_dir.join("magick_download.7z");
 
     // Clean up any stale partial archive from previous attempts
@@ -519,9 +660,11 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 
 pub async fn download_all_dependencies<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
+    target_choice: Option<String>,
 ) -> Result<DependencyStatus, String> {
     crate::utils::reset_cancel_flag();
 
+    let target_ref = target_choice.as_deref();
     let current = check_dependencies();
     let mut total_steps = 0;
     if !current.ffmpeg_exists || !current.ffprobe_exists {
@@ -537,12 +680,42 @@ pub async fn download_all_dependencies<R: tauri::Runtime>(
     let mut current_step = 0;
     if !current.ffmpeg_exists || !current.ffprobe_exists {
         current_step += 1;
-        download_ffmpeg_dependencies(app, current_step, total_steps).await?;
+        download_ffmpeg_dependencies(app, current_step, total_steps, target_ref).await?;
     }
     if !current.magick_exists {
         current_step += 1;
-        download_magick_dependencies(app, current_step, total_steps).await?;
+        download_magick_dependencies(app, current_step, total_steps, target_ref).await?;
     }
+    Ok(check_dependencies())
+}
+
+pub async fn install_to_appdata<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<DependencyStatus, String> {
+    let portable_dir = get_portable_bin_dir();
+    let appdata_dir = get_appdata_bin_dir();
+
+    let portable_ffmpeg = portable_dir.join("ffmpeg.exe");
+    let portable_ffprobe = portable_dir.join("ffprobe.exe");
+    let portable_magick = portable_dir.join("magick.exe");
+
+    // If binaries exist in portable dir, copy them into AppData
+    if portable_ffmpeg.exists() && portable_ffprobe.exists() && portable_magick.exists() {
+        let _ = fs::copy(&portable_ffmpeg, appdata_dir.join("ffmpeg.exe"));
+        let _ = fs::copy(&portable_ffprobe, appdata_dir.join("ffprobe.exe"));
+        let _ = fs::copy(&portable_magick, appdata_dir.join("magick.exe"));
+        return Ok(check_dependencies());
+    }
+
+    // Otherwise download fresh builds into AppData
+    download_all_dependencies(app, Some("AppData".to_string())).await
+}
+
+pub fn uninstall_appdata() -> Result<DependencyStatus, String> {
+    let appdata_dir = get_appdata_bin_dir();
+    let _ = fs::remove_file(appdata_dir.join("ffmpeg.exe"));
+    let _ = fs::remove_file(appdata_dir.join("ffprobe.exe"));
+    let _ = fs::remove_file(appdata_dir.join("magick.exe"));
     Ok(check_dependencies())
 }
 

@@ -62,3 +62,24 @@ export interface IntegrationStatus {
   executable_path: string;
 }
 
+export interface DependencyStatus {
+  ffmpeg_exists: boolean;
+  ffprobe_exists: boolean;
+  magick_exists: boolean;
+  ffmpeg_valid: boolean;
+  magick_valid: boolean;
+  ffmpeg_version: string;
+  ffprobe_version: string;
+  magick_version: string;
+  path_ffmpeg_version: string;
+  path_magick_version: string;
+  has_newer_path_ffmpeg: boolean;
+  has_update: boolean;
+  active_location: string;
+  appdata_path: string;
+  ffmpeg_path: string;
+  ffprobe_path: string;
+  magick_path: string;
+}
+
+

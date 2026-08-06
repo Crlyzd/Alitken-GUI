@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers } from 'lucide-react';
+import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers, Download, Trash2 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { IntegrationStatus } from '../types/media';
+import { DependencyStatus, IntegrationStatus } from '../types/media';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,8 +17,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleTheme,
 }) => {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
+  const [deps, setDeps] = useState<DependencyStatus | null>(null);
   const [loadingSendTo, setLoadingSendTo] = useState(false);
   const [loadingWin11, setLoadingWin11] = useState(false);
+  const [loadingDeps, setLoadingDeps] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -26,6 +28,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await invoke<IntegrationStatus>('get_system_integration_status');
       setStatus(res);
+      const depRes = await invoke<DependencyStatus>('check_app_dependencies');
+      setDeps(depRes);
     } catch (err) {
       console.error('Failed to fetch system integration status:', err);
     }
@@ -119,6 +123,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleInstallAppData = async () => {
+    if (loadingDeps) return;
+    setLoadingDeps(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await invoke<DependencyStatus>('install_to_appdata');
+      setDeps(res);
+      setSuccessMsg('Binaries successfully installed to AppData!');
+    } catch (err: any) {
+      setErrorMsg(err?.toString() || 'Failed to install binaries to AppData.');
+    } finally {
+      setLoadingDeps(false);
+    }
+  };
+
+  const handleUninstallDeps = async () => {
+    if (loadingDeps) return;
+    setLoadingDeps(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await invoke<DependencyStatus>('uninstall_appdata');
+      setDeps(res);
+      setSuccessMsg('Binaries uninstalled from AppData.');
+    } catch (err: any) {
+      setErrorMsg(err?.toString() || 'Failed to uninstall binaries.');
+    } finally {
+      setLoadingDeps(false);
+    }
+  };
+
+  const handleOpenAppDataFolder = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await invoke('open_folder', { folderPath: deps?.appdata_path });
+    } catch (err) {
+      console.error('Failed to open AppData folder:', err);
+    }
+  };
+
   return (
     <div
       style={{
@@ -141,7 +186,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         style={{
           width: '100%',
           maxWidth: '430px',
-          maxHeight: 'calc(100vh - 24px)',
+          maxHeight: 'calc(100vh - 28px)',
           overflowY: 'auto',
           borderRadius: '14px',
           padding: '16px 18px',
@@ -335,7 +380,263 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Section 2: Windows Context Menu Integrations */}
+        {/* Section 2: Media Processing Engines */}
+        <div>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: '6px',
+            }}
+          >
+            Media Processing Engines
+          </div>
+
+          <div
+            style={{
+              padding: '10px 12px',
+              borderRadius: '10px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-glass)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}
+          >
+            {/* Engine Badges */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {/* FFmpeg Engine */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                  🎬 FFmpeg:{' '}
+                  {deps?.ffmpeg_version
+                    ? `v${deps.ffmpeg_version}`
+                    : deps?.ffmpeg_exists
+                    ? 'Installed'
+                    : 'Missing'}
+                  {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
+                </span>
+
+                {/* Right Aligned Badges */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                  {deps?.has_update && (
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        color: '#f59e0b',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                      }}
+                    >
+                      Update Available
+                    </span>
+                  )}
+
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: deps?.ffmpeg_valid
+                        ? (deps.has_update
+                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.12)' : 'rgba(245, 158, 11, 0.15)')
+                          : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
+                        : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
+                      color: deps?.ffmpeg_valid
+                        ? (deps.has_update
+                          ? (theme === 'light' ? '#d97706' : '#f59e0b')
+                          : (theme === 'light' ? '#047857' : '#34d399'))
+                        : (theme === 'light' ? '#e11d48' : '#fb7185'),
+                      border: `1px solid ${
+                        deps?.ffmpeg_valid
+                          ? (deps.has_update
+                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.35)' : 'rgba(245, 158, 11, 0.3)')
+                            : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
+                          : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
+                      }`,
+                    }}
+                  >
+                    <span
+                      className="status-dot-pulse"
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: deps?.ffmpeg_valid
+                          ? (deps.has_update ? '#f59e0b' : '#10b981')
+                          : '#f43f5e',
+                        boxShadow: deps?.ffmpeg_valid
+                          ? (deps.has_update ? '0 0 6px rgba(245, 158, 11, 0.8)' : '0 0 6px rgba(16, 185, 129, 0.8)')
+                          : '0 0 6px rgba(244, 63, 94, 0.8)',
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{deps?.ffmpeg_valid ? 'Valid (≥ 5.0)' : 'Outdated (< 5.0)'}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* ImageMagick Engine */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                  🖼️ ImageMagick:{' '}
+                  {deps?.magick_version
+                    ? `v${deps.magick_version}`
+                    : deps?.magick_exists
+                    ? 'Installed'
+                    : 'Missing'}
+                  {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
+                </span>
+
+                {/* Right Aligned Badges */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: deps?.magick_valid
+                        ? (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)')
+                        : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
+                      color: deps?.magick_valid
+                        ? (theme === 'light' ? '#047857' : '#34d399')
+                        : (theme === 'light' ? '#e11d48' : '#fb7185'),
+                      border: `1px solid ${
+                        deps?.magick_valid
+                          ? (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)')
+                          : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
+                      }`,
+                    }}
+                  >
+                    <span
+                      className="status-dot-pulse"
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: deps?.magick_valid ? '#10b981' : '#f43f5e',
+                        boxShadow: deps?.magick_valid
+                          ? '0 0 6px rgba(16, 185, 129, 0.8)'
+                          : '0 0 6px rgba(244, 63, 94, 0.8)',
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>{deps?.magick_valid ? 'Valid (≥ 7.0)' : 'Outdated (< 7.0)'}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Single Dynamic Action Button */}
+            {deps?.active_location === 'AppData' ? (
+              <button
+                onClick={handleUninstallDeps}
+                disabled={loadingDeps}
+                style={{
+                  marginTop: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  background: 'rgba(244, 63, 94, 0.15)',
+                  color: '#fb7185',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: loadingDeps ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Trash2 size={12} />}
+                <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
+              </button>
+            ) : deps?.has_update ? (
+              <button
+                onClick={handleInstallAppData}
+                disabled={loadingDeps}
+                style={{
+                  marginTop: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  background: '#f59e0b',
+                  color: '#000',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: loadingDeps ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
+                <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleInstallAppData}
+                disabled={loadingDeps}
+                style={{
+                  marginTop: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--accent-primary)',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: loadingDeps ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
+                <span>{loadingDeps ? 'Installing...' : 'Install Binaries'}</span>
+              </button>
+            )}
+
+            {/* Subtext with Clickable AppData Link */}
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '2px' }}>
+              Installs binaries to{' '}
+              <span
+                onClick={handleOpenAppDataFolder}
+                style={{
+                  color: 'var(--accent-primary)',
+                  fontWeight: 600,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+                title="Open AppData folder in Windows File Explorer"
+              >
+                AppData
+              </span>{' '}
+              so Alitken.exe can move anywhere on your PC.
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Windows Context Menu Integrations */}
         <div>
           <div
             style={{
@@ -408,9 +709,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fontWeight: 600,
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    background: theme === 'light' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.2)',
+                    background: theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.2)',
                     color: theme === 'light' ? '#047857' : '#34d399',
-                    border: `1px solid ${theme === 'light' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                    border: `1px solid ${theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'}`,
                     whiteSpace: 'nowrap',
                   }}
                 >

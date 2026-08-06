@@ -240,7 +240,7 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
               ) : progress.error ? (
                 <AlertCircle
                   size={32}
-                  color={isAborted || completedCount > 0 ? '#f59e0b' : '#fb7185'}
+                  color={isAborted || completedCount > 0 ? '#f59e0b' : 'var(--accent-rose)'}
                   style={{ flexShrink: 0 }}
                 />
               ) : (
@@ -315,7 +315,8 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                   borderRadius: '10px',
                   background: isFileMissing ? 'rgba(244, 63, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                   border: `1px solid ${isFileMissing ? 'rgba(244, 63, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                  color: isFileMissing ? '#fb7185' : '#f87171',
+                  color: 'var(--accent-rose)',
+                  fontWeight: 500,
                   fontSize: '12px',
                   lineHeight: '1.45',
                   wordBreak: 'break-word',

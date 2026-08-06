@@ -417,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       !deps?.ffmpeg_exists
                         ? 'Click to download and install FFmpeg binary'
                         : deps?.has_update
-                        ? 'Click to download & install FFmpeg update'
+                        ? `Click to download & install FFmpeg v${formatEngineVersion(deps.ffmpeg_latest_version || '7.1')} update`
                         : deps?.ffmpeg_valid
                         ? 'FFmpeg is valid and up to date'
                         : 'Click to download valid FFmpeg binary'
@@ -476,7 +476,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         : !deps?.ffmpeg_valid
                         ? 'Outdated (< 5.0)'
                         : deps?.has_update
-                        ? 'Update Available (≥ 5.0)'
+                        ? `Update → v${formatEngineVersion(deps.ffmpeg_latest_version || '7.1')}`
                         : 'Valid (≥ 5.0)'}
                     </span>
                     {(!deps?.ffmpeg_exists || !deps?.ffmpeg_valid || deps?.has_update) && (
@@ -525,7 +525,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       !deps?.magick_exists
                         ? 'Click to download and install ImageMagick binary'
                         : deps?.magick_has_update
-                        ? 'Click to download & install ImageMagick update'
+                        ? `Click to download & install ImageMagick v${formatEngineVersion(deps.magick_latest_version || '7.1.2')} update`
                         : deps?.magick_valid
                         ? 'ImageMagick is valid and up to date'
                         : 'Click to download valid ImageMagick binary'
@@ -584,7 +584,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         : !deps?.magick_valid
                         ? 'Outdated (< 7.0)'
                         : deps?.magick_has_update
-                        ? 'Update Available (≥ 7.0)'
+                        ? `Update → v${formatEngineVersion(deps.magick_latest_version || '7.1.2')}`
                         : 'Valid (≥ 7.0)'}
                     </span>
                     {(!deps?.magick_exists || !deps?.magick_valid || deps?.magick_has_update) && (

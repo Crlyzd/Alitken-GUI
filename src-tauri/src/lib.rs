@@ -45,7 +45,8 @@ pub fn run() {
             set_win11_context_menu_status,
             abort_processing,
             check_app_update,
-            install_app_update
+            install_app_update,
+            check_missing_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

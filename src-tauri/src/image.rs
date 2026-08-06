@@ -84,6 +84,18 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
 
     utils::reset_cancel_flag();
 
+    // Pre-flight file existence check
+    for input_path_str in &config.input_files {
+        if !Path::new(input_path_str).exists() {
+            let err_msg = format!(
+                "Input image file not found: '{}'. Please ensure the file was not deleted or moved.",
+                input_path_str
+            );
+            utils::log_error(&err_msg);
+            return Err(err_msg);
+        }
+    }
+
     // Handle PDF merge vs individual file conversion
     if config.output_format == "PDF" && config.merge_pdf && config.input_files.len() > 1 {
         return run_pdf_merge(app, magick_path, &config).await;
@@ -96,9 +108,6 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
         }
 
         let input_path = Path::new(input_path_str);
-        if !input_path.exists() {
-            continue;
-        }
 
         let file_name = input_path
             .file_name()

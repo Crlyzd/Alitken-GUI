@@ -122,6 +122,11 @@ export function App() {
     }
   }, []);
 
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
   // Initial setup: Check dependencies, GPU acceleration, and register all IPC event listeners.
   useEffect(() => {
     checkDepsAndGpu('1');
@@ -142,6 +147,20 @@ export function App() {
           }
           return nextStatus;
         });
+
+        // Live check if any queued files were deleted or moved on disk
+        if (filesRef.current.length > 0) {
+          const missingPaths: string[] = await invoke('check_missing_files', {
+            filePaths: filesRef.current.map((f) => f.path),
+          });
+          const missingSet = new Set(missingPaths.map((p) => canonicalPathKey(p)));
+          setFiles((prev) =>
+            prev.map((f) => {
+              const isMissing = missingSet.has(canonicalPathKey(f.path));
+              return f.isMissing === isMissing ? f : { ...f, isMissing };
+            })
+          );
+        }
       } catch (err) {
         console.error('Focus dependency check failed:', err);
       }

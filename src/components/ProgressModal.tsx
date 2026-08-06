@@ -41,6 +41,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
   const isAborted =
     progress.error === 'Processing aborted by user.' ||
     Boolean(progress.error && progress.error.toLowerCase().includes('aborted'));
+  const isFileMissing = Boolean(
+    progress.error &&
+      (progress.error.toLowerCase().includes('not found') ||
+        progress.error.toLowerCase().includes('deleted or moved'))
+  );
 
   const getTitle = () => {
     if (progress.completed) {
@@ -54,10 +59,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
           ? `Task Stopped — ${completedCount} of ${progress.totalFiles} Files Converted`
           : 'Task Cancelled';
       }
-      if (isSingleOutput) return 'Processing Interrupted';
+      if (isFileMissing) return 'File Not Found';
+      if (isSingleOutput) return 'Conversion Error';
       return completedCount > 0
-        ? `Interrupted — ${completedCount} of ${progress.totalFiles} Files Converted`
-        : 'Processing Interrupted';
+        ? `Task Interrupted — ${completedCount} of ${progress.totalFiles} Files Converted`
+        : 'Conversion Error';
     }
     return isDownload ? 'Downloading Dependencies...' : 'Processing Media...';
   };
@@ -77,12 +83,10 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
           ? `${completedCount} file(s) converted before operation was stopped.`
           : 'Operation was cancelled before processing started.';
       }
-      if (isSingleOutput) {
-        return 'Processing encountered an error before output file was completed.';
+      if (isFileMissing) {
+        return 'Input media file missing from disk.';
       }
-      return progress.currentFile
-        ? `Stopped at: ${progress.currentFile}`
-        : 'Processing encountered an error.';
+      return 'Processing encountered an execution error.';
     }
     if (isDownload) {
       return progress.currentFile || 'Fetching portable binary packages...';
@@ -293,10 +297,34 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
                 />
               </div>
 
-              <span style={{ fontSize: '11px', color: 'var(--text-dim)', alignSelf: 'flex-end', marginTop: '2px' }}>
-                {progress.status}
-              </span>
+              {!progress.error && (
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)', alignSelf: 'flex-end', marginTop: '2px' }}>
+                  {progress.status}
+                </span>
+              )}
             </div>
+
+            {/* High-Visibility Error Alert Box */}
+            {progress.error && !isAborted && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: isFileMissing ? 'rgba(244, 63, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `1px solid ${isFileMissing ? 'rgba(244, 63, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  color: isFileMissing ? '#fb7185' : '#f87171',
+                  fontSize: '12px',
+                  lineHeight: '1.45',
+                  wordBreak: 'break-word',
+                }}
+              >
+                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>{progress.error}</div>
+              </div>
+            )}
 
             {/* Action Buttons on completion */}
             {progress.completed && (

@@ -39,6 +39,18 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
     crate::utils::reset_cancel_flag();
 
+    // Pre-flight file existence check
+    for file_path in &config.video_files {
+        if !Path::new(file_path).exists() {
+            let err_msg = format!(
+                "Input video file not found: '{}'. Please ensure the file was not deleted or moved.",
+                file_path
+            );
+            log_error(&err_msg);
+            return Err(err_msg);
+        }
+    }
+
     for (idx, file_path) in config.video_files.iter().enumerate() {
         if crate::utils::check_cancel_flag() {
             return Err("Processing aborted by user.".to_string());

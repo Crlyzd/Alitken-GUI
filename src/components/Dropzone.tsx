@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown } from 'lucide-react';
+import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown, AlertCircle } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
 
@@ -22,6 +22,7 @@ export interface FileItem {
   resolution?: string;
   codec?: string;
   mediaKind?: 'video' | 'image';
+  isMissing?: boolean;
 }
 
 interface DropzoneProps {
@@ -304,6 +305,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px',
+                border: file.isMissing ? '1px solid rgba(244, 63, 94, 0.45)' : undefined,
+                background: file.isMissing ? 'rgba(244, 63, 94, 0.06)' : undefined,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
@@ -312,12 +315,22 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     width: '38px',
                     height: '38px',
                     borderRadius: '10px',
-                    background: isImg ? 'rgba(168, 85, 247, 0.15)' : 'rgba(6, 182, 212, 0.15)',
-                    border: `1px solid ${isImg ? 'rgba(168, 85, 247, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`,
+                    background: file.isMissing
+                      ? 'rgba(244, 63, 94, 0.2)'
+                      : isImg
+                      ? 'rgba(168, 85, 247, 0.15)'
+                      : 'rgba(6, 182, 212, 0.15)',
+                    border: `1px solid ${
+                      file.isMissing
+                        ? 'rgba(244, 63, 94, 0.4)'
+                        : isImg
+                        ? 'rgba(168, 85, 247, 0.25)'
+                        : 'rgba(6, 182, 212, 0.25)'
+                    }`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: isImg ? '#c084fc' : 'var(--accent-cyan)',
+                    color: file.isMissing ? '#fb7185' : isImg ? '#c084fc' : 'var(--accent-cyan)',
                     flexShrink: 0,
                   }}
                 >
@@ -328,7 +341,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: 'var(--text-main)',
+                      color: file.isMissing ? '#fb7185' : 'var(--text-main)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -381,22 +394,50 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={() => onRemoveFile(idx)}
+              <div
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                  padding: '6px',
-                  borderRadius: '6px',
-                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexShrink: 0,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
               >
-                <Trash2 size={16} />
-              </button>
+                {file.isMissing && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3.5px',
+                      background: 'rgba(244, 63, 94, 0.18)',
+                      border: '1px solid rgba(244, 63, 94, 0.4)',
+                      color: '#fb7185',
+                      padding: '2px 8px',
+                      borderRadius: '5px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <AlertCircle size={10} /> File Missing
+                  </span>
+                )}
+                <button
+                  onClick={() => onRemoveFile(idx)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    cursor: 'pointer',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           );
         })}

@@ -21,6 +21,29 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
 
     crate::utils::reset_cancel_flag();
 
+    // Pre-flight file existence check
+    for file_path in &config.input_files {
+        if !Path::new(file_path).exists() {
+            let err_msg = format!(
+                "Input image file for video rendering not found: '{}'. Please ensure the file was not deleted or moved.",
+                file_path
+            );
+            log_error(&err_msg);
+            return Err(err_msg);
+        }
+    }
+
+    if let Some(ref audio_path) = config.audio_path {
+        if !audio_path.is_empty() && !Path::new(audio_path).exists() {
+            let err_msg = format!(
+                "Background audio file not found: '{}'. Please ensure the file was not deleted or moved.",
+                audio_path
+            );
+            log_error(&err_msg);
+            return Err(err_msg);
+        }
+    }
+
     let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
 
     log_info(&format!(

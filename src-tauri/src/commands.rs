@@ -269,6 +269,12 @@ pub fn close_window(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn set_always_on_top(window: tauri::Window, always_on_top: bool) -> Result<(), String> {
+    window.set_always_on_top(always_on_top).map_err(|e| e.to_string())
+}
+
+
 /// Expands the fixed startup window (560×440, non-resizable) into the full
 /// working state (980×700, resizable, min 840×580). Called from the frontend
 /// exactly once — when the first file batch is loaded via handleAddFiles.

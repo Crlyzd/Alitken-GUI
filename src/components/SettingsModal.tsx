@@ -13,7 +13,11 @@ interface SettingsModalProps {
 
 const formatEngineVersion = (versionStr?: string): string => {
   if (!versionStr) return '';
-  return versionStr.split('-')[0];
+  if (versionStr.includes('-g')) {
+    const match = versionStr.match(/^v?(\d+\.\d+(\.\d+)?)/i);
+    if (match) return match[1];
+  }
+  return versionStr;
 };
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({

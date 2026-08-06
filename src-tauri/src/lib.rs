@@ -39,6 +39,7 @@ pub fn run() {
             minimize_window,
             toggle_maximize_window,
             close_window,
+            set_always_on_top,
             expand_to_working_window,
             collapse_to_startup_window,
             get_system_integration_status,

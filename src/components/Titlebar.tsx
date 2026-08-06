@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import { Minus, Square, X, Cpu, Zap, Info, Settings } from 'lucide-react';
+import { Minus, Square, X, Cpu, Zap, Info, Settings, Pin } from 'lucide-react';
 import { APP_VERSION_TITLE } from '../utils/version';
 
 interface TitlebarProps {
@@ -23,6 +23,35 @@ export const Titlebar: React.FC<TitlebarProps> = ({
   onOpenAbout,
   onOpenSettings,
 }) => {
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState<boolean>(() => {
+    return localStorage.getItem('alitken_always_on_top') === 'true';
+  });
+
+  useEffect(() => {
+    if (isAlwaysOnTop) {
+      invoke('set_always_on_top', { alwaysOnTop: true }).catch(() => {
+        getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
+      });
+    }
+  }, []);
+
+  const handleToggleAlwaysOnTop = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextState = !isAlwaysOnTop;
+    setIsAlwaysOnTop(nextState);
+    localStorage.setItem('alitken_always_on_top', String(nextState));
+
+    try {
+      await invoke('set_always_on_top', { alwaysOnTop: nextState });
+    } catch {
+      try {
+        await getCurrentWindow().setAlwaysOnTop(nextState);
+      } catch (err) {
+        console.error('Failed to set always on top:', err);
+      }
+    }
+  };
+
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -66,8 +95,14 @@ export const Titlebar: React.FC<TitlebarProps> = ({
 
   // Format concise badge text for narrow header bar
   const displayHardwareName = hardwareName
-    ? hardwareName.includes('Software Fallback')
+    ? hardwareName.includes('Software Fallback') || hardwareName.toLowerCase().includes('cpu')
       ? 'CPU (Software)'
+      : hardwareName.includes('NVIDIA')
+      ? 'NVIDIA NVENC'
+      : hardwareName.includes('AMD')
+      ? 'AMD AMF'
+      : hardwareName.includes('Intel')
+      ? 'Intel QSV'
       : hardwareName
     : '';
 
@@ -140,7 +175,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
               background: isGpu ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
               border: `1px solid ${isGpu ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
               color: isGpu ? 'var(--accent-emerald)' : 'var(--accent-rose)',
-              maxWidth: '200px',
+              maxWidth: '180px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -151,9 +186,37 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayHardwareName}
             </span>
-            {encoderName && <span style={{ opacity: 0.7, flexShrink: 0 }}>({encoderName})</span>}
           </div>
         )}
+
+        {/* Always on Top Pin Toggle Button */}
+        <button
+          onClick={handleToggleAlwaysOnTop}
+          onMouseDown={(e) => e.stopPropagation()}
+          title={isAlwaysOnTop ? 'Always on Top: ON (Click to unpin)' : 'Always on Top: OFF (Click to pin)'}
+          className="no-drag"
+          style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '6px',
+            border: isAlwaysOnTop ? '1px solid rgba(99, 102, 241, 0.4)' : 'none',
+            background: isAlwaysOnTop ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            color: isAlwaysOnTop ? '#818cf8' : 'var(--text-muted)',
+          }}
+          onMouseEnter={(e) => {
+            if (!isAlwaysOnTop) e.currentTarget.style.background = 'var(--border-glass)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isAlwaysOnTop) e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <Pin size={14} style={{ transform: isAlwaysOnTop ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s ease' }} />
+        </button>
 
         {/* Settings Integration Button */}
         {onOpenSettings && (

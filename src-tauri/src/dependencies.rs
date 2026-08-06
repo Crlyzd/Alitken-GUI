@@ -80,9 +80,9 @@ pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
     if let Some(idx) = lower.find("version") {
         let substring = &output[idx..];
         for word in substring.split_whitespace() {
-            let clean = word.trim_matches(|c: char| !c.is_numeric() && c != '.');
+            let clean = word.trim_matches(|c: char| !c.is_numeric() && c != '.' && c != '-');
             if clean.contains('.') {
-                let parts: Vec<&str> = clean.split('.').collect();
+                let parts: Vec<&str> = clean.split(|c| c == '.' || c == '-').collect();
                 if let (Ok(maj), Ok(min)) = (
                     parts[0].parse::<u32>(),
                     parts.get(1).unwrap_or(&"0").parse::<u32>(),
@@ -159,8 +159,16 @@ fn compute_dependencies() -> DependencyStatus {
     let ffmpeg_valid = ffmpeg_exists && (ffmpeg_maj >= 5 || ffmpeg_maj == 0 || ffmpeg_maj == 999);
     let magick_valid = magick_exists && (magick_maj >= 7 || magick_maj == 0 || magick_maj == 999);
 
-    let has_update = ffmpeg_maj > 0 && ffmpeg_maj < 7;
-    let magick_has_update = magick_maj > 0 && magick_maj < 7;
+    let ffmpeg_latest_version = "7.1".to_string();
+    let magick_latest_version = "7.1.2-29".to_string();
+
+    let has_update = ffmpeg_valid
+        && ffmpeg_maj > 0
+        && (ffmpeg_maj < 7 || (!ffmpeg_version.is_empty() && !ffmpeg_version.starts_with(&ffmpeg_latest_version)));
+
+    let magick_has_update = magick_valid
+        && magick_maj > 0
+        && (magick_maj < 7 || (!magick_version.is_empty() && magick_version != magick_latest_version));
 
     DependencyStatus {
         ffmpeg_exists,
@@ -173,8 +181,8 @@ fn compute_dependencies() -> DependencyStatus {
         magick_version,
         has_update,
         magick_has_update,
-        ffmpeg_latest_version: "7.1".to_string(),
-        magick_latest_version: "7.1.2".to_string(),
+        ffmpeg_latest_version,
+        magick_latest_version,
         appdata_path,
         ffmpeg_path,
         ffprobe_path,

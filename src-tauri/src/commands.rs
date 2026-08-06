@@ -53,12 +53,14 @@ pub async fn update_engine<R: tauri::Runtime>(
     app: AppHandle<R>,
     window: tauri::Window,
     target: String,
+    target_choice: Option<String>,
     download_url: Option<String>,
 ) -> Result<DependencyStatus, String> {
+    let choice = target_choice.as_deref();
     match target.to_lowercase().as_str() {
-        "ffmpeg" => dependencies::download_ffmpeg_dependencies(&app, 1, 1, None).await,
-        "magick" => dependencies::download_magick_dependencies(&app, 1, 1, None).await,
-        "all" => dependencies::download_all_dependencies(&app, None).await,
+        "ffmpeg" => dependencies::download_ffmpeg_dependencies(&app, 1, 1, choice).await,
+        "magick" => dependencies::download_magick_dependencies(&app, 1, 1, choice).await,
+        "all" | "appdata" => dependencies::download_all_dependencies(&app, target_choice).await,
         "app" => {
             let url = match download_url {
                 Some(u) if !u.is_empty() => u,

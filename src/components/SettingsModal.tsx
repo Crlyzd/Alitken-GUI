@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers, Download, Trash2 } from 'lucide-react';
+import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers, Download, Trash2, Film, Image } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { DependencyStatus, IntegrationStatus } from '../types/media';
 
@@ -8,7 +8,7 @@ interface SettingsModalProps {
   onClose: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
-  onUpdateEngine?: (engine: 'ffmpeg' | 'magick' | 'all') => void;
+  onUpdateEngine?: (engine: 'ffmpeg' | 'magick' | 'all', targetChoice?: 'AppData' | 'Portable') => void;
 }
 
 const formatEngineVersion = (versionStr?: string): string => {
@@ -426,29 +426,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     whiteSpace: 'nowrap',
                     minWidth: 0,
                     flexShrink: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
                   }}
                   title={deps?.ffmpeg_version ? `FFmpeg v${deps.ffmpeg_version}` : undefined}
                 >
-                  🎬 FFmpeg:{' '}
+                  <Film size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <span>FFmpeg:</span>{' '}
                   {deps?.ffmpeg_version
                     ? `v${formatEngineVersion(deps.ffmpeg_version)}`
                     : deps?.ffmpeg_exists
                     ? 'Installed'
-                    : 'Missing'}
-                  {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
+                    : 'Not Installed'}
+                  {deps?.active_location && deps.active_location !== '' && deps.active_location !== 'Missing'
+                    ? ` (${deps.active_location})`
+                    : ''}
                 </span>
 
                 {/* Right Aligned Status Badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
                   <span
                     onClick={() => {
-                      if (deps?.has_update || !deps?.ffmpeg_valid) {
+                      if (!deps?.ffmpeg_exists || !deps?.ffmpeg_valid || deps?.has_update) {
                         onClose();
-                        onUpdateEngine ? onUpdateEngine('ffmpeg') : handleInstallAppData();
+                        const choice = deps?.active_location === 'AppData' ? 'AppData' : undefined;
+                        onUpdateEngine ? onUpdateEngine('ffmpeg', choice) : handleInstallAppData();
                       }
                     }}
                     title={
-                      deps?.has_update
+                      !deps?.ffmpeg_exists
+                        ? 'Click to download and install FFmpeg binary'
+                        : deps?.has_update
                         ? 'Click to download & install FFmpeg update'
                         : deps?.ffmpeg_valid
                         ? 'FFmpeg is valid and up to date'
@@ -462,7 +471,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
-                      cursor: (deps?.has_update || !deps?.ffmpeg_valid) ? 'pointer' : 'default',
+                      cursor: (!deps?.ffmpeg_exists || !deps?.ffmpeg_valid || deps?.has_update) ? 'pointer' : 'default',
                       userSelect: 'none',
                       transition: 'all 0.2s ease',
                       background: deps?.ffmpeg_valid
@@ -503,11 +512,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                     />
                     <span>
-                      {deps?.ffmpeg_valid
-                        ? (deps.has_update ? 'Update Available (≥ 5.0)' : 'Valid (≥ 5.0)')
-                        : 'Outdated (< 5.0)'}
+                      {!deps?.ffmpeg_exists
+                        ? 'Not Installed'
+                        : !deps?.ffmpeg_valid
+                        ? 'Outdated (< 5.0)'
+                        : deps?.has_update
+                        ? 'Update Available (≥ 5.0)'
+                        : 'Valid (≥ 5.0)'}
                     </span>
-                    {(deps?.has_update || !deps?.ffmpeg_valid) && <Download size={9} style={{ marginLeft: '1px' }} />}
+                    {(!deps?.ffmpeg_exists || !deps?.ffmpeg_valid || deps?.has_update) && (
+                      <Download size={9} style={{ marginLeft: '1px' }} />
+                    )}
                   </span>
                 </div>
               </div>
@@ -523,29 +538,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     whiteSpace: 'nowrap',
                     minWidth: 0,
                     flexShrink: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
                   }}
                   title={deps?.magick_version ? `ImageMagick v${deps.magick_version}` : undefined}
                 >
-                  🖼️ ImageMagick:{' '}
+                  <Image size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <span>ImageMagick:</span>{' '}
                   {deps?.magick_version
                     ? `v${formatEngineVersion(deps.magick_version)}`
                     : deps?.magick_exists
                     ? 'Installed'
-                    : 'Missing'}
-                  {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
+                    : 'Not Installed'}
+                  {deps?.active_location && deps.active_location !== '' && deps.active_location !== 'Missing'
+                    ? ` (${deps.active_location})`
+                    : ''}
                 </span>
 
                 {/* Right Aligned Status Badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
                   <span
                     onClick={() => {
-                      if (deps?.magick_has_update || !deps?.magick_valid) {
+                      if (!deps?.magick_exists || !deps?.magick_valid || deps?.magick_has_update) {
                         onClose();
-                        onUpdateEngine ? onUpdateEngine('magick') : handleInstallAppData();
+                        const choice = deps?.active_location === 'AppData' ? 'AppData' : undefined;
+                        onUpdateEngine ? onUpdateEngine('magick', choice) : handleInstallAppData();
                       }
                     }}
                     title={
-                      deps?.magick_has_update
+                      !deps?.magick_exists
+                        ? 'Click to download and install ImageMagick binary'
+                        : deps?.magick_has_update
                         ? 'Click to download & install ImageMagick update'
                         : deps?.magick_valid
                         ? 'ImageMagick is valid and up to date'
@@ -559,7 +583,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
-                      cursor: (deps?.magick_has_update || !deps?.magick_valid) ? 'pointer' : 'default',
+                      cursor: (!deps?.magick_exists || !deps?.magick_valid || deps?.magick_has_update) ? 'pointer' : 'default',
                       userSelect: 'none',
                       transition: 'all 0.2s ease',
                       background: deps?.magick_valid
@@ -600,111 +624,277 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                     />
                     <span>
-                      {deps?.magick_valid
-                        ? (deps.magick_has_update ? 'Update Available (≥ 7.0)' : 'Valid (≥ 7.0)')
-                        : 'Outdated (< 7.0)'}
+                      {!deps?.magick_exists
+                        ? 'Not Installed'
+                        : !deps?.magick_valid
+                        ? 'Outdated (< 7.0)'
+                        : deps?.magick_has_update
+                        ? 'Update Available (≥ 7.0)'
+                        : 'Valid (≥ 7.0)'}
                     </span>
-                    {(deps?.magick_has_update || !deps?.magick_valid) && <Download size={9} style={{ marginLeft: '1px' }} />}
+                    {(!deps?.magick_exists || !deps?.magick_valid || deps?.magick_has_update) && (
+                      <Download size={9} style={{ marginLeft: '1px' }} />
+                    )}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Dynamic Action Button */}
-            {deps?.active_location === 'AppData' ? (
-              deps?.has_update || deps?.magick_has_update ? (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onUpdateEngine ? onUpdateEngine('all') : handleInstallAppData();
-                  }}
-                  disabled={loadingDeps}
-                  style={{
-                    marginTop: '4px',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    background: '#f59e0b',
-                    color: '#000',
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: loadingDeps ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
-                  <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
-                </button>
-              ) : (
-                <button
-                  onClick={handleUninstallDeps}
-                  disabled={loadingDeps}
-                  style={{
-                    marginTop: '4px',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    background: 'rgba(244, 63, 94, 0.15)',
-                    color: '#fb7185',
-                    border: '1px solid rgba(244, 63, 94, 0.3)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: loadingDeps ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Trash2 size={12} />}
-                  <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
-                </button>
-              )
-            ) : (
-              <button
-                onClick={handleInstallAppData}
-                disabled={loadingDeps}
-                style={{
-                  marginTop: '4px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  background: 'var(--accent-primary)',
-                  color: '#fff',
-                  border: 'none',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: loadingDeps ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                }}
-              >
-                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
-                <span>{loadingDeps ? 'Installing...' : 'Install Binaries'}</span>
-              </button>
-            )}
+            {/* Dynamic Action Button & Contextual Sub-caption */}
+            {(() => {
+              const isAnyOutdated =
+                deps?.has_update ||
+                deps?.magick_has_update ||
+                !deps?.ffmpeg_valid ||
+                !deps?.magick_valid;
 
-            {/* Subtext with Clickable AppData Link */}
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '2px' }}>
-              Installs binaries to{' '}
-              <span
-                onClick={handleOpenAppDataFolder}
-                style={{
-                  color: 'var(--accent-primary)',
-                  fontWeight: 600,
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-                title="Open AppData folder in Windows File Explorer"
-              >
-                AppData
-              </span>{' '}
-              so Alitken.exe can move anywhere on your PC.
-            </div>
+              if (deps?.active_location === 'AppData') {
+                if (isAnyOutdated) {
+                  return (
+                    <>
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                        }}
+                        disabled={loadingDeps}
+                        style={{
+                          marginTop: '4px',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: '#f59e0b',
+                          color: '#000',
+                          border: 'none',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: loadingDeps ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
+                        <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
+                      </button>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                        Updates AppData binaries to the latest release in{' '}
+                        <span
+                          onClick={handleOpenAppDataFolder}
+                          style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                          title="Open AppData folder in Windows File Explorer"
+                        >
+                          AppData
+                        </span>.
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <button
+                      onClick={handleUninstallDeps}
+                      disabled={loadingDeps}
+                      style={{
+                        marginTop: '4px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(244, 63, 94, 0.15)',
+                        color: '#fb7185',
+                        border: '1px solid rgba(244, 63, 94, 0.3)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: loadingDeps ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Trash2 size={12} />}
+                      <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
+                    </button>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                      Binaries are installed in{' '}
+                      <span
+                        onClick={handleOpenAppDataFolder}
+                        style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                        title="Open AppData folder in Windows File Explorer"
+                      >
+                        AppData
+                      </span>. Click uninstall to remove them.
+                    </div>
+                  </>
+                );
+              }
+
+              if (deps?.active_location === 'System PATH') {
+                if (isAnyOutdated) {
+                  return (
+                    <>
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                        }}
+                        disabled={loadingDeps}
+                        style={{
+                          marginTop: '4px',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          background: '#f59e0b',
+                          color: '#000',
+                          border: 'none',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: loadingDeps ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
+                        <span>{loadingDeps ? 'Updating...' : 'Update Binaries (Install to AppData)'}</span>
+                      </button>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                        System PATH binaries are outdated. Click to download latest binaries into{' '}
+                        <span
+                          onClick={handleOpenAppDataFolder}
+                          style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                          title="Open AppData folder in Windows File Explorer"
+                        >
+                          AppData
+                        </span>{' '}
+                        to upgrade.
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <button
+                      disabled={true}
+                      style={{
+                        marginTop: '4px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-muted)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        opacity: 0.8,
+                      }}
+                    >
+                      <CheckCircle2 size={12} style={{ color: '#10b981' }} />
+                      <span>Using System PATH Binaries</span>
+                    </button>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                      System PATH binaries are up-to-date and active. No{' '}
+                      <span
+                        onClick={handleOpenAppDataFolder}
+                        style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                        title="Open AppData folder in Windows File Explorer"
+                      >
+                        AppData
+                      </span>{' '}
+                      installation needed.
+                    </div>
+                  </>
+                );
+              }
+
+              if (deps?.active_location === '' && deps?.ffmpeg_exists) {
+                return (
+                  <>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                      }}
+                      disabled={loadingDeps}
+                      style={{
+                        marginTop: '4px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--accent-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: loadingDeps ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
+                      <span>{loadingDeps ? 'Installing...' : 'Install to AppData'}</span>
+                    </button>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                      Currently using local bin/ folder. Click to install a standalone copy to{' '}
+                      <span
+                        onClick={handleOpenAppDataFolder}
+                        style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                        title="Open AppData folder in Windows File Explorer"
+                      >
+                        AppData
+                      </span>.
+                    </div>
+                  </>
+                );
+              }
+
+              // Missing / Default state
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onUpdateEngine ? onUpdateEngine('all', 'AppData') : handleInstallAppData();
+                    }}
+                    disabled={loadingDeps}
+                    style={{
+                      marginTop: '4px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      background: 'var(--accent-primary)',
+                      color: '#fff',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: loadingDeps ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
+                    <span>{loadingDeps ? 'Installing...' : 'Install Binaries'}</span>
+                  </button>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
+                    Installs binaries to{' '}
+                    <span
+                      onClick={handleOpenAppDataFolder}
+                      style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                      title="Open AppData folder in Windows File Explorer"
+                    >
+                      AppData
+                    </span>{' '}
+                    so Alitken.exe can move anywhere on your PC.
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 

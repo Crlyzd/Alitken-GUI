@@ -417,7 +417,11 @@ export function App() {
     });
   };
 
-  const handleDownloadDependencies = async (mode: 'all' | 'ffmpeg' | 'magick' | 'app' = 'all', downloadUrl?: string) => {
+  const handleDownloadDependencies = async (
+    mode: 'all' | 'ffmpeg' | 'magick' | 'app' = 'all',
+    downloadUrl?: string,
+    targetChoice?: 'AppData' | 'Portable'
+  ) => {
     setIsDownloadingDeps(true);
     setProgress({
       type: 'download',
@@ -442,6 +446,7 @@ export function App() {
     try {
       await invoke('update_engine', {
         target: mode,
+        targetChoice: targetChoice || null,
         downloadUrl: downloadUrl || updateInfo?.download_url || null,
       });
       await checkDepsAndGpu(videoConfig.codecChoice);
@@ -911,9 +916,9 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onUpdateEngine={(engine) => {
+        onUpdateEngine={(engine, targetChoice) => {
           setIsSettingsOpen(false);
-          handleDownloadDependencies(engine);
+          handleDownloadDependencies(engine, undefined, targetChoice);
         }}
       />
     </div>

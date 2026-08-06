@@ -49,6 +49,35 @@ pub async fn install_all_dependencies<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn update_engine<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    window: tauri::Window,
+    target: String,
+    download_url: Option<String>,
+) -> Result<DependencyStatus, String> {
+    match target.to_lowercase().as_str() {
+        "ffmpeg" => dependencies::download_ffmpeg_dependencies(&app, 1, 1, None).await,
+        "magick" => dependencies::download_magick_dependencies(&app, 1, 1, None).await,
+        "all" => dependencies::download_all_dependencies(&app, None).await,
+        "app" => {
+            let url = match download_url {
+                Some(u) if !u.is_empty() => u,
+                _ => {
+                    let info = updater::check_for_updates().await?;
+                    info.download_url
+                }
+            };
+            if url.is_empty() {
+                return Err("No download URL found for app update.".to_string());
+            }
+            updater::download_and_install_update(window, url).await?;
+            Ok(dependencies::check_dependencies())
+        }
+        _ => Err(format!("Unknown update target engine: {}", target)),
+    }
+}
+
+#[tauri::command]
 pub async fn install_to_appdata<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<DependencyStatus, String> {

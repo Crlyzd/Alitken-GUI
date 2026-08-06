@@ -20,6 +20,7 @@ pub struct DependencyStatus {
     pub path_magick_version: String,
     pub has_newer_path_ffmpeg: bool,
     pub has_update: bool,
+    pub magick_has_update: bool,
     pub active_location: String,
     pub appdata_path: String,
     pub ffmpeg_path: String,
@@ -215,6 +216,7 @@ fn compute_dependencies() -> DependencyStatus {
     }
 
     let has_update = has_newer_path_ffmpeg || (ffmpeg_maj > 0 && ffmpeg_maj < 7);
+    let magick_has_update = magick_maj > 0 && magick_maj < 7;
 
     DependencyStatus {
         ffmpeg_exists,
@@ -229,6 +231,7 @@ fn compute_dependencies() -> DependencyStatus {
         path_magick_version,
         has_newer_path_ffmpeg,
         has_update,
+        magick_has_update,
         active_location,
         appdata_path,
         ffmpeg_path,

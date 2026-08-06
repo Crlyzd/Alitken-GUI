@@ -75,6 +75,7 @@ export interface DependencyStatus {
   path_magick_version: string;
   has_newer_path_ffmpeg: boolean;
   has_update: boolean;
+  magick_has_update?: boolean;
   active_location: string;
   appdata_path: string;
   ffmpeg_path: string;

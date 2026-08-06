@@ -8,13 +8,20 @@ interface SettingsModalProps {
   onClose: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  onUpdateEngine?: (engine: 'ffmpeg' | 'magick' | 'all') => void;
 }
+
+const formatEngineVersion = (versionStr?: string): string => {
+  if (!versionStr) return '';
+  return versionStr.split('-')[0];
+};
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   theme,
   onToggleTheme,
+  onUpdateEngine,
 }) => {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [deps, setDeps] = useState<DependencyStatus | null>(null);
@@ -409,36 +416,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Engine Badges */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {/* FFmpeg Engine */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', minWidth: 0 }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                    flexShrink: 1,
+                  }}
+                  title={deps?.ffmpeg_version ? `FFmpeg v${deps.ffmpeg_version}` : undefined}
+                >
                   🎬 FFmpeg:{' '}
                   {deps?.ffmpeg_version
-                    ? `v${deps.ffmpeg_version}`
+                    ? `v${formatEngineVersion(deps.ffmpeg_version)}`
                     : deps?.ffmpeg_exists
                     ? 'Installed'
                     : 'Missing'}
                   {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
                 </span>
 
-                {/* Right Aligned Badges */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-                  {deps?.has_update && (
-                    <span
-                      style={{
-                        fontSize: '9px',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: 'rgba(245, 158, 11, 0.15)',
-                        color: '#f59e0b',
-                        border: '1px solid rgba(245, 158, 11, 0.3)',
-                      }}
-                    >
-                      Update Available
-                    </span>
-                  )}
-
+                {/* Right Aligned Status Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
                   <span
+                    onClick={() => {
+                      if (deps?.has_update || !deps?.ffmpeg_valid) {
+                        onClose();
+                        onUpdateEngine ? onUpdateEngine('ffmpeg') : handleInstallAppData();
+                      }
+                    }}
+                    title={
+                      deps?.has_update
+                        ? 'Click to download & install FFmpeg update'
+                        : deps?.ffmpeg_valid
+                        ? 'FFmpeg is valid and up to date'
+                        : 'Click to download valid FFmpeg binary'
+                    }
                     style={{
                       fontSize: '9px',
                       fontWeight: 600,
@@ -447,20 +462,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
+                      cursor: (deps?.has_update || !deps?.ffmpeg_valid) ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      transition: 'all 0.2s ease',
                       background: deps?.ffmpeg_valid
                         ? (deps.has_update
-                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.12)' : 'rgba(245, 158, 11, 0.15)')
+                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.15)' : 'rgba(245, 158, 11, 0.22)')
                           : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
                         : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
                       color: deps?.ffmpeg_valid
                         ? (deps.has_update
-                          ? (theme === 'light' ? '#d97706' : '#f59e0b')
+                          ? (theme === 'light' ? '#b45309' : '#fbbf24')
                           : (theme === 'light' ? '#047857' : '#34d399'))
                         : (theme === 'light' ? '#e11d48' : '#fb7185'),
                       border: `1px solid ${
                         deps?.ffmpeg_valid
                           ? (deps.has_update
-                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.35)' : 'rgba(245, 158, 11, 0.3)')
+                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(245, 158, 11, 0.5)')
                             : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
                           : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
                       }`,
@@ -473,35 +491,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         height: '6px',
                         borderRadius: '50%',
                         backgroundColor: deps?.ffmpeg_valid
-                          ? (deps.has_update ? '#f59e0b' : '#10b981')
+                          ? (deps.has_update ? (theme === 'light' ? '#b45309' : '#fbbf24') : '#10b981')
                           : '#f43f5e',
                         boxShadow: deps?.ffmpeg_valid
-                          ? (deps.has_update ? '0 0 6px rgba(245, 158, 11, 0.8)' : '0 0 6px rgba(16, 185, 129, 0.8)')
+                          ? (deps.has_update
+                            ? (theme === 'light' ? '0 0 6px rgba(180, 83, 9, 0.7)' : '0 0 6px rgba(251, 191, 36, 0.9)')
+                            : '0 0 6px rgba(16, 185, 129, 0.8)')
                           : '0 0 6px rgba(244, 63, 94, 0.8)',
                         display: 'inline-block',
                         flexShrink: 0,
                       }}
                     />
-                    <span>{deps?.ffmpeg_valid ? 'Valid (≥ 5.0)' : 'Outdated (< 5.0)'}</span>
+                    <span>
+                      {deps?.ffmpeg_valid
+                        ? (deps.has_update ? 'Update Available (≥ 5.0)' : 'Valid (≥ 5.0)')
+                        : 'Outdated (< 5.0)'}
+                    </span>
+                    {(deps?.has_update || !deps?.ffmpeg_valid) && <Download size={9} style={{ marginLeft: '1px' }} />}
                   </span>
                 </div>
               </div>
 
               {/* ImageMagick Engine */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', minWidth: 0 }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                    flexShrink: 1,
+                  }}
+                  title={deps?.magick_version ? `ImageMagick v${deps.magick_version}` : undefined}
+                >
                   🖼️ ImageMagick:{' '}
                   {deps?.magick_version
-                    ? `v${deps.magick_version}`
+                    ? `v${formatEngineVersion(deps.magick_version)}`
                     : deps?.magick_exists
                     ? 'Installed'
                     : 'Missing'}
                   {deps?.active_location && deps.active_location !== '' ? ` (${deps.active_location})` : ''}
                 </span>
 
-                {/* Right Aligned Badges */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                {/* Right Aligned Status Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
                   <span
+                    onClick={() => {
+                      if (deps?.magick_has_update || !deps?.magick_valid) {
+                        onClose();
+                        onUpdateEngine ? onUpdateEngine('magick') : handleInstallAppData();
+                      }
+                    }}
+                    title={
+                      deps?.magick_has_update
+                        ? 'Click to download & install ImageMagick update'
+                        : deps?.magick_valid
+                        ? 'ImageMagick is valid and up to date'
+                        : 'Click to download valid ImageMagick binary'
+                    }
                     style={{
                       fontSize: '9px',
                       fontWeight: 600,
@@ -510,15 +559,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
+                      cursor: (deps?.magick_has_update || !deps?.magick_valid) ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      transition: 'all 0.2s ease',
                       background: deps?.magick_valid
-                        ? (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)')
+                        ? (deps.magick_has_update
+                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.15)' : 'rgba(245, 158, 11, 0.22)')
+                          : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
                         : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
                       color: deps?.magick_valid
-                        ? (theme === 'light' ? '#047857' : '#34d399')
+                        ? (deps.magick_has_update
+                          ? (theme === 'light' ? '#b45309' : '#fbbf24')
+                          : (theme === 'light' ? '#047857' : '#34d399'))
                         : (theme === 'light' ? '#e11d48' : '#fb7185'),
                       border: `1px solid ${
                         deps?.magick_valid
-                          ? (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)')
+                          ? (deps.magick_has_update
+                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(245, 158, 11, 0.5)')
+                            : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
                           : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
                       }`,
                     }}
@@ -529,68 +587,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         width: '6px',
                         height: '6px',
                         borderRadius: '50%',
-                        backgroundColor: deps?.magick_valid ? '#10b981' : '#f43f5e',
+                        backgroundColor: deps?.magick_valid
+                          ? (deps.magick_has_update ? (theme === 'light' ? '#b45309' : '#fbbf24') : '#10b981')
+                          : '#f43f5e',
                         boxShadow: deps?.magick_valid
-                          ? '0 0 6px rgba(16, 185, 129, 0.8)'
+                          ? (deps.magick_has_update
+                            ? (theme === 'light' ? '0 0 6px rgba(180, 83, 9, 0.7)' : '0 0 6px rgba(251, 191, 36, 0.9)')
+                            : '0 0 6px rgba(16, 185, 129, 0.8)')
                           : '0 0 6px rgba(244, 63, 94, 0.8)',
                         display: 'inline-block',
                         flexShrink: 0,
                       }}
                     />
-                    <span>{deps?.magick_valid ? 'Valid (≥ 7.0)' : 'Outdated (< 7.0)'}</span>
+                    <span>
+                      {deps?.magick_valid
+                        ? (deps.magick_has_update ? 'Update Available (≥ 7.0)' : 'Valid (≥ 7.0)')
+                        : 'Outdated (< 7.0)'}
+                    </span>
+                    {(deps?.magick_has_update || !deps?.magick_valid) && <Download size={9} style={{ marginLeft: '1px' }} />}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Single Dynamic Action Button */}
+            {/* Dynamic Action Button */}
             {deps?.active_location === 'AppData' ? (
-              <button
-                onClick={handleUninstallDeps}
-                disabled={loadingDeps}
-                style={{
-                  marginTop: '4px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  background: 'rgba(244, 63, 94, 0.15)',
-                  color: '#fb7185',
-                  border: '1px solid rgba(244, 63, 94, 0.3)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: loadingDeps ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Trash2 size={12} />}
-                <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
-              </button>
-            ) : deps?.has_update ? (
-              <button
-                onClick={handleInstallAppData}
-                disabled={loadingDeps}
-                style={{
-                  marginTop: '4px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  background: '#f59e0b',
-                  color: '#000',
-                  border: 'none',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: loadingDeps ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                }}
-              >
-                {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
-                <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
-              </button>
+              deps?.has_update || deps?.magick_has_update ? (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onUpdateEngine ? onUpdateEngine('all') : handleInstallAppData();
+                  }}
+                  disabled={loadingDeps}
+                  style={{
+                    marginTop: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    background: '#f59e0b',
+                    color: '#000',
+                    border: 'none',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: loadingDeps ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
+                  <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleUninstallDeps}
+                  disabled={loadingDeps}
+                  style={{
+                    marginTop: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(244, 63, 94, 0.15)',
+                    color: '#fb7185',
+                    border: '1px solid rgba(244, 63, 94, 0.3)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: loadingDeps ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Trash2 size={12} />}
+                  <span>{loadingDeps ? 'Uninstalling...' : 'Uninstall Binaries'}</span>
+                </button>
+              )
             ) : (
               <button
                 onClick={handleInstallAppData}

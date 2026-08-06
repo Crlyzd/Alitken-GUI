@@ -27,6 +27,7 @@ pub fn run() {
             install_dependencies,
             install_magick_dependencies,
             install_all_dependencies,
+            update_engine,
             detect_gpu_hardware,
             probe_media_file,
             probe_image_batch,

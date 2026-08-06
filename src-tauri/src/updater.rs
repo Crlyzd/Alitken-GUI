@@ -233,6 +233,19 @@ pub async fn download_and_install_update(
                     speed_mbps,
                 },
             );
+
+            let _ = window.emit(
+                "download-progress",
+                crate::dependencies::DownloadProgressPayload {
+                    status: "Downloading ALITKEN App Update...".to_string(),
+                    percent,
+                    speed_mbps,
+                    downloaded_mb: downloaded as f64 / 1_048_576.0,
+                    total_mb: total_size as f64 / 1_048_576.0,
+                    current_step: 1,
+                    total_steps: 1,
+                },
+            );
         }
     }
 

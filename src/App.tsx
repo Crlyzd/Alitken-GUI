@@ -289,22 +289,8 @@ export function App() {
 
   const handleInstallUpdate = async (downloadUrl: string) => {
     if (!downloadUrl) return;
-    setUpdateError(null);
-    setUpdateProgress({
-      status: 'Downloading update package...',
-      percent: 0,
-      downloaded_mb: 0,
-      total_mb: 0,
-      speed_mbps: 0,
-    });
-
-    try {
-      await invoke('install_app_update', { downloadUrl });
-    } catch (err: any) {
-      console.error('Failed to install update:', err);
-      setUpdateError(typeof err === 'string' ? err : 'Update installation failed');
-      setUpdateProgress(null);
-    }
+    setIsAboutOpen(false);
+    handleDownloadDependencies('app', downloadUrl);
   };
 
   const checkDepsAndGpu = async (codec: string) => {
@@ -431,7 +417,7 @@ export function App() {
     });
   };
 
-  const handleDownloadDependencies = async (mode: 'all' | 'ffmpeg' | 'magick' = 'all') => {
+  const handleDownloadDependencies = async (mode: 'all' | 'ffmpeg' | 'magick' | 'app' = 'all', downloadUrl?: string) => {
     setIsDownloadingDeps(true);
     setProgress({
       type: 'download',
@@ -441,6 +427,8 @@ export function App() {
           ? 'Fetching FFmpeg & ImageMagick Dependencies...'
           : mode === 'magick'
           ? 'Fetching ImageMagick Portable Binary...'
+          : mode === 'app'
+          ? 'Downloading ALITKEN App Update...'
           : 'Fetching FFmpeg Portable Binaries...',
       fileIndex: 1,
       totalFiles: 1,
@@ -452,13 +440,10 @@ export function App() {
     });
 
     try {
-      if (mode === 'all') {
-        await invoke('install_all_dependencies');
-      } else if (mode === 'magick') {
-        await invoke('install_magick_dependencies');
-      } else {
-        await invoke('install_dependencies');
-      }
+      await invoke('update_engine', {
+        target: mode,
+        downloadUrl: downloadUrl || updateInfo?.download_url || null,
+      });
       await checkDepsAndGpu(videoConfig.codecChoice);
       setProgress((prev) => ({
         ...prev,
@@ -466,7 +451,7 @@ export function App() {
         isProcessing: false,
         completed: true,
         percent: 100, // Guarantee the bar fills to 100% on completion
-        status: 'Portable binaries installed successfully!',
+        status: mode === 'app' ? 'App Update Installed Successfully! Restarting...' : 'Portable binaries installed successfully!',
       }));
     } catch (err: any) {
       setProgress((prev) => ({
@@ -926,6 +911,10 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onUpdateEngine={(engine) => {
+          setIsSettingsOpen(false);
+          handleDownloadDependencies(engine);
+        }}
       />
     </div>
   );

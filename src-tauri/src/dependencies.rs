@@ -239,7 +239,12 @@ struct GitHubAsset {
 
 /// Dynamically resolves the latest FFmpeg portable release zip URL from BtbN GitHub API
 async fn fetch_latest_ffmpeg_url(client: &reqwest::Client) -> String {
-    let fallback_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip".to_string();
+    let is_arm64 = cfg!(target_arch = "aarch64");
+    let fallback_url = if is_arm64 {
+        "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-winarm64-gpl-7.1.zip".to_string()
+    } else {
+        "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip".to_string()
+    };
     let api_url = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest";
 
     let res = match client.get(api_url).send().await {
@@ -252,11 +257,13 @@ async fn fetch_latest_ffmpeg_url(client: &reqwest::Client) -> String {
         Err(_) => return fallback_url,
     };
 
-    // Filter for win64-gpl zip asset (prefer latest release build)
+    let arch_keyword = if is_arm64 { "winarm64" } else { "win64-gpl" };
+
+    // Filter for win64-gpl or winarm64 zip asset (prefer latest release build)
     for asset in &release.assets {
         let name_lower = asset.name.to_lowercase();
         if name_lower.ends_with(".zip")
-            && name_lower.contains("win64-gpl")
+            && name_lower.contains(arch_keyword)
             && !name_lower.contains("shared")
         {
             return asset.browser_download_url.clone();
@@ -268,7 +275,12 @@ async fn fetch_latest_ffmpeg_url(client: &reqwest::Client) -> String {
 
 /// Dynamically resolves the latest ImageMagick portable release 7z URL from ImageMagick GitHub API
 async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
-    let fallback_url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z".to_string();
+    let is_arm64 = cfg!(target_arch = "aarch64");
+    let fallback_url = if is_arm64 {
+        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-arm64.7z".to_string()
+    } else {
+        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z".to_string()
+    };
     let api_url = "https://api.github.com/repos/ImageMagick/ImageMagick/releases/latest";
 
     let res = match client.get(api_url).send().await {
@@ -281,13 +293,28 @@ async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
         Err(_) => return fallback_url,
     };
 
+    let arch_keyword = if is_arm64 { "arm64" } else { "x64" };
+
     for asset in &release.assets {
         let name_lower = asset.name.to_lowercase();
         if name_lower.ends_with(".7z")
             && name_lower.contains("portable")
-            && name_lower.contains("x64")
+            && name_lower.contains(arch_keyword)
         {
             return asset.browser_download_url.clone();
+        }
+    }
+
+    // Fallback search for x64 if arm64 not available (Windows 11 ARM64 runs x64 binary via emulation)
+    if is_arm64 {
+        for asset in &release.assets {
+            let name_lower = asset.name.to_lowercase();
+            if name_lower.ends_with(".7z")
+                && name_lower.contains("portable")
+                && name_lower.contains("x64")
+            {
+                return asset.browser_download_url.clone();
+            }
         }
     }
 

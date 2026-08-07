@@ -6,6 +6,7 @@ import { APP_VERSION, APP_VERSION_TITLE } from '../utils/version';
 
 export interface UpdateInfo {
   available: boolean;
+  is_store_build?: boolean;
   current_version: string;
   latest_version: string;
   download_url: string;
@@ -278,7 +279,29 @@ export const AboutModal: React.FC<AboutModalProps> = ({
         </div>
 
         {/* Auto-Update Feature Streamlined Section */}
-        {updateInfo?.available ? (
+        {updateInfo?.is_store_build ? (
+          /* State: Microsoft Store Build Notice */
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: 'var(--bg-glass-card)',
+              borderRadius: '10px',
+              border: '1px solid var(--border-glass)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-main)' }}>
+              <CheckCircle2 size={14} color="#10b981" />
+              <span>
+                ALITKEN v{updateInfo ? updateInfo.current_version : APP_VERSION}{' '}
+                <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>(MS Store Build)</span>
+              </span>
+            </div>
+            <span style={{ fontSize: '10.5px', color: 'var(--accent-cyan)', fontWeight: 500 }}>Auto-Updated</span>
+          </div>
+        ) : updateInfo?.available ? (
           /* State 1: Update Available Banner */
           <div
             style={{
@@ -542,7 +565,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
 
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px', color: 'var(--text-muted)' }}>
             <span>Engine: Tauri v2 &middot; Rust Tokio</span>
-            <span>AV1: VideoLAN libdav1d</span>
+            <span>Powered by FFmpeg (GPLv3) &amp; ImageMagick</span>
           </div>
         </div>
       </div>

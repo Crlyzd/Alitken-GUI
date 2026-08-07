@@ -38,14 +38,18 @@ if (-not (Test-Path "node_modules")) {
 # 2. Interactive Menu (if no parameters supplied)
 if (-not $Dev -and [string]::IsNullOrEmpty($Profile)) {
     Write-Host "Select Build Target:" -ForegroundColor Yellow
-    Write-Host "  [1] Standard Release  (Fast ~30s build, ~10-12 MB binary)" -ForegroundColor Cyan
-    Write-Host "  [2] Small Release     (Full LLVM LTO ~2-4m build, ~4.5-6 MB binary)" -ForegroundColor Green
-    Write-Host "  [3] Development Mode  (Live Reload, debug window)" -ForegroundColor Magenta
+    Write-Host "  [1] Standard GitHub Release  (x64 setup installer + exe)" -ForegroundColor Cyan
+    Write-Host "  [2] MS Store Release Build   (x64 with store-build features)" -ForegroundColor Blue
+    Write-Host "  [3] GitHub Development Mode  (Live Reload, full dev update UI)" -ForegroundColor Magenta
+    Write-Host "  [4] MS Store Dev Mode        (Live Reload, preview MS Store UI)" -ForegroundColor DarkCyan
+    Write-Host "  [5] Small Release            (Full LLVM LTO ~2-4m build)" -ForegroundColor Green
     Write-Host ""
-    $choice = Read-Host "Enter choice [1-3] (Default: 1)"
+    $choice = Read-Host "Enter choice [1-5] (Default: 1)"
     switch ($choice) {
-        "2" { $Profile = "Small" }
+        "2" { $Profile = "Store" }
         "3" { $Dev = $true }
+        "4" { $Dev = $true; $StoreDev = $true }
+        "5" { $Profile = "Small" }
         default { $Profile = "Standard" }
     }
 }
@@ -53,8 +57,13 @@ if (-not $Dev -and [string]::IsNullOrEmpty($Profile)) {
 try {
     # 3. Execution
     if ($Dev) {
-        Write-Host "[2/3] Launching Tauri Development Mode..." -ForegroundColor Green
-        npm run tauri dev
+        if ($StoreDev) {
+            Write-Host "[2/3] Launching Tauri Development Mode (MS Store Build Preview)..." -ForegroundColor DarkCyan
+            npm run tauri dev -- --features store-build
+        } else {
+            Write-Host "[2/3] Launching Tauri Development Mode (GitHub Build)..." -ForegroundColor Green
+            npm run tauri dev
+        }
     } else {
         if ($Profile -eq "Small") {
             Write-Host "[2/2] Compiling Tauri Desktop Executable (Ultra-Small LTO Profile)..." -ForegroundColor Green
@@ -65,15 +74,29 @@ try {
             $env:CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "1"
             $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
             $env:CARGO_PROFILE_RELEASE_STRIP = "true"
+            npm run tauri build
+        } elseif ($Profile -eq "Store") {
+            Write-Host "[2/2] Compiling Tauri Desktop Executable (MS Store Release - Ultra-Small Profile)..." -ForegroundColor Blue
+            $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
+            $env:CARGO_PROFILE_RELEASE_LTO = "true"
+            $env:CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "1"
+            $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
+            $env:CARGO_PROFILE_RELEASE_STRIP = "true"
+            npm run tauri build -- --features store-build
         } else {
             Write-Host "[2/2] Compiling Tauri Desktop Executable (Standard Release Profile)..." -ForegroundColor Cyan
             Reset-CargoProfileEnv
+            npm run tauri build
         }
-
-        npm run tauri build
 
         $ExePath = Join-Path $ScriptDir "src-tauri\target\release\alitken-gui.exe"
         $BundlePath = Join-Path $ScriptDir "src-tauri\target\release\bundle"
+        $NsisDir = Join-Path $ScriptDir "src-tauri\target\release\bundle\nsis"
+        $ReleasesDir = Join-Path $ScriptDir "releases"
+
+        if (-not (Test-Path $ReleasesDir)) {
+            New-Item -ItemType Directory -Path $ReleasesDir -Force | Out-Null
+        }
 
         # Compute parent directory dynamically (e.g. E:\Default\DEVS\Alitken\)
         $ParentDir = Split-Path -Parent $ScriptDir
@@ -85,9 +108,20 @@ try {
                     New-Item -ItemType Directory -Path $ParentDir -Force | Out-Null
                 }
                 Copy-Item -Path $ExePath -Destination $ParentExePath -Force
+
+                # Copy to releases folder with descriptive name
+                $PortableName = "Alitken_v0.5.0_${Profile}_x64-Portable.exe"
+                Copy-Item -Path $ExePath -Destination (Join-Path $ReleasesDir $PortableName) -Force
             } catch {
-                Write-Host "WARNING: Could not copy executable to parent folder: $_" -ForegroundColor Yellow
+                Write-Host "WARNING: Could not copy executable to parent/releases folder: $_" -ForegroundColor Yellow
             }
+        }
+
+        # Copy installer setup binary if present
+        $InstallerExe = Get-ChildItem -Path $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($InstallerExe) {
+            $SetupName = "Alitken_v0.5.0_${Profile}_x64-Setup.exe"
+            Copy-Item -Path $InstallerExe.FullName -Destination (Join-Path $ReleasesDir $SetupName) -Force
         }
 
         Write-Host ""
@@ -95,8 +129,9 @@ try {
         Write-Host "               BUILD SUCCESSFUL!                 " -ForegroundColor Green
         Write-Host "==================================================" -ForegroundColor Green
         Write-Host "Profile Used:                 $Profile" -ForegroundColor Yellow
-        Write-Host "Executable location:          $ExePath" -ForegroundColor Cyan
-        
+        Write-Host "Releases Output Folder:       $ReleasesDir" -ForegroundColor Green
+        Write-Host "Executable Location:          $ExePath" -ForegroundColor Cyan
+
         if (Test-Path $ExePath) {
             $sizeBytes = (Get-Item $ExePath).Length
             $sizeMB = [math]::Round($sizeBytes / 1MB, 2)
@@ -106,9 +141,9 @@ try {
         if (Test-Path $ParentExePath) {
             Write-Host "Parent Folder Executable:     $ParentExePath" -ForegroundColor Green
         }
-        if (Test-Path $BundlePath) {
-            Write-Host "Installer package:             $BundlePath" -ForegroundColor Cyan
-        }
+
+        # Auto-open releases folder in Windows Explorer
+        Invoke-Item $ReleasesDir
     }
 } finally {
     Reset-CargoProfileEnv

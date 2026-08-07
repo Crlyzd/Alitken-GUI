@@ -5,6 +5,10 @@ description = "Alitken Media Converter & Video Splitter (Tauri v2 Desktop UI)"
 authors = ["Alitken"]
 edition = "2021"
 
+[features]
+default = []
+store-build = []
+
 [build-dependencies]
 tauri-build = { version = "2.0.5", features = [] }
 

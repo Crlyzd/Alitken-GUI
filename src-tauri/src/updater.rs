@@ -8,6 +8,7 @@ use tokio::io::AsyncWriteExt;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
     pub available: bool,
+    pub is_store_build: bool,
     pub current_version: String,
     pub latest_version: String,
     pub download_url: String,
@@ -87,6 +88,20 @@ fn is_version_newer(current: &str, latest: &str) -> bool {
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     
+    let is_store_build = cfg!(feature = "store-build");
+
+    if is_store_build {
+        return Ok(UpdateInfo {
+            available: false,
+            is_store_build: true,
+            current_version: current_version.clone(),
+            latest_version: current_version,
+            download_url: String::new(),
+            release_notes_url: String::new(),
+            release_name: String::new(),
+        });
+    }
+
     // GitHub API URL for latest release
     let repo_url = "https://api.github.com/repos/kaleksanan/Alitken-GUI/releases/latest";
     let fallback_repo_url = "https://api.github.com/repos/Crlyzd/Alitken-GUI/releases/latest";
@@ -110,6 +125,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
         None => {
             return Ok(UpdateInfo {
                 available: false,
+                is_store_build,
                 current_version: current_version.clone(),
                 latest_version: current_version,
                 download_url: String::new(),
@@ -150,6 +166,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
 
     Ok(UpdateInfo {
         available,
+        is_store_build,
         current_version,
         latest_version,
         download_url,

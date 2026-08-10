@@ -25,11 +25,17 @@ export function useTrimmerState({
 }: UseTrimmerStateParams) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const rafSeekRef = useRef<number | null>(null);
+  const hoverThrottleRef = useRef<number | null>(null);
 
   const [previewPath, setPreviewPath] = useState<string>('');
   const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(true);
   const [fallbackFrameSrc, setFallbackFrameSrc] = useState<string | null>(null);
   const [isNativeSupported, setIsNativeSupported] = useState<boolean>(true);
+
+  // WMF Dual-Thumbnail State
+  const [filmstrip, setFilmstrip] = useState<string[]>([]);
+  const [hoverThumbnailSrc, setHoverThumbnailSrc] = useState<string | null>(null);
+  const [isWmfSupported, setIsWmfSupported] = useState<boolean>(true);
 
   const [duration, setDuration] = useState<number>(file.durationSec || 60);
   const [currentSec, setCurrentSec] = useState<number>(file.trimStartSec || 0);
@@ -57,12 +63,28 @@ export function useTrimmerState({
     formatTimeWithMs(file.trimEndSec || file.durationSec || 60)
   );
 
-  // Initialize preview stream / remux on mount or when file changes
+  // Initialize preview stream / remux & WMF filmstrip on mount or when file changes
   useEffect(() => {
     let isCancelled = false;
     setIsLoadingPreview(true);
     setIsNativeSupported(true);
     setFallbackFrameSrc(null);
+    setFilmstrip([]);
+
+    // Check WMF Support & Fetch Filmstrip
+    invoke<boolean>('check_wmf_support', { filePath: file.path })
+      .then((supported) => {
+        if (isCancelled) return;
+        setIsWmfSupported(supported);
+        if (supported) {
+          invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 8 })
+            .then((strip) => {
+              if (!isCancelled) setFilmstrip(strip);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => setIsWmfSupported(false));
 
     invoke<string>('prepare_video_preview', { filePath: file.path })
       .then((resolvedPath) => {
@@ -82,6 +104,7 @@ export function useTrimmerState({
     return () => {
       isCancelled = true;
       if (rafSeekRef.current) cancelAnimationFrame(rafSeekRef.current);
+      if (hoverThrottleRef.current) clearTimeout(hoverThrottleRef.current);
     };
   }, [file.path]);
 
@@ -129,13 +152,70 @@ export function useTrimmerState({
     }
   }, [endSec, isPlaying]);
 
+  const handleHoverTime = useCallback(
+    (timeSec: number | null) => {
+      if (timeSec === null) {
+        setHoverThumbnailSrc(null);
+        if (hoverThrottleRef.current) clearTimeout(hoverThrottleRef.current);
+        return;
+      }
+
+      if (hoverThrottleRef.current) clearTimeout(hoverThrottleRef.current);
+      hoverThrottleRef.current = window.setTimeout(() => {
+        if (isWmfSupported) {
+          invoke<string>('get_wmf_frame_preview', {
+            filePath: file.path,
+            timestampSec: timeSec,
+            maxWidth: 160,
+          })
+            .then((frame) => setHoverThumbnailSrc(frame))
+            .catch(() => {
+              invoke<string>('get_video_frame_preview', {
+                filePath: file.path,
+                timestampSec: timeSec,
+              })
+                .then((f) => setHoverThumbnailSrc(f))
+                .catch(() => {});
+            });
+        } else {
+          invoke<string>('get_video_frame_preview', {
+            filePath: file.path,
+            timestampSec: timeSec,
+          })
+            .then((f) => setHoverThumbnailSrc(f))
+            .catch(() => {});
+        }
+      }, 30);
+    },
+    [file.path, isWmfSupported]
+  );
+
   const handleVideoError = useCallback(() => {
     if (isLoadingPreview) return;
     setIsNativeSupported(false);
-    invoke<string>('get_video_frame_preview', { filePath: file.path, timestampSec: currentSec })
-      .then((frame) => setFallbackFrameSrc(frame))
-      .catch(() => {});
-  }, [file.path, currentSec, isLoadingPreview]);
+    if (isWmfSupported) {
+      invoke<string>('get_wmf_frame_preview', {
+        filePath: file.path,
+        timestampSec: currentSec,
+      })
+        .then((frame) => setFallbackFrameSrc(frame))
+        .catch(() => {
+          invoke<string>('get_video_frame_preview', {
+            filePath: file.path,
+            timestampSec: currentSec,
+          })
+            .then((f) => setFallbackFrameSrc(f))
+            .catch(() => {});
+        });
+    } else {
+      invoke<string>('get_video_frame_preview', {
+        filePath: file.path,
+        timestampSec: currentSec,
+      })
+        .then((frame) => setFallbackFrameSrc(frame))
+        .catch(() => {});
+    }
+  }, [file.path, currentSec, isLoadingPreview, isWmfSupported]);
 
   const togglePlayPause = useCallback(() => {
     if (!videoRef.current || !isNativeSupported) return;
@@ -159,13 +239,30 @@ export function useTrimmerState({
     rafSeekRef.current = requestAnimationFrame(() => {
       if (videoRef.current && isNativeSupported) {
         videoRef.current.currentTime = clamped;
+      } else if (isWmfSupported) {
+        invoke<string>('get_wmf_frame_preview', {
+          filePath: file.path,
+          timestampSec: clamped,
+        })
+          .then((frame) => setFallbackFrameSrc(frame))
+          .catch(() => {
+            invoke<string>('get_video_frame_preview', {
+              filePath: file.path,
+              timestampSec: clamped,
+            })
+              .then((f) => setFallbackFrameSrc(f))
+              .catch(() => {});
+          });
       } else {
-        invoke<string>('get_video_frame_preview', { filePath: file.path, timestampSec: clamped })
+        invoke<string>('get_video_frame_preview', {
+          filePath: file.path,
+          timestampSec: clamped,
+        })
           .then((frame) => setFallbackFrameSrc(frame))
           .catch(() => {});
       }
     });
-  }, [duration, file.path, isNativeSupported]);
+  }, [duration, file.path, isNativeSupported, isWmfSupported]);
 
   const nudgeTime = useCallback((delta: number) => {
     const target = Math.max(0, Math.min(duration, currentSec + delta));
@@ -354,5 +451,8 @@ export function useTrimmerState({
     handleCustomSpeedSubmitAction,
     handleSaveAndBack,
     handleExport,
+    filmstrip,
+    hoverThumbnailSrc,
+    handleHoverTime,
   };
 }

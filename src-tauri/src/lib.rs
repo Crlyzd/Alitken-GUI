@@ -6,6 +6,7 @@ mod image;
 mod updater;
 mod utils;
 mod win_integration;
+mod wmf;
 
 use commands::*;
 
@@ -59,7 +60,10 @@ pub fn run() {
             uninstall_appdata,
             get_temp_cache_info,
             clear_temp_cache,
-            set_custom_temp_dir
+            set_custom_temp_dir,
+            check_wmf_support,
+            get_wmf_frame_preview,
+            get_wmf_filmstrip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

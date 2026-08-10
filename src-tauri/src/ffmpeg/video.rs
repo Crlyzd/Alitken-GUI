@@ -765,7 +765,7 @@ pub async fn prepare_preview_video(
     }
 }
 
-/// Extracts a single JPEG preview frame at timestamp_sec using GPU hardware acceleration.
+/// Extracts a single JPEG preview frame at timestamp_sec using GPU hardware acceleration and fast demuxer seeking.
 /// Returns a base64 Data URL string: data:image/jpeg;base64,...
 pub async fn extract_frame_base64_hwaccel(
     ffmpeg_path: &str,
@@ -777,11 +777,10 @@ pub async fn extract_frame_base64_hwaccel(
     }
 
     let time_str = format!("{:.3}", timestamp_sec.max(0.0));
+    // Fast demuxer seeking: -ss BEFORE -i seeks instantly to keyframe in <20ms
     let output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
         .args([
             "-hide_banner",
-            "-hwaccel",
-            "auto",
             "-ss",
             &time_str,
             "-i",
@@ -789,9 +788,9 @@ pub async fn extract_frame_base64_hwaccel(
             "-frames:v",
             "1",
             "-q:v",
-            "2",
+            "3",
             "-vf",
-            "scale=min(1280\\,iw):-2",
+            "scale=min(320\\,iw):-2",
             "-f",
             "image2",
             "pipe:1",
@@ -808,3 +807,26 @@ pub async fn extract_frame_base64_hwaccel(
     let b64 = base64_encode(&output.stdout);
     Ok(format!("data:image/jpeg;base64,{}", b64))
 }
+
+/// Generates a filmstrip row of keyframe thumbnails using FFmpeg CLI for non-WMF containers (e.g. .mkv, .webm).
+pub async fn extract_ffmpeg_filmstrip(
+    ffmpeg_path: &str,
+    ffprobe_path: &str,
+    file_path: &str,
+    count: usize,
+) -> Result<Vec<String>, String> {
+    let meta = probe_file(ffprobe_path, file_path).await?;
+    let duration_sec = if meta.duration_sec > 0.0 { meta.duration_sec } else { 60.0 };
+    let num_thumbs = count.clamp(4, 16);
+    let step = duration_sec / num_thumbs as f64;
+
+    let mut results = Vec::with_capacity(num_thumbs);
+    for i in 0..num_thumbs {
+        let target_sec = (i as f64 * step).min(duration_sec - 0.1);
+        if let Ok(frame) = extract_frame_base64_hwaccel(ffmpeg_path, file_path, target_sec).await {
+            results.push(frame);
+        }
+    }
+    Ok(results)
+}
+

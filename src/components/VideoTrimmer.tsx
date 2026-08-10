@@ -124,6 +124,9 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             currentSec={trimmer.currentSec}
             onRangeChange={trimmer.handleRangeChange}
             onSeek={trimmer.handleSeek}
+            filmstrip={trimmer.filmstrip}
+            hoverThumbnailSrc={trimmer.hoverThumbnailSrc}
+            onHoverTime={trimmer.handleHoverTime}
             onScrubStart={() => {
               if (trimmer.videoRef.current) trimmer.videoRef.current.muted = true;
             }}

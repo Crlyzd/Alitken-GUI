@@ -481,5 +481,48 @@ pub fn set_custom_temp_dir(path: Option<String>) -> Result<utils::CacheInfo, Str
     Ok(utils::get_cache_info())
 }
 
+#[tauri::command]
+pub fn check_wmf_support(file_path: String) -> bool {
+    crate::wmf::check_support(&file_path)
+}
 
+#[tauri::command]
+pub async fn get_wmf_frame_preview(
+    file_path: String,
+    timestamp_sec: f64,
+    max_width: Option<u32>,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        crate::wmf::extract_frame(&file_path, timestamp_sec, max_width)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
+#[tauri::command]
+pub async fn get_wmf_filmstrip(
+    file_path: String,
+    count: Option<usize>,
+) -> Result<Vec<String>, String> {
+    let count_val = count.unwrap_or(8);
+    let fp = file_path.clone();
+    let wmf_res = tokio::task::spawn_blocking(move || {
+        crate::wmf::extract_filmstrip(&fp, count_val)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if let Ok(ref strip) = wmf_res {
+        if !strip.is_empty() {
+            return wmf_res;
+        }
+    }
+
+    // Fallback to FFmpeg CLI filmstrip extraction for non-WMF formats (.mkv, .webm)
+    let deps = dependencies::check_dependencies();
+    if deps.ffmpeg_exists && deps.ffprobe_exists {
+        return ffmpeg::extract_ffmpeg_filmstrip(&deps.ffmpeg_path, &deps.ffprobe_path, &file_path, count_val).await;
+    }
+
+    Ok(Vec::new())
+}

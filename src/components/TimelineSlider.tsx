@@ -9,6 +9,9 @@ interface TimelineSliderProps {
   onSeek: (time: number) => void;
   onScrubStart?: () => void;
   onScrubEnd?: () => void;
+  filmstrip?: string[];
+  onHoverTime?: (timeSec: number | null) => void;
+  hoverThumbnailSrc?: string | null;
 }
 
 export function formatTimeWithMs(seconds: number): string {
@@ -34,9 +37,13 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   onSeek,
   onScrubStart,
   onScrubEnd,
+  filmstrip = [],
+  onHoverTime,
+  hoverThumbnailSrc,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<'start' | 'end' | 'playhead' | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; time: number } | null>(null);
 
   const effectiveDuration = durationSec > 0 ? durationSec : 1;
   const startPercent = Math.max(0, Math.min(100, (startSec / effectiveDuration) * 100));
@@ -97,8 +104,27 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     onSeek(Math.max(0, Math.min(effectiveDuration, time)));
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!trackRef.current || dragging) {
+      setHoverPos(null);
+      onHoverTime?.(null);
+      return;
+    }
+    const rect = trackRef.current.getBoundingClientRect();
+    const rawX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const clampedX = Math.max(75, Math.min(rect.width - 75, rawX));
+    const time = (rawX / rect.width) * effectiveDuration;
+    setHoverPos({ x: clampedX, time });
+    onHoverTime?.(time);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverPos(null);
+    onHoverTime?.(null);
+  };
+
   return (
-    <div style={{ width: '100%', userSelect: 'none', padding: '12px 0 6px 0' }}>
+    <div style={{ width: '100%', userSelect: 'none', padding: '12px 0 6px 0', position: 'relative' }}>
       {/* Time labels above track */}
       <div
         style={{
@@ -117,26 +143,135 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
         <span>{formatTimeWithMs(effectiveDuration)}</span>
       </div>
 
+      {/* Floating Hover Tooltip Preview Card */}
+      {hoverPos && !dragging && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${hoverPos.x}px`,
+            bottom: '52px',
+            transform: 'translateX(-50%)',
+            pointerEvents: 'none',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '4px',
+            animation: 'fadeIn 0.15s ease-out',
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '140px',
+              height: '80px',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+              background: '#000000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {hoverThumbnailSrc ? (
+              <img
+                src={hoverThumbnailSrc}
+                alt="Hover Preview"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: 'rgba(255,255,255,0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <div
+                  className="spinner"
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    border: '2px solid rgba(255,255,255,0.2)',
+                    borderTopColor: '#ffffff',
+                    borderRadius: '50%',
+                  }}
+                />
+                Seeking...
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#ffffff',
+              background: 'rgba(0, 0, 0, 0.8)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              fontVariantNumeric: 'tabular-nums',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            {formatTimeWithMs(hoverPos.time)}
+          </div>
+        </div>
+      )}
+
       {/* Main Track Container */}
       <div
         ref={trackRef}
         onClick={handleTrackClick}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         style={{
           position: 'relative',
           width: '100%',
-          height: '38px',
+          height: '42px',
           borderRadius: '10px',
-          background: 'rgba(0, 0, 0, 0.35)',
+          background: 'rgba(0, 0, 0, 0.4)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           cursor: 'pointer',
           touchAction: 'none',
-          overflow: 'visible',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
         }}
       >
+        {/* Background Filmstrip Track Tiles */}
+        {filmstrip.length > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              opacity: 0.45,
+              pointerEvents: 'none',
+            }}
+          >
+            {filmstrip.map((thumb, idx) => (
+              <img
+                key={idx}
+                src={thumb}
+                alt={`Filmstrip ${idx}`}
+                style={{
+                  flex: 1,
+                  height: '100%',
+                  objectFit: 'cover',
+                  filter: 'brightness(0.8) contrast(1.1)',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Unselected Left Area */}
         <div
           style={{
@@ -144,7 +279,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             left: 0,
             width: `${startPercent}%`,
             height: '100%',
-            background: 'rgba(0, 0, 0, 0.25)',
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'brightness(0.6)',
             borderTopLeftRadius: '9px',
             borderBottomLeftRadius: '9px',
           }}
@@ -171,7 +307,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             left: `${endPercent}%`,
             right: 0,
             height: '100%',
-            background: 'rgba(0, 0, 0, 0.25)',
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'brightness(0.6)',
             borderTopRightRadius: '9px',
             borderBottomRightRadius: '9px',
           }}

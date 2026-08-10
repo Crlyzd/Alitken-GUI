@@ -5,6 +5,7 @@ interface TimelineSliderProps {
   startSec: number;
   endSec: number;
   currentSec: number;
+  isDurationLocked?: boolean;
   onRangeChange: (start: number, end: number) => void;
   onSeek: (time: number) => void;
   onScrubStart?: () => void;
@@ -33,6 +34,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   startSec,
   endSec,
   currentSec,
+  isDurationLocked = false,
   onRangeChange,
   onSeek,
   onScrubStart,
@@ -42,7 +44,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   hoverThumbnailSrc,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<'start' | 'end' | 'playhead' | null>(null);
+  const rangeOffsetRef = useRef<number>(0);
+  const [dragging, setDragging] = useState<'start' | 'end' | 'playhead' | 'range' | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; time: number } | null>(null);
 
   const effectiveDuration = durationSec > 0 ? durationSec : 1;
@@ -62,10 +65,14 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     [effectiveDuration]
   );
 
-  const handlePointerDown = (type: 'start' | 'end' | 'playhead', e: React.PointerEvent) => {
+  const handlePointerDown = (type: 'start' | 'end' | 'playhead' | 'range', e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (type === 'range') {
+      const clickTime = getTimeFromEvent(e);
+      rangeOffsetRef.current = clickTime - startSec;
+    }
     setDragging(type);
     onScrubStart?.();
   };
@@ -73,15 +80,36 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
     const time = getTimeFromEvent(e);
+    const clipLength = Math.max(0.1, endSec - startSec);
 
     if (dragging === 'start') {
-      const clampedStart = Math.max(0, Math.min(endSec - 0.1, time));
-      onRangeChange(clampedStart, endSec);
-      onSeek(clampedStart);
+      if (isDurationLocked) {
+        const clampedStart = Math.max(0, Math.min(effectiveDuration - clipLength, time));
+        const clampedEnd = clampedStart + clipLength;
+        onRangeChange(clampedStart, clampedEnd);
+        onSeek(clampedStart);
+      } else {
+        const clampedStart = Math.max(0, Math.min(endSec - 0.1, time));
+        onRangeChange(clampedStart, endSec);
+        onSeek(clampedStart);
+      }
     } else if (dragging === 'end') {
-      const clampedEnd = Math.max(startSec + 0.1, Math.min(effectiveDuration, time));
-      onRangeChange(startSec, clampedEnd);
-      onSeek(clampedEnd);
+      if (isDurationLocked) {
+        const clampedEnd = Math.max(clipLength, Math.min(effectiveDuration, time));
+        const clampedStart = clampedEnd - clipLength;
+        onRangeChange(clampedStart, clampedEnd);
+        onSeek(clampedEnd);
+      } else {
+        const clampedEnd = Math.max(startSec + 0.1, Math.min(effectiveDuration, time));
+        onRangeChange(startSec, clampedEnd);
+        onSeek(clampedEnd);
+      }
+    } else if (dragging === 'range') {
+      const targetStart = time - rangeOffsetRef.current;
+      const clampedStart = Math.max(0, Math.min(effectiveDuration - clipLength, targetStart));
+      const clampedEnd = clampedStart + clipLength;
+      onRangeChange(clampedStart, clampedEnd);
+      onSeek(clampedStart);
     } else if (dragging === 'playhead') {
       const clampedTime = Math.max(0, Math.min(effectiveDuration, time));
       onSeek(clampedTime);
@@ -288,6 +316,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
 
         {/* Selected Clip Highlight Track */}
         <div
+          onPointerDown={(e) => handlePointerDown('range', e)}
+          title="Selected export area (Drag to move range)"
           style={{
             position: 'absolute',
             left: `${startPercent}%`,
@@ -297,6 +327,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             borderTop: '2px solid var(--accent-cyan)',
             borderBottom: '2px solid var(--accent-cyan)',
             boxShadow: '0 0 16px rgba(6, 182, 212, 0.2)',
+            cursor: dragging === 'range' ? 'grabbing' : 'grab',
+            zIndex: 5,
           }}
         />
 

@@ -1,29 +1,34 @@
 import React from 'react';
-import { Clock, RotateCcw } from 'lucide-react';
-import { formatTimeWithMs } from '../TimelineSlider';
+import { Clock, RotateCcw, Lock, Unlock } from 'lucide-react';
 import { timeInputStyle } from '../../utils/trimmerUtils';
 
 interface TrimmerStatusBarProps {
   inputStart: string;
   inputEnd: string;
-  startSec: number;
-  endSec: number;
+  inputDuration: string;
+  isDurationLocked: boolean;
   setInputStart: (val: string) => void;
   setInputEnd: (val: string) => void;
+  setInputDuration: (val: string) => void;
   onStartBlur: () => void;
   onEndBlur: () => void;
+  onDurationBlur: () => void;
+  onToggleDurationLock: () => void;
   onResetMarkers: () => void;
 }
 
 export const TrimmerStatusBar: React.FC<TrimmerStatusBarProps> = ({
   inputStart,
   inputEnd,
-  startSec,
-  endSec,
+  inputDuration,
+  isDurationLocked,
   setInputStart,
   setInputEnd,
+  setInputDuration,
   onStartBlur,
   onEndBlur,
+  onDurationBlur,
+  onToggleDurationLock,
   onResetMarkers,
 }) => {
   return (
@@ -94,27 +99,62 @@ export const TrimmerStatusBar: React.FC<TrimmerStatusBarProps> = ({
         </div>
       </div>
 
-      {/* CENTER COLUMN: Centered Trimmed Duration Badge */}
+      {/* CENTER COLUMN: Editable Trimmed Duration Badge */}
       <div
         style={{
           justifySelf: 'center',
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          padding: '4px 12px',
+          padding: '4px 10px',
           borderRadius: '20px',
           background: 'var(--bg-glass-card)',
-          border: '1px solid var(--border-glass)',
+          border: isDurationLocked
+            ? '1px solid rgba(6, 182, 212, 0.6)'
+            : '1px solid var(--border-glass)',
+          boxShadow: isDurationLocked
+            ? '0 0 10px rgba(6, 182, 212, 0.25)'
+            : 'none',
           fontSize: '11.5px',
           color: 'var(--text-dim)',
           whiteSpace: 'nowrap',
+          transition: 'all 0.2s ease',
         }}
       >
         <Clock size={12} style={{ color: 'var(--accent-cyan)' }} />
         <span>Duration:</span>
-        <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace', fontWeight: 700 }}>
-          {formatTimeWithMs(Math.max(0, endSec - startSec))}
-        </strong>
+        <input
+          type="text"
+          value={inputDuration}
+          onChange={(e) => setInputDuration(e.target.value)}
+          onBlur={onDurationBlur}
+          onKeyDown={(e) => e.key === 'Enter' && onDurationBlur()}
+          style={{
+            ...timeInputStyle,
+            borderColor: isDurationLocked ? 'rgba(6, 182, 212, 0.6)' : 'rgba(255, 255, 255, 0.15)',
+            color: 'var(--text-main)',
+            fontWeight: 700,
+            width: '90px',
+          }}
+          title="Editable Duration (HH:MM:SS.mmm or seconds). Editing locks clip length."
+        />
+        <button
+          type="button"
+          onClick={onToggleDurationLock}
+          title={isDurationLocked ? 'Duration is locked (Click to unlock)' : 'Duration is unlocked (Click to lock)'}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '2px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            color: isDurationLocked ? 'var(--accent-cyan)' : 'var(--text-dim)',
+            transition: 'color 0.15s ease',
+          }}
+        >
+          {isDurationLocked ? <Lock size={12} /> : <Unlock size={12} />}
+        </button>
       </div>
 
       {/* RIGHT COLUMN: Reset Markers Action Button */}

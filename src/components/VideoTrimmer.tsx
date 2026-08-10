@@ -125,6 +125,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             startSec={trimmer.startSec}
             endSec={trimmer.endSec}
             currentSec={trimmer.currentSec}
+            isDurationLocked={trimmer.isDurationLocked}
             onRangeChange={trimmer.handleRangeChange}
             onSeek={trimmer.handleSeek}
             filmstrip={trimmer.filmstrip}
@@ -142,12 +143,15 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
           <TrimmerStatusBar
             inputStart={trimmer.inputStart}
             inputEnd={trimmer.inputEnd}
-            startSec={trimmer.startSec}
-            endSec={trimmer.endSec}
+            inputDuration={trimmer.inputDuration}
+            isDurationLocked={trimmer.isDurationLocked}
             setInputStart={trimmer.setInputStart}
             setInputEnd={trimmer.setInputEnd}
+            setInputDuration={trimmer.setInputDuration}
             onStartBlur={trimmer.handleStartBlur}
             onEndBlur={trimmer.handleEndBlur}
+            onDurationBlur={trimmer.handleDurationBlur}
+            onToggleDurationLock={trimmer.toggleDurationLock}
             onResetMarkers={trimmer.resetMarkers}
           />
         </div>

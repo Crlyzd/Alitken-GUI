@@ -62,6 +62,12 @@ export function useTrimmerState({
   const [inputEnd, setInputEnd] = useState<string>(
     formatTimeWithMs(file.trimEndSec || file.durationSec || 60)
   );
+  const [isDurationLocked, setIsDurationLocked] = useState<boolean>(false);
+  const [inputDuration, setInputDuration] = useState<string>(
+    formatTimeWithMs(
+      Math.max(0, (file.trimEndSec || file.durationSec || 60) - (file.trimStartSec || 0))
+    )
+  );
 
   // Initialize preview stream / remux & WMF filmstrip on mount or when file changes
   useEffect(() => {
@@ -136,6 +142,10 @@ export function useTrimmerState({
   useEffect(() => {
     setInputEnd(formatTimeWithMs(endSec));
   }, [endSec]);
+
+  useEffect(() => {
+    setInputDuration(formatTimeWithMs(Math.max(0, endSec - startSec)));
+  }, [startSec, endSec]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current && videoRef.current.duration > 0 && !isNaN(videoRef.current.duration)) {
@@ -287,6 +297,7 @@ export function useTrimmerState({
   }, [currentSec, startSec, duration]);
 
   const resetMarkers = useCallback(() => {
+    setIsDurationLocked(false);
     setStartSec(0);
     setEndSec(duration);
     handleSeek(0);
@@ -299,23 +310,67 @@ export function useTrimmerState({
 
   const handleStartBlur = useCallback(() => {
     const parsed = parseTimeToSeconds(inputStart);
-    if (parsed !== null && parsed >= 0 && parsed < endSec) {
-      setStartSec(parsed);
-      handleSeek(parsed);
+    if (parsed !== null && parsed >= 0 && parsed < duration) {
+      if (isDurationLocked) {
+        const clipLength = Math.max(0.1, endSec - startSec);
+        const clampedStart = Math.max(0, Math.min(duration - clipLength, parsed));
+        const clampedEnd = Math.min(duration, clampedStart + clipLength);
+        setStartSec(clampedStart);
+        setEndSec(clampedEnd);
+        handleSeek(clampedStart);
+      } else if (parsed < endSec) {
+        setStartSec(parsed);
+        handleSeek(parsed);
+      } else {
+        setInputStart(formatTimeWithMs(startSec));
+      }
     } else {
       setInputStart(formatTimeWithMs(startSec));
     }
-  }, [inputStart, endSec, startSec, handleSeek]);
+  }, [inputStart, endSec, startSec, duration, isDurationLocked, handleSeek]);
 
   const handleEndBlur = useCallback(() => {
     const parsed = parseTimeToSeconds(inputEnd);
-    if (parsed !== null && parsed > startSec && parsed <= duration) {
-      setEndSec(parsed);
-      handleSeek(parsed);
+    if (parsed !== null && parsed > 0 && parsed <= duration) {
+      if (isDurationLocked) {
+        const clipLength = Math.max(0.1, endSec - startSec);
+        const clampedEnd = Math.max(clipLength, Math.min(duration, parsed));
+        const clampedStart = Math.max(0, clampedEnd - clipLength);
+        setStartSec(clampedStart);
+        setEndSec(clampedEnd);
+        handleSeek(clampedEnd);
+      } else if (parsed > startSec) {
+        setEndSec(parsed);
+        handleSeek(parsed);
+      } else {
+        setInputEnd(formatTimeWithMs(endSec));
+      }
     } else {
       setInputEnd(formatTimeWithMs(endSec));
     }
-  }, [inputEnd, startSec, duration, endSec, handleSeek]);
+  }, [inputEnd, startSec, duration, endSec, isDurationLocked, handleSeek]);
+
+  const handleDurationBlur = useCallback(() => {
+    const parsedDur = parseTimeToSeconds(inputDuration);
+    if (parsedDur !== null && parsedDur > 0 && parsedDur <= duration) {
+      let newStart = startSec;
+      let newEnd = startSec + parsedDur;
+      if (newEnd > duration) {
+        newEnd = duration;
+        newStart = Math.max(0, duration - parsedDur);
+      }
+      setStartSec(newStart);
+      setEndSec(newEnd);
+      setIsDurationLocked(true);
+      handleSeek(newStart);
+    } else {
+      setInputDuration(formatTimeWithMs(Math.max(0, endSec - startSec)));
+    }
+  }, [inputDuration, duration, startSec, endSec, handleSeek]);
+
+  const toggleDurationLock = useCallback(() => {
+    setIsDurationLocked((prev) => !prev);
+  }, []);
 
   const handleSpeedSelectValChange = useCallback((val: string) => {
     if (val === 'CUSTOM') {
@@ -458,6 +513,11 @@ export function useTrimmerState({
     handleCustomSpeedSubmitAction,
     handleSaveAndBack,
     handleExport,
+    isDurationLocked,
+    inputDuration,
+    setInputDuration,
+    handleDurationBlur,
+    toggleDurationLock,
     filmstrip,
     hoverThumbnailSrc,
     handleHoverTime,

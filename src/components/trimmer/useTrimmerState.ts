@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { FileItem } from '../Dropzone';
 import { ConfigState } from '../ConfigPanel';
-import { TrimConfig } from '../../types/media';
+import { TrimConfig, AspectRatioOption } from '../../types/media';
 import { formatTimeWithMs } from '../TimelineSlider';
 import {
   parseTimeToSeconds,
@@ -57,6 +57,21 @@ export function useTrimmerState({
   const [customSpeedInput, setCustomSpeedInput] = useState<string>('1.0');
   const [slowMoMode, setSlowMoMode] = useState<'FRAME_DUP' | 'OPTICAL_SMOOTH'>('FRAME_DUP');
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // Aspect Ratio & Crop Positioning State
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('ORIGINAL');
+  const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
+  const [isCropApplied, setIsCropApplied] = useState<boolean>(false);
+
+  const applyCrop = useCallback(() => {
+    setIsCropApplied(true);
+  }, []);
+
+  const cancelCrop = useCallback(() => {
+    setAspectRatio('ORIGINAL');
+    setCropOffset({ x: 0.5, y: 0.5 });
+    setIsCropApplied(false);
+  }, []);
 
   const [inputStart, setInputStart] = useState<string>(formatTimeWithMs(file.trimStartSec || 0));
   const [inputEnd, setInputEnd] = useState<string>(
@@ -443,12 +458,54 @@ export function useTrimmerState({
     });
   }, [file, startSec, endSec, fastCopy, onBack]);
 
+  const getCropParams = useCallback(() => {
+    if (aspectRatio === 'ORIGINAL' || !videoRef.current) return null;
+    const v = videoRef.current;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    if (!vw || !vh) return null;
+
+    let targetRatio = 16 / 9;
+    if (aspectRatio === '16:9') targetRatio = 16 / 9;
+    else if (aspectRatio === '9:16') targetRatio = 9 / 16;
+    else if (aspectRatio === '1:1') targetRatio = 1 / 1;
+    else if (aspectRatio === '4:5') targetRatio = 4 / 5;
+    else if (aspectRatio === '4:3') targetRatio = 4 / 3;
+    else if (aspectRatio === '21:9') targetRatio = 21 / 9;
+
+    const sourceRatio = vw / vh;
+    let cropW = vw;
+    let cropH = vh;
+
+    if (targetRatio < sourceRatio) {
+      cropH = vh;
+      cropW = Math.round(vh * targetRatio);
+    } else {
+      cropW = vw;
+      cropH = Math.round(vw / targetRatio);
+    }
+
+    const maxX = Math.max(0, vw - cropW);
+    const maxY = Math.max(0, vh - cropH);
+
+    const cropX = Math.round(cropOffset.x * maxX);
+    const cropY = Math.round(cropOffset.y * maxY);
+
+    return {
+      crop_w: Math.max(2, cropW - (cropW % 2)),
+      crop_h: Math.max(2, cropH - (cropH % 2)),
+      crop_x: Math.max(0, cropX - (cropX % 2)),
+      crop_y: Math.max(0, cropY - (cropY % 2)),
+    };
+  }, [aspectRatio, cropOffset]);
+
   const handleExport = useCallback(() => {
+    const crop = getCropParams();
     const trimConfig: TrimConfig = {
       input_file: file.path,
       start_sec: startSec,
       end_sec: endSec,
-      fast_copy: fastCopy,
+      fast_copy: crop ? false : fastCopy,
       codec_choice: videoConfig.codecChoice,
       target_height: videoConfig.targetHeight,
       target_bitrate: videoConfig.targetBitrate,
@@ -456,9 +513,13 @@ export function useTrimmerState({
       playback_speed: playbackSpeed,
       mute_audio: isMuted,
       slow_mo_mode: slowMoMode,
+      crop_w: crop?.crop_w,
+      crop_h: crop?.crop_h,
+      crop_x: crop?.crop_x,
+      crop_y: crop?.crop_y,
     };
     onStartTrim(trimConfig);
-  }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, onStartTrim]);
+  }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, getCropParams, onStartTrim]);
 
   const activeMediaSrc = previewPath
     ? convertFileSrc(previewPath)
@@ -489,6 +550,14 @@ export function useTrimmerState({
     inputEnd,
     activeMediaSrc,
     dynamicSpeedOptions,
+    aspectRatio,
+    setAspectRatio,
+    cropOffset,
+    setCropOffset,
+    isCropApplied,
+    setIsCropApplied,
+    applyCrop,
+    cancelCrop,
     setIsPlaying,
     setIsMuted,
     setSlowMoMode,

@@ -71,6 +71,10 @@ pub struct TrimConfig {
     pub playback_speed: Option<f64>,
     pub mute_audio: Option<bool>,
     pub slow_mo_mode: Option<String>,
+    pub crop_x: Option<u32>,
+    pub crop_y: Option<u32>,
+    pub crop_w: Option<u32>,
+    pub crop_h: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

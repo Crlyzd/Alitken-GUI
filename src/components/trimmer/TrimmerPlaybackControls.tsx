@@ -255,11 +255,10 @@ export const TrimmerPlaybackControls: React.FC<TrimmerPlaybackControlsProps> = (
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              padding: '4px 6px',
+              padding: '3px 5px',
               borderRadius: '8px',
               background: 'rgba(99, 102, 241, 0.12)',
               border: '1px solid rgba(99, 102, 241, 0.35)',
-              minWidth: '145px',
             }}
           >
             {slowMoMode === 'OPTICAL_SMOOTH' ? (
@@ -272,7 +271,7 @@ export const TrimmerPlaybackControls: React.FC<TrimmerPlaybackControlsProps> = (
               value={slowMoMode}
               onChange={(val) => onSlowMoModeChange(val as 'FRAME_DUP' | 'OPTICAL_SMOOTH')}
               placement="top"
-              style={{ width: '100%' }}
+              style={{ width: 'auto', minWidth: '80px' }}
             />
           </div>
         )}

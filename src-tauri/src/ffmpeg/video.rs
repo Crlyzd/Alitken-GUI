@@ -478,7 +478,8 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
     let raw_speed = config.playback_speed.unwrap_or(1.0);
     let speed = raw_speed.clamp(0.1, 50.0);
     let is_speed_changed = (speed - 1.0).abs() > 0.001;
-    let effective_fast_copy = config.fast_copy && !is_speed_changed;
+    let has_crop = config.crop_w.is_some() && config.crop_h.is_some();
+    let effective_fast_copy = config.fast_copy && !is_speed_changed && !has_crop;
 
     let start_sec = config.start_sec.max(0.0);
     let end_sec = if config.end_sec > start_sec {
@@ -540,6 +541,11 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         ]);
 
         let mut vf_filters: Vec<String> = Vec::new();
+
+        if let (Some(w), Some(h), Some(x), Some(y)) = (config.crop_w, config.crop_h, config.crop_x, config.crop_y) {
+            log_info(&format!("Applying aspect ratio video crop filter: {}x{}+{}+{}", w, h, x, y));
+            vf_filters.push(format!("crop={}:{}:{}:{}", w, h, x, y));
+        }
 
         if config.target_height != "ORIGINAL" {
             let effective_height = if let Ok(h) = config.target_height.parse::<u32>() {

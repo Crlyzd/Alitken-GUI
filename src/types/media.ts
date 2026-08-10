@@ -87,6 +87,8 @@ export interface TrimPreset {
   updated_at: number;
 }
 
+export type AspectRatioOption = 'ORIGINAL' | '16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9';
+
 export interface TrimConfig {
   input_file: string;
   start_sec: number;
@@ -99,6 +101,10 @@ export interface TrimConfig {
   playback_speed?: number;
   mute_audio?: boolean;
   slow_mo_mode?: 'FRAME_DUP' | 'OPTICAL_SMOOTH';
+  crop_x?: number;
+  crop_y?: number;
+  crop_w?: number;
+  crop_h?: number;
 }
 
 export interface CacheInfo {

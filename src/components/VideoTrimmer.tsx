@@ -96,6 +96,13 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             onEnded={() => trimmer.setIsPlaying(false)}
             onVideoClick={trimmer.togglePlayPause}
             isDragOver={isDragOver}
+            aspectRatio={trimmer.aspectRatio}
+            onSelectAspectRatio={trimmer.setAspectRatio}
+            cropOffset={trimmer.cropOffset}
+            onCropOffsetChange={trimmer.setCropOffset}
+            isCropApplied={trimmer.isCropApplied}
+            onApplyCrop={trimmer.applyCrop}
+            onCancelCrop={trimmer.cancelCrop}
           />
 
           {/* Media Playback Controls Toolbar */}

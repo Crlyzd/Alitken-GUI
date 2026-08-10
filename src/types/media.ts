@@ -101,4 +101,10 @@ export interface TrimConfig {
   slow_mo_mode?: 'FRAME_DUP' | 'OPTICAL_SMOOTH';
 }
 
+export interface CacheInfo {
+  path: string;
+  size_bytes: number;
+  is_custom: boolean;
+}
+
 

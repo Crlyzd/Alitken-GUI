@@ -58,6 +58,10 @@
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
 
+  --btn-danger-bg: rgba(244, 63, 94, 0.15);
+  --btn-danger-text: #fb7185;
+  --btn-danger-border: rgba(244, 63, 94, 0.3);
+
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
@@ -89,6 +93,10 @@
   --accent-cyan: #0891b2;
   --accent-emerald: #059669;
   --accent-rose: #e11d48;
+
+  --btn-danger-bg: rgba(225, 29, 72, 0.1);
+  --btn-danger-text: #be123c;
+  --btn-danger-border: rgba(225, 29, 72, 0.3);
 
   --text-main: #0f172a;
   --text-muted: #334155;

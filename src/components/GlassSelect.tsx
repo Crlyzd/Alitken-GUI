@@ -29,6 +29,12 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
   const selectedOption = options.find((opt) => opt.value === value) || options[0];
 
   useEffect(() => {
+    if (disabled) {
+      setIsOpen(false);
+    }
+  }, [disabled]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -113,7 +119,9 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
               ? { bottom: 'calc(100% + 4px)' }
               : { top: 'calc(100% + 4px)' }),
             left: 0,
-            right: 0,
+            minWidth: '100%',
+            width: 'max-content',
+            maxWidth: '240px',
             zIndex: 9999,
             background: 'var(--bg-glass-dropdown, rgba(18, 22, 36, 0.95))',
             backdropFilter: 'blur(20px)',
@@ -124,6 +132,7 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
             boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
             maxHeight: '220px',
             overflowY: 'auto',
+            overflowX: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',

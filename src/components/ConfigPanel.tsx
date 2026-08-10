@@ -54,7 +54,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   onStartTrim,
-  fastCopyTrim = true,
+  fastCopyTrim = false,
   onFastCopyTrimChange,
 }) => {
   const [isCustomHeight, setIsCustomHeight] = useState<boolean>(
@@ -64,7 +64,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     !PRESET_BITRATES.includes(config.targetBitrate)
   );
 
-  const isFastCopyActive = config.videoAction === 'SPLIT' && config.splitFastCopy;
+  const isFastCopyActive = !isTrimmerMode && config.videoAction === 'SPLIT' && config.splitFastCopy;
 
   const handleBrowseFolder = async () => {
     try {
@@ -328,6 +328,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   return (
                     <button
                       key={codec.id}
+                      disabled={isFastCopyActive}
                       onClick={() => onChange({ codecChoice: codec.id })}
                       style={{
                         padding: '10px 6px',
@@ -369,8 +370,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </div>
             </div>
 
-            {/* SPLIT VIDEO OPTIONS (If Split Mode Active) */}
-            {config.videoAction === 'SPLIT' && (
+            {/* SPLIT VIDEO OPTIONS (If Split Mode Active and Not in Trimmer Mode) */}
+            {!isTrimmerMode && config.videoAction === 'SPLIT' && (
               <div
                 style={{
                   padding: '14px',
@@ -391,18 +392,19 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     userSelect: 'none',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Zap
-                      size={15}
+                      size={16}
                       style={{
                         color: config.splitFastCopy ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                        flexShrink: 0,
                       }}
                     />
                     <div>
                       <div
                         style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}
                       >
-                        Fast Stream Copy (-c copy)
+                        Lossless Copy
                       </div>
                       <div
                         style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}
@@ -523,6 +525,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </span>
               <GlassSelect
                 value={isCustomHeight ? 'CUSTOM' : config.targetHeight}
+                disabled={isFastCopyActive}
                 onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomHeight(true);
@@ -550,6 +553,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     type="number"
                     min="144"
                     max="8192"
+                    disabled={isFastCopyActive}
                     placeholder="Custom height (144 - 8192 px)"
                     value={config.targetHeight === 'CUSTOM' ? '1080' : config.targetHeight}
                     onChange={(e) => onChange({ targetHeight: e.target.value })}
@@ -600,6 +604,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </span>
               <GlassSelect
                 value={isCustomBitrate ? 'CUSTOM' : config.targetBitrate}
+                disabled={isFastCopyActive}
                 onChange={(val) => {
                   if (val === 'CUSTOM') {
                     setIsCustomBitrate(true);
@@ -628,6 +633,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     type="number"
                     min="100"
                     max="500000"
+                    disabled={isFastCopyActive}
                     placeholder="Custom bitrate (100 - 500000 kbps)"
                     value={config.targetBitrate === 'CUSTOM' ? '5000' : config.targetBitrate}
                     onChange={(e) => onChange({ targetBitrate: e.target.value })}
@@ -749,12 +755,21 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   transition: 'all 0.2s ease',
                 }}
               >
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
-                    ⚡ Fast Stream Copy (-c copy)
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                    Lossless instant cut without re-encoding
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Zap
+                    size={18}
+                    style={{
+                      color: fastCopyTrim ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      Lossless Copy
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                      Lossless instant cut without re-encoding
+                    </div>
                   </div>
                 </div>
                 <input

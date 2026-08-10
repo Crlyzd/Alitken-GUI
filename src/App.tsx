@@ -63,7 +63,7 @@ export function App() {
   const [videoConfig, setVideoConfig] = useState<ConfigState>({
     videoAction: 'CONVERT',
     splitMode: 'DURATION',
-    splitValue: 60,
+    splitValue: 0,
     splitFastCopy: false,
     targetHeight: 'ORIGINAL',
     targetBitrate: 'ORIGINAL',
@@ -762,7 +762,7 @@ export function App() {
       currentPart: 1,
       totalParts: 1,
       status: trimConfig.fast_copy
-        ? 'Exporting Fast Stream Copy (-c copy)...'
+        ? 'Exporting Lossless Copy...'
         : 'Re-encoding Trimmed Clip with Hardware Acceleration...',
       completed: false,
     });

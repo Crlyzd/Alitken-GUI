@@ -462,5 +462,24 @@ pub async fn check_missing_files(file_paths: Vec<String>) -> Vec<String> {
     .unwrap_or_default()
 }
 
+#[tauri::command]
+pub fn get_temp_cache_info() -> utils::CacheInfo {
+    utils::get_cache_info()
+}
+
+#[tauri::command]
+pub fn clear_temp_cache() -> utils::CacheInfo {
+    utils::cleanup_temp_dir();
+    utils::get_cache_info()
+}
+
+#[tauri::command]
+pub fn set_custom_temp_dir(path: Option<String>) -> Result<utils::CacheInfo, String> {
+    let mut settings = utils::load_app_settings();
+    settings.custom_temp_dir = path;
+    utils::save_app_settings(&settings)?;
+    Ok(utils::get_cache_info())
+}
+
 
 

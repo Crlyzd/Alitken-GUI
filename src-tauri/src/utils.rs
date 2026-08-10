@@ -70,8 +70,88 @@ pub fn get_trim_presets_path() -> PathBuf {
     get_presets_dir().join("trim_presets.json")
 }
 
-/// Resolves the dedicated temporary cache directory in %LOCALAPPDATA%\Alitken\temp
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AppSettings {
+    pub custom_temp_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheInfo {
+    pub path: String,
+    pub size_bytes: u64,
+    pub is_custom: bool,
+}
+
+pub fn get_settings_file_path() -> PathBuf {
+    get_presets_dir().join("settings.json")
+}
+
+pub fn load_app_settings() -> AppSettings {
+    let path = get_settings_file_path();
+    if path.exists() {
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(settings) = serde_json::from_str::<AppSettings>(&content) {
+                return settings;
+            }
+        }
+    }
+    AppSettings::default()
+}
+
+pub fn save_app_settings(settings: &AppSettings) -> Result<(), String> {
+    let path = get_settings_file_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let content = serde_json::to_string_pretty(settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    fs::write(&path, content).map_err(|e| format!("Failed to write settings: {}", e))?;
+    Ok(())
+}
+
+pub fn calculate_dir_size(dir: &Path) -> u64 {
+    let mut total_size = 0;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Ok(meta) = fs::metadata(&path) {
+                    total_size += meta.len();
+                }
+            } else if path.is_dir() {
+                total_size += calculate_dir_size(&path);
+            }
+        }
+    }
+    total_size
+}
+
+pub fn get_cache_info() -> CacheInfo {
+    let settings = load_app_settings();
+    let temp_dir = get_temp_dir();
+    let is_custom = settings.custom_temp_dir.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+    let size_bytes = calculate_dir_size(&temp_dir);
+    CacheInfo {
+        path: temp_dir.to_string_lossy().to_string(),
+        size_bytes,
+        is_custom,
+    }
+}
+
+/// Resolves the dedicated temporary cache directory in %LOCALAPPDATA%\Alitken\temp or custom folder
 pub fn get_temp_dir() -> PathBuf {
+    let settings = load_app_settings();
+    if let Some(custom_dir) = settings.custom_temp_dir {
+        if !custom_dir.trim().is_empty() {
+            let custom_path = PathBuf::from(custom_dir);
+            if fs::create_dir_all(&custom_path).is_ok() {
+                return custom_path;
+            }
+        }
+    }
+
     if let Some(local_dir) = dirs::data_local_dir() {
         let temp_dir = local_dir.join("Alitken").join("temp");
         let _ = fs::create_dir_all(&temp_dir);

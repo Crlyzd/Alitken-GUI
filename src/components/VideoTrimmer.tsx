@@ -28,7 +28,7 @@ const speedOptions: GlassSelectOption[] = [
   { value: '0.25', label: '0.25x' },
   { value: '0.5', label: '0.5x' },
   { value: '0.75', label: '0.75x' },
-  { value: '1.0', label: '1.0x (Normal)' },
+  { value: '1.0', label: '1.0x' },
   { value: '1.25', label: '1.25x' },
   { value: '1.5', label: '1.5x' },
   { value: '2.0', label: '2.0x' },
@@ -37,8 +37,8 @@ const speedOptions: GlassSelectOption[] = [
 ];
 
 const slowMoOptions: GlassSelectOption[] = [
-  { value: 'FRAME_DUP', label: 'Standard (Fast)' },
-  { value: 'OPTICAL_SMOOTH', label: 'AI Motion (Smooth)' },
+  { value: 'FRAME_DUP', label: 'Standard' },
+  { value: 'OPTICAL_SMOOTH', label: 'AI Motion' },
 ];
 
 interface VideoTrimmerProps {
@@ -113,7 +113,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
     return file.durationSec || 60;
   });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [fastCopy, setFastCopy] = useState<boolean>(file.trimFastCopy ?? true);
+  const [fastCopy, setFastCopy] = useState<boolean>(file.trimFastCopy ?? false);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(false);
 
   // Speed & Audio State

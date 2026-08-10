@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers, Download, Trash2, Film, Image } from 'lucide-react';
+import { X, Sun, Moon, Sparkles, FolderCheck, ShieldAlert, CheckCircle2, RefreshCw, Layers, Download, Trash2, Film, Image, HardDrive, RotateCcw, Folder } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { DependencyStatus, IntegrationStatus } from '../types/media';
+import { open } from '@tauri-apps/plugin-dialog';
+import { CacheInfo, DependencyStatus, IntegrationStatus } from '../types/media';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -29,10 +30,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [deps, setDeps] = useState<DependencyStatus | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
   const [loadingSendTo, setLoadingSendTo] = useState(false);
   const [loadingDeps, setLoadingDeps] = useState(false);
+  const [loadingCache, setLoadingCache] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const handleFetchCacheInfo = async () => {
+    try {
+      const res = await invoke<CacheInfo>('get_temp_cache_info');
+      setCacheInfo(res);
+    } catch (err) {
+      console.error('Failed to fetch cache info:', err);
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (loadingCache) return;
+    setLoadingCache(true);
+    try {
+      const res = await invoke<CacheInfo>('clear_temp_cache');
+      setCacheInfo(res);
+      setSuccessMsg('Temporary cache cleared.');
+    } catch (err: any) {
+      setErrorMsg(err?.toString() || 'Failed to clear cache.');
+    } finally {
+      setLoadingCache(false);
+    }
+  };
+
+  const handleChangeCacheFolder = async () => {
+    if (loadingCache) return;
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select Custom Temp Cache Directory',
+      });
+      if (selected && typeof selected === 'string') {
+        setLoadingCache(true);
+        const res = await invoke<CacheInfo>('set_custom_temp_dir', { path: selected });
+        setCacheInfo(res);
+        setSuccessMsg('Cache directory updated.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.toString() || 'Failed to update cache directory.');
+    } finally {
+      setLoadingCache(false);
+    }
+  };
+
+  const handleResetCacheFolder = async () => {
+    if (loadingCache) return;
+    setLoadingCache(true);
+    try {
+      const res = await invoke<CacheInfo>('set_custom_temp_dir', { path: null });
+      setCacheInfo(res);
+      setSuccessMsg('Cache directory reset to default AppData path.');
+    } catch (err: any) {
+      setErrorMsg(err?.toString() || 'Failed to reset cache directory.');
+    } finally {
+      setLoadingCache(false);
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -40,6 +109,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setStatus(res);
       const depRes = await invoke<DependencyStatus>('check_app_dependencies');
       setDeps(depRes);
+      handleFetchCacheInfo();
     } catch (err) {
       console.error('Failed to fetch system integration status:', err);
     }
@@ -625,9 +695,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         marginTop: '4px',
                         padding: '6px 12px',
                         borderRadius: '6px',
-                        background: 'rgba(244, 63, 94, 0.15)',
-                        color: '#fb7185',
-                        border: '1px solid rgba(244, 63, 94, 0.3)',
+                        background: 'var(--btn-danger-bg, rgba(244, 63, 94, 0.15))',
+                        color: 'var(--btn-danger-text, #fb7185)',
+                        border: '1px solid var(--btn-danger-border, rgba(244, 63, 94, 0.3))',
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: loadingDeps ? 'wait' : 'pointer',
@@ -738,6 +808,127 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </>
               );
             })()}
+          </div>
+        </div>
+
+        {/* Section: CACHE & STORAGE */}
+        <div style={{ marginTop: '14px', marginBottom: '14px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: '6px',
+            }}
+          >
+            Cache & Storage
+          </div>
+
+          <div
+            style={{
+              padding: '10px 12px',
+              borderRadius: '10px',
+              background: 'var(--bg-card, rgba(255, 255, 255, 0.03))',
+              border: '1px solid var(--border-glass)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <HardDrive size={15} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Temp Cache
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '1px' }}>
+                    {cacheInfo ? formatBytes(cacheInfo.size_bytes) : '...'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleClearCache}
+                disabled={loadingCache || cacheInfo?.size_bytes === 0}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  background: 'var(--btn-danger-bg, rgba(244, 63, 94, 0.15))',
+                  color: 'var(--btn-danger-text, #fb7185)',
+                  border: '1px solid var(--btn-danger-border, rgba(244, 63, 94, 0.3))',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: loadingCache || cacheInfo?.size_bytes === 0 ? 'not-allowed' : 'pointer',
+                  opacity: cacheInfo?.size_bytes === 0 ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {loadingCache ? <RefreshCw size={11} className="spin" /> : <Trash2 size={11} />}
+                <span>Clear Cache</span>
+              </button>
+            </div>
+
+            <div style={{ height: '1px', background: 'var(--border-glass)' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                <Folder size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span
+                  title={cacheInfo?.path || ''}
+                  style={{
+                    fontSize: '10.5px',
+                    color: 'var(--text-muted)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {cacheInfo?.path || 'Loading path...'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <button
+                  onClick={handleChangeCacheFolder}
+                  disabled={loadingCache}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--border-glass)',
+                    color: 'var(--text-main)',
+                    fontSize: '10.5px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Change
+                </button>
+                {cacheInfo?.is_custom && (
+                  <button
+                    onClick={handleResetCacheFolder}
+                    disabled={loadingCache}
+                    title="Reset cache folder to default AppData directory"
+                    style={{
+                      padding: '3px 6px',
+                      borderRadius: '6px',
+                      background: 'transparent',
+                      border: '1px solid var(--border-glass)',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <RotateCcw size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

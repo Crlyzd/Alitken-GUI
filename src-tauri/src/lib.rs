@@ -56,7 +56,10 @@ pub fn run() {
             install_app_update,
             check_missing_files,
             install_to_appdata,
-            uninstall_appdata
+            uninstall_appdata,
+            get_temp_cache_info,
+            clear_temp_cache,
+            set_custom_temp_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

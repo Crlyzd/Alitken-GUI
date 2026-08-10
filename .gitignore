@@ -40,3 +40,6 @@ src-tauri/shell_ext_crate/Cargo.lock
 # Folders
 releases/
 
+# Temporary test files & auxiliary build targets
+src-tauri/test_*
+src-tauri/target_*/

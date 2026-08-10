@@ -58,6 +58,8 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
             justifyContent: 'center',
             background: 'rgba(0, 0, 0, 0.75)',
             backdropFilter: 'blur(10px)',
+            borderRadius: '12px',
+            overflow: 'hidden',
             zIndex: 20,
             gap: '10px',
             color: '#ffffff',

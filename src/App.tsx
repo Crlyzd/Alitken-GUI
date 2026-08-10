@@ -534,6 +534,11 @@ export function App() {
       await invoke('start_video_pipeline', {
         config: {
           video_files: files.map((f) => f.path),
+          video_items: files.map((f) => ({
+            path: f.path,
+            trim_start_sec: f.trimStartSec ?? null,
+            trim_end_sec: f.trimEndSec ?? null,
+          })),
           video_action: videoConfig.videoAction,
           split_mode: videoConfig.splitMode,
           split_value: effectiveSplitValue,

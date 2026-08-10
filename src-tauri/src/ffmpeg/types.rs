@@ -7,6 +7,7 @@ pub struct MediaMetadata {
     pub duration_sec: f64,
     pub total_frames: f64,
     pub codec_name: String,
+    pub audio_codec: String,
     pub width: u32,
     pub height: u32,
     pub file_size_mb: f64,
@@ -14,8 +15,16 @@ pub struct MediaMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoInputItem {
+    pub path: String,
+    pub trim_start_sec: Option<f64>,
+    pub trim_end_sec: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversionConfig {
     pub video_files: Vec<String>,
+    pub video_items: Option<Vec<VideoInputItem>>,
     pub video_action: String, // "CONVERT" or "SPLIT"
     pub split_mode: String,   // "DURATION" or "PARTS"
     pub split_value: f64,

@@ -139,6 +139,7 @@ pub fn probe_image_batch(file_paths: Vec<String>) -> Vec<MediaMetadata> {
                 duration_sec: 0.0,
                 total_frames: 0.0,
                 codec_name: "image".to_string(),
+                audio_codec: String::new(),
                 width,
                 height,
                 file_size_mb: size / (1024.0 * 1024.0),
@@ -257,6 +258,12 @@ pub async fn prepare_video_preview(file_path: String) -> Result<String, String> 
     }
 
     ffmpeg::prepare_preview_video(&deps.ffmpeg_path, &deps.ffprobe_path, &file_path).await
+}
+
+#[tauri::command]
+pub async fn cancel_preview_video(file_path: String) -> Result<(), String> {
+    ffmpeg::cancel_preview_video(&file_path).await;
+    Ok(())
 }
 
 #[tauri::command]

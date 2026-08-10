@@ -51,13 +51,15 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
 
     let mut total_frames = 1000.0;
     let mut codec_name = String::new();
+    let mut audio_codec = String::new();
     let mut width = 0;
     let mut height = 0;
     let mut is_video = false;
 
     if let Some(streams) = parsed["streams"].as_array() {
         for stream in streams {
-            if stream["codec_type"].as_str() == Some("video") {
+            let codec_type = stream["codec_type"].as_str().unwrap_or("");
+            if codec_type == "video" && !is_video {
                 is_video = true;
                 codec_name = stream["codec_name"].as_str().unwrap_or("unknown").to_string();
                 width = stream["width"].as_u64().unwrap_or(0) as u32;
@@ -68,14 +70,15 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
                         total_frames = f;
                     }
                 }
-                break;
+            } else if codec_type == "audio" && audio_codec.is_empty() {
+                audio_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
             }
         }
     }
 
     log_info(&format!(
-        "Probed {}: codec={}, duration={}s, res={}x{}",
-        file_name, codec_name, duration_sec, width, height
+        "Probed {}: v_codec={}, a_codec={}, duration={}s, res={}x{}",
+        file_name, codec_name, audio_codec, duration_sec, width, height
     ));
 
     Ok(MediaMetadata {
@@ -84,6 +87,7 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         duration_sec,
         total_frames,
         codec_name,
+        audio_codec,
         width,
         height,
         file_size_mb: file_size / (1024.0 * 1024.0),

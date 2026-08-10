@@ -96,21 +96,57 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "output".to_string());
 
+        // Resolve saved trim boundaries (if present in config.video_items or trim_presets.json)
+        let mut trim_start: Option<f64> = None;
+        let mut trim_end: Option<f64> = None;
+
+        if let Some(ref items) = config.video_items {
+            if let Some(item) = items.iter().find(|i| i.path == *file_path).or_else(|| items.get(idx)) {
+                trim_start = item.trim_start_sec;
+                trim_end = item.trim_end_sec;
+            }
+        }
+
+        if trim_start.is_none() && trim_end.is_none() {
+            if let Ok(Some(preset)) = crate::commands::load_trim_preset(file_path.clone()) {
+                trim_start = Some(preset.start_sec);
+                trim_end = Some(preset.end_sec);
+            }
+        }
+
+        let start_sec = trim_start.unwrap_or(0.0).max(0.0);
+        let end_sec = if let Some(e) = trim_end {
+            if e > start_sec {
+                e.min(meta.duration_sec)
+            } else {
+                meta.duration_sec
+            }
+        } else {
+            meta.duration_sec
+        };
+
+        let has_trim = start_sec > 0.001 || (end_sec > start_sec && end_sec < meta.duration_sec - 0.05);
+        let effective_duration = if has_trim {
+            (end_sec - start_sec).max(0.1)
+        } else {
+            meta.duration_sec
+        };
+
         // --- SPLIT MODE EXECUTION ---
         if config.video_action == "SPLIT" {
             let mut segment_sec = 60.0;
             if config.split_mode == "DURATION" && config.split_value > 0.0 {
                 segment_sec = config.split_value;
             } else if config.split_mode == "PARTS" && config.split_value > 0.0 {
-                if meta.duration_sec > 0.0 {
-                    segment_sec = meta.duration_sec / config.split_value;
+                if effective_duration > 0.0 {
+                    segment_sec = effective_duration / config.split_value;
                 }
             }
 
             let num_parts = if config.split_mode == "PARTS" && config.split_value > 0.0 {
                 config.split_value as usize
-            } else if meta.duration_sec > 0.0 && segment_sec > 0.0 {
-                (meta.duration_sec / segment_sec).ceil() as usize
+            } else if effective_duration > 0.0 && segment_sec > 0.0 {
+                (effective_duration / segment_sec).ceil() as usize
             } else {
                 1
             };
@@ -154,6 +190,14 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             let mut args: Vec<String> = vec!["-hide_banner".to_string()];
 
             if config.split_fast_copy {
+                if has_trim {
+                    args.extend([
+                        "-ss".to_string(),
+                        format!("{:.3}", start_sec),
+                        "-to".to_string(),
+                        format!("{:.3}", end_sec),
+                    ]);
+                }
                 args.extend(["-i".to_string(), file_path.to_string()]);
                 args.extend([
                     "-c".to_string(),
@@ -174,6 +218,14 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             } else {
                 for dec_arg in &input_decoder_args {
                     args.push(dec_arg.to_string());
+                }
+                if has_trim {
+                    args.extend([
+                        "-ss".to_string(),
+                        format!("{:.3}", start_sec),
+                        "-to".to_string(),
+                        format!("{:.3}", end_sec),
+                    ]);
                 }
                 args.extend(["-i".to_string(), file_path.to_string()]);
 
@@ -225,7 +277,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 &meta.file_name,
                 idx + 1,
                 total_videos,
-                meta.duration_sec,
+                effective_duration,
                 num_parts,
             )
             .await?;
@@ -234,9 +286,15 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         }
 
         // --- FULL CONVERT MODE EXECUTION ---
+        let effective_stem = if has_trim && !file_stem.ends_with("_trimmed") {
+            format!("{}_trimmed", file_stem)
+        } else {
+            file_stem.clone()
+        };
+
         let raw_outfile = parent_dir.join(format!(
             "{}_{}_{}.{}",
-            file_stem, res_tag, bit_tag, gpu_caps.extension
+            effective_stem, res_tag, bit_tag, gpu_caps.extension
         ));
         let resolved_outfile = resolve_conflict_path(raw_outfile);
 
@@ -244,6 +302,20 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         for dec_arg in &input_decoder_args {
             args.push(dec_arg.to_string());
         }
+
+        if has_trim {
+            log_info(&format!(
+                "Trim interval detected for '{}': start={:.3}s, end={:.3}s (duration={:.3}s)",
+                meta.file_name, start_sec, end_sec, effective_duration
+            ));
+            args.extend([
+                "-ss".to_string(),
+                format!("{:.3}", start_sec),
+                "-to".to_string(),
+                format!("{:.3}", end_sec),
+            ]);
+        }
+
         args.extend(["-i".to_string(), file_path.to_string()]);
 
         if config.target_height != "ORIGINAL" {
@@ -287,7 +359,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             &meta.file_name,
             idx + 1,
             total_videos,
-            meta.duration_sec,
+            effective_duration,
             1,
         )
         .await?;
@@ -598,6 +670,102 @@ fn base64_encode(data: &[u8]) -> String {
     result
 }
 
+use std::sync::{Arc, Mutex, OnceLock};
+use std::collections::HashMap;
+use tokio::sync::Notify;
+
+fn get_in_flight_previews() -> &'static Mutex<HashMap<String, Arc<Notify>>> {
+    static IN_FLIGHT: OnceLock<Mutex<HashMap<String, Arc<Notify>>>> = OnceLock::new();
+    IN_FLIGHT.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+struct SingleFlightGuard<'a> {
+    file_path: &'a str,
+}
+
+impl<'a> Drop for SingleFlightGuard<'a> {
+    fn drop(&mut self) {
+        let notify_to_trigger = {
+            let mut map = get_in_flight_previews().lock().unwrap();
+            map.remove(self.file_path)
+        };
+        if let Some(notify) = notify_to_trigger {
+            notify.notify_waiters();
+        }
+    }
+}
+
+use tokio::sync::oneshot;
+
+fn get_active_cancellations() -> &'static Mutex<HashMap<String, oneshot::Sender<()>>> {
+    static CANCELLATIONS: OnceLock<Mutex<HashMap<String, oneshot::Sender<()>>>> = OnceLock::new();
+    CANCELLATIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+pub async fn cancel_preview_video(file_path: &str) {
+    let sender = {
+        let mut map = get_active_cancellations().lock().unwrap();
+        map.remove(file_path)
+    };
+    if let Some(tx) = sender {
+        let _ = tx.send(());
+    }
+}
+
+async fn run_preview_command(
+    ffmpeg_path: &str,
+    args: &[&str],
+    file_path: &str,
+    temp_preview: &Path,
+) -> Result<bool, String> {
+    let mut child = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn FFmpeg: {}", e))?;
+
+    let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
+
+    {
+        let mut map = get_active_cancellations().lock().unwrap();
+        map.insert(file_path.to_string(), cancel_tx);
+    }
+
+    let res = tokio::select! {
+        status = child.wait() => {
+            Ok(status.map(|s| s.success()).unwrap_or(false))
+        }
+        _ = &mut cancel_rx => {
+            log_info(&format!("Killing active preview process for '{}'", file_path));
+            let _ = child.kill().await;
+            Err("Preview generation cancelled".to_string())
+        }
+    };
+
+    // Remove from active cancellations
+    {
+        let mut map = get_active_cancellations().lock().unwrap();
+        map.remove(file_path);
+    }
+
+    match res {
+        Ok(success) => {
+            let ok = success && temp_preview.exists() && std::fs::metadata(temp_preview).map(|m| m.len() > 1024).unwrap_or(false);
+            if !ok && temp_preview.exists() {
+                let _ = std::fs::remove_file(temp_preview);
+            }
+            Ok(ok)
+        }
+        Err(e) => {
+            if temp_preview.exists() {
+                let _ = std::fs::remove_file(temp_preview);
+            }
+            Err(e)
+        }
+    }
+}
+
 /// Prepares a browser-compatible video for instant 60 FPS preview in Trimmer mode.
 /// Tier 1: Returns original path if already .mp4/.webm with web-compatible codec.
 /// Tier 2: Performs ultra-fast lossless container remux with stereo AAC audio map (-c:v copy -c:a aac -movflags +faststart) in <200ms.
@@ -619,12 +787,14 @@ pub async fn prepare_preview_video(
 
     let meta = probe_file(ffprobe_path, file_path).await?;
     let codec = meta.codec_name.to_lowercase();
+    let audio_codec = meta.audio_codec.to_lowercase();
 
     // Tier 1: Check if already native web format
     let is_native_container = ext == "mp4" || ext == "webm" || ext == "m4v";
     let is_native_codec = codec == "h264" || codec == "vp8" || codec == "vp9" || codec == "av1";
+    let is_native_audio = audio_codec.is_empty() || audio_codec == "aac" || audio_codec == "mp3" || audio_codec == "opus" || audio_codec == "flac";
 
-    if is_native_container && is_native_codec {
+    if is_native_container && is_native_codec && is_native_audio {
         log_info(&format!("Preview Tier 1 (Direct native stream): {}", file_path));
         return Ok(file_path.to_string());
     }
@@ -645,45 +815,85 @@ pub async fn prepare_preview_video(
         }
     }
 
-    log_info(&format!("Preview Tier 2a (Instant stream copy): {} -> {:?}", file_path, temp_preview));
-
-    // Tier 2a: Instant double stream copy (video copy + audio copy)
-    let direct_copy_output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
-        .args([
-            "-hide_banner",
-            "-y",
-            "-i",
-            file_path,
-            "-c:v",
-            "copy",
-            "-c:a",
-            "copy",
-            "-map",
-            "0:v:0",
-            "-map",
-            "0:a:0?",
-            "-movflags",
-            "+faststart",
-            temp_preview.to_str().unwrap_or("preview.mp4"),
-        ])
-        .output()
-        .await;
-
-    let direct_copy_success = match direct_copy_output {
-        Ok(ref out) => out.status.success() && temp_preview.exists() && std::fs::metadata(&temp_preview).map(|m| m.len() > 1024).unwrap_or(false),
-        Err(_) => false,
+    // Single-Flight Guard: Deduplicate concurrent preview generation tasks for the same file
+    let notify_waiter = {
+        let mut map = get_in_flight_previews().lock().unwrap();
+        if let Some(notify) = map.get(file_path) {
+            Some(notify.clone())
+        } else {
+            map.insert(file_path.to_string(), Arc::new(Notify::new()));
+            None
+        }
     };
 
-    if direct_copy_success {
-        log_info(&format!("Preview Tier 2a Remux Successful: {:?}", temp_preview));
-        return Ok(temp_preview.to_string_lossy().to_string());
+    if let Some(notify) = notify_waiter {
+        log_info(&format!("Preview generation for '{}' is already in-flight. Awaiting existing task...", file_path));
+        notify.notified().await;
+        
+        if temp_preview.exists() {
+            return Ok(temp_preview.to_string_lossy().to_string());
+        } else {
+            return Err("Preview generation failed in parallel task".to_string());
+        }
+    }
+
+    // Register active single-flight guard for the primary task
+    let _guard = SingleFlightGuard { file_path };
+
+    // Tier 2a: Instant double stream copy (video copy + audio copy)
+    // Only attempt if audio codec is native to web browsers (AAC, MP3, Opus, FLAC).
+    // Non-web audio (DTS, AC3, TrueHD) inside MP4 will fail browser playback (silent audio).
+    if is_native_audio {
+        log_info(&format!("Preview Tier 2a (Instant stream copy): {} -> {:?}", file_path, temp_preview));
+        let temp_str = temp_preview.to_str().unwrap_or("preview.mp4");
+
+        let direct_copy_res = run_preview_command(
+            ffmpeg_path,
+            &[
+                "-hide_banner",
+                "-y",
+                "-i",
+                file_path,
+                "-c:v",
+                "copy",
+                "-c:a",
+                "copy",
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0?",
+                "-movflags",
+                "+faststart",
+                temp_str,
+            ],
+            file_path,
+            &temp_preview,
+        ).await;
+
+        match direct_copy_res {
+            Ok(true) => {
+                log_info(&format!("Preview Tier 2a Remux Successful: {:?}", temp_preview));
+                return Ok(temp_preview.to_string_lossy().to_string());
+            }
+            Err(e) if e.contains("cancelled") => {
+                return Err(e);
+            }
+            _ => {} // Fall through to Tier 2b
+        }
+    } else {
+        log_info(&format!(
+            "Preview skipping Tier 2a due to non-web audio codec '{}'. Defaulting to Tier 2b AAC transcode.",
+            audio_codec
+        ));
     }
 
     log_info(&format!("Preview Tier 2b (Video copy + AAC audio remux): {} -> {:?}", file_path, temp_preview));
+    let temp_str = temp_preview.to_str().unwrap_or("preview.mp4");
 
     // Tier 2b: Stream copy video with safe audio mapping to stereo AAC
-    let copy_output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
-        .args([
+    let copy_res = run_preview_command(
+        ffmpeg_path,
+        &[
             "-hide_banner",
             "-y",
             "-i",
@@ -692,6 +902,8 @@ pub async fn prepare_preview_video(
             "copy",
             "-c:a",
             "aac",
+            "-ac",
+            "2",
             "-b:a",
             "128k",
             "-threads",
@@ -702,25 +914,30 @@ pub async fn prepare_preview_video(
             "0:a:0?",
             "-movflags",
             "+faststart",
-            temp_preview.to_str().unwrap_or("preview.mp4"),
-        ])
-        .output()
-        .await;
+            temp_str,
+        ],
+        file_path,
+        &temp_preview,
+    ).await;
 
-    let copy_success = match copy_output {
-        Ok(out) => out.status.success() && temp_preview.exists() && std::fs::metadata(&temp_preview).map(|m| m.len() > 1024).unwrap_or(false),
-        Err(_) => false,
-    };
-
-    if copy_success {
-        log_info(&format!("Preview Tier 2b Remux Successful: {:?}", temp_preview));
-        return Ok(temp_preview.to_string_lossy().to_string());
+    match copy_res {
+        Ok(true) => {
+            log_info(&format!("Preview Tier 2b Remux Successful: {:?}", temp_preview));
+            return Ok(temp_preview.to_string_lossy().to_string());
+        }
+        Err(e) if e.contains("cancelled") => {
+            return Err(e);
+        }
+        _ => {} // Fall through to Tier 3
     }
 
     // Tier 3: GPU Hardware proxy transcode (for 10-bit / raw / ProRes / uncopyable streams)
     log_info(&format!("Preview Tier 3 (GPU Proxy Transcode): {}", file_path));
-    let proxy_output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
-        .args([
+    let temp_str = temp_preview.to_str().unwrap_or("preview.mp4");
+
+    let proxy_res = run_preview_command(
+        ffmpeg_path,
+        &[
             "-hide_banner",
             "-y",
             "-hwaccel",
@@ -737,29 +954,31 @@ pub async fn prepare_preview_video(
             "scale=min(1280\\,iw):-2,format=yuv420p",
             "-c:a",
             "aac",
+            "-ac",
+            "2",
             "-map",
             "0:v:0",
             "-map",
             "0:a:0?",
             "-movflags",
             "+faststart",
-            temp_preview.to_str().unwrap_or("preview.mp4"),
-        ])
-        .output()
-        .await;
+            temp_str,
+        ],
+        file_path,
+        &temp_preview,
+    ).await;
 
-    match proxy_output {
-        Ok(out) if out.status.success() => {
+    match proxy_res {
+        Ok(true) => {
             log_info(&format!("Preview Tier 3 Proxy Successful: {:?}", temp_preview));
             Ok(temp_preview.to_string_lossy().to_string())
         }
-        Ok(out) => {
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            log_error(&format!("Preview generation failed: {}", stderr));
+        Err(e) => {
+            log_error(&format!("Preview generation failed or cancelled: {}", e));
             Ok(file_path.to_string())
         }
-        Err(e) => {
-            log_error(&format!("Preview spawn failed: {}", e));
+        Ok(false) => {
+            log_error("Preview generation process failed");
             Ok(file_path.to_string())
         }
     }

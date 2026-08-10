@@ -37,3 +37,6 @@ src-tauri/shell_ext/
 src-tauri/shell_ext_crate/target/
 src-tauri/shell_ext_crate/Cargo.lock
 
+# Folders
+releases/
+

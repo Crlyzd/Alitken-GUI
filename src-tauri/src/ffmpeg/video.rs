@@ -810,6 +810,7 @@ pub async fn prepare_preview_video(
         if let Ok(metadata) = std::fs::metadata(&temp_preview) {
             if metadata.len() > 1024 {
                 log_info(&format!("Preview Cache Hit: {:?}", temp_preview));
+                crate::utils::register_active_preview(file_path, temp_preview.clone());
                 return Ok(temp_preview.to_string_lossy().to_string());
             }
         }
@@ -831,6 +832,7 @@ pub async fn prepare_preview_video(
         notify.notified().await;
         
         if temp_preview.exists() {
+            crate::utils::register_active_preview(file_path, temp_preview.clone());
             return Ok(temp_preview.to_string_lossy().to_string());
         } else {
             return Err("Preview generation failed in parallel task".to_string());
@@ -873,6 +875,7 @@ pub async fn prepare_preview_video(
         match direct_copy_res {
             Ok(true) => {
                 log_info(&format!("Preview Tier 2a Remux Successful: {:?}", temp_preview));
+                crate::utils::register_active_preview(file_path, temp_preview.clone());
                 return Ok(temp_preview.to_string_lossy().to_string());
             }
             Err(e) if e.contains("cancelled") => {
@@ -923,6 +926,7 @@ pub async fn prepare_preview_video(
     match copy_res {
         Ok(true) => {
             log_info(&format!("Preview Tier 2b Remux Successful: {:?}", temp_preview));
+            crate::utils::register_active_preview(file_path, temp_preview.clone());
             return Ok(temp_preview.to_string_lossy().to_string());
         }
         Err(e) if e.contains("cancelled") => {
@@ -971,6 +975,7 @@ pub async fn prepare_preview_video(
     match proxy_res {
         Ok(true) => {
             log_info(&format!("Preview Tier 3 Proxy Successful: {:?}", temp_preview));
+            crate::utils::register_active_preview(file_path, temp_preview.clone());
             Ok(temp_preview.to_string_lossy().to_string())
         }
         Err(e) => {
@@ -982,6 +987,10 @@ pub async fn prepare_preview_video(
             Ok(file_path.to_string())
         }
     }
+}
+
+pub fn unregister_preview_video(file_path: &str) {
+    crate::utils::unregister_active_preview(file_path);
 }
 
 /// Extracts a single JPEG preview frame at timestamp_sec using GPU hardware acceleration and fast demuxer seeking.

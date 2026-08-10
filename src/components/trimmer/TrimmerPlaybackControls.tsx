@@ -179,9 +179,9 @@ export const TrimmerPlaybackControls: React.FC<TrimmerPlaybackControlsProps> = (
             borderRadius: '50%',
             background: isNativeSupported
               ? 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)'
-              : 'rgba(255, 255, 255, 0.15)',
-            border: 'none',
-            color: '#ffffff',
+              : 'var(--input-bg)',
+            border: isNativeSupported ? 'none' : '1px solid var(--border-glass)',
+            color: isNativeSupported ? '#ffffff' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

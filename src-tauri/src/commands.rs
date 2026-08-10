@@ -267,6 +267,12 @@ pub async fn cancel_preview_video(file_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn unregister_preview_video(file_path: String) -> Result<(), String> {
+    ffmpeg::unregister_preview_video(&file_path);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn get_video_frame_preview(file_path: String, timestamp_sec: f64) -> Result<String, String> {
     let deps = dependencies::check_dependencies();
     if !deps.ffmpeg_exists {

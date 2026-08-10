@@ -54,13 +54,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleOpenCacheFolder = async () => {
+    if (cacheInfo?.path) {
+      try {
+        await invoke('open_folder', { folderPath: cacheInfo.path });
+      } catch (err) {
+        console.error('Failed to open cache folder:', err);
+      }
+    }
+  };
+
   const handleClearCache = async () => {
     if (loadingCache) return;
     setLoadingCache(true);
     try {
       const res = await invoke<CacheInfo>('clear_temp_cache');
       setCacheInfo(res);
-      setSuccessMsg('Temporary cache cleared.');
+      if (res.preserved_active_files && res.preserved_active_files > 0) {
+        setSuccessMsg(`Temporary cache cleared (${res.preserved_active_files} active preview preserved).`);
+      } else {
+        setSuccessMsg('Temporary cache cleared.');
+      }
     } catch (err: any) {
       setErrorMsg(err?.toString() || 'Failed to clear cache.');
     } finally {
@@ -838,8 +852,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <HardDrive size={15} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                <button
+                  type="button"
+                  onClick={handleOpenCacheFolder}
+                  disabled={!cacheInfo?.path}
+                  title="Click to open temp cache folder in Windows Explorer"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '7px',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--border-glass)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: cacheInfo?.path ? 'pointer' : 'default',
+                    color: 'var(--accent-cyan)',
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (cacheInfo?.path) {
+                      e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                      e.currentTarget.style.boxShadow = '0 0 8px rgba(6, 182, 212, 0.35)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-glass)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  <HardDrive size={14} />
+                </button>
                 <div>
                   <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)' }}>
                     Temp Cache
@@ -876,7 +923,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div style={{ height: '1px', background: 'var(--border-glass)' }} />
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
                 <Folder size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 <span
                   title={cacheInfo?.path || ''}

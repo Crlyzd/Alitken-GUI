@@ -109,6 +109,7 @@ export function useTrimmerState({
     return () => {
       isCancelled = true;
       invoke('cancel_preview_video', { filePath: file.path }).catch(() => {});
+      invoke('unregister_preview_video', { filePath: file.path }).catch(() => {});
       if (rafSeekRef.current) cancelAnimationFrame(rafSeekRef.current);
       if (hoverThrottleRef.current) clearTimeout(hoverThrottleRef.current);
     };

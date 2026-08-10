@@ -38,6 +38,7 @@ pub fn run() {
             start_trim_video_pipeline,
             prepare_video_preview,
             cancel_preview_video,
+            unregister_preview_video,
             get_video_frame_preview,
             save_trim_preset,
             load_trim_preset,

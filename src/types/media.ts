@@ -105,6 +105,7 @@ export interface CacheInfo {
   path: string;
   size_bytes: number;
   is_custom: boolean;
+  preserved_active_files?: number;
 }
 
 

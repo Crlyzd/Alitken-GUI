@@ -77,7 +77,7 @@ export function useTrimmerState({
         if (isCancelled) return;
         setIsWmfSupported(supported);
         if (supported) {
-          invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 8 })
+          invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 16 })
             .then((strip) => {
               if (!isCancelled) setFilmstrip(strip);
             })

@@ -11,6 +11,7 @@ interface GlassSelectProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  placement?: 'bottom' | 'top';
   style?: React.CSSProperties;
 }
 
@@ -19,6 +20,7 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
   value,
   onChange,
   disabled = false,
+  placement = 'bottom',
   style,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -71,10 +73,10 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'rgba(0, 0, 0, 0.25)',
+          background: 'var(--input-bg, rgba(255, 255, 255, 0.08))',
           border: isOpen
             ? '1px solid var(--accent-cyan)'
-            : '1px solid rgba(255, 255, 255, 0.12)',
+            : '1px solid var(--border-glass, rgba(255, 255, 255, 0.12))',
           borderRadius: '8px',
           padding: '8px 12px',
           color: 'var(--text-main)',
@@ -107,13 +109,15 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            ...(placement === 'top'
+              ? { bottom: 'calc(100% + 4px)' }
+              : { top: 'calc(100% + 4px)' }),
             left: 0,
             right: 0,
             zIndex: 9999,
-            background: 'var(--bg-glass-card, rgba(15, 23, 42, 0.88))',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: 'var(--bg-glass-dropdown, rgba(18, 22, 36, 0.95))',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))',
             borderRadius: '10px',
             padding: '4px',
@@ -144,14 +148,14 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
                   fontWeight: isSelected ? 600 : 400,
                   color: isSelected ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-main)',
                   background: isSelected
-                    ? 'rgba(6, 182, 212, 0.12)'
+                    ? 'rgba(6, 182, 212, 0.15)'
                     : 'transparent',
                   cursor: 'pointer',
                   transition: 'background 0.12s ease',
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
+                    e.currentTarget.style.background = 'var(--bg-dropdown-item-hover, rgba(255, 255, 255, 0.08))';
                   }
                 }}
                 onMouseLeave={(e) => {

@@ -383,11 +383,11 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     window.set_resizable(true).map_err(|e| e.to_string())?;
     // 2. Apply working-state minimum constraints to prevent control wrapping.
     window
-        .set_min_size(Some(LogicalSize::new(960u32, 660u32)))
+        .set_min_size(Some(LogicalSize::new(1040u32, 700u32)))
         .map_err(|e| e.to_string())?;
     // 3. Expand to the full working dimensions in-place.
     window
-        .set_size(LogicalSize::new(980u32, 700u32))
+        .set_size(LogicalSize::new(1060u32, 720u32))
         .map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -46,6 +46,8 @@
   --bg-glass: rgba(14, 17, 28, 0.55);
   --bg-glass-hover: rgba(28, 34, 52, 0.65);
   --bg-glass-card: rgba(255, 255, 255, 0.03);
+  --bg-glass-dropdown: rgba(18, 22, 36, 0.95);
+  --bg-dropdown-item-hover: rgba(255, 255, 255, 0.08);
   --border-glass: rgba(255, 255, 255, 0.12);
   --border-glass-glow: rgba(99, 102, 241, 0.45);
   --shadow-panel: 0 16px 40px 0 rgba(0, 0, 0, 0.4);
@@ -76,6 +78,8 @@
   --bg-glass: rgba(255, 255, 255, 0.7);
   --bg-glass-hover: rgba(240, 243, 248, 0.85);
   --bg-glass-card: rgba(0, 0, 0, 0.03);
+  --bg-glass-dropdown: rgba(255, 255, 255, 0.95);
+  --bg-dropdown-item-hover: rgba(0, 0, 0, 0.06);
   --border-glass: rgba(0, 0, 0, 0.12);
   --border-glass-glow: rgba(99, 102, 241, 0.55);
   --shadow-panel: 0 16px 40px 0 rgba(0, 0, 0, 0.08);

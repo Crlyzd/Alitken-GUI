@@ -14,11 +14,32 @@ import {
   VolumeX,
   Gauge,
   Zap,
+  ChevronsRight,
+  ChevronsLeft,
+  Check,
 } from 'lucide-react';
 import { FileItem } from './Dropzone';
 import { ConfigPanel, ConfigState } from './ConfigPanel';
 import { ImageConfig, TrimConfig } from '../types/media';
 import { TimelineSlider, formatTimeWithMs } from './TimelineSlider';
+import { GlassSelect, GlassSelectOption } from './GlassSelect';
+
+const speedOptions: GlassSelectOption[] = [
+  { value: '0.25', label: '0.25x' },
+  { value: '0.5', label: '0.5x' },
+  { value: '0.75', label: '0.75x' },
+  { value: '1.0', label: '1.0x (Normal)' },
+  { value: '1.25', label: '1.25x' },
+  { value: '1.5', label: '1.5x' },
+  { value: '2.0', label: '2.0x' },
+  { value: '5.0', label: '5.0x' },
+  { value: 'CUSTOM', label: 'Custom...' },
+];
+
+const slowMoOptions: GlassSelectOption[] = [
+  { value: 'FRAME_DUP', label: 'Standard (Fast)' },
+  { value: 'OPTICAL_SMOOTH', label: 'AI Motion (Smooth)' },
+];
 
 interface VideoTrimmerProps {
   file: FileItem;
@@ -98,8 +119,8 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
   // Speed & Audio State
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [speedSelectVal, setSpeedSelectVal] = useState<string>('1.0');
+  const [isEditingCustomSpeed, setIsEditingCustomSpeed] = useState<boolean>(false);
   const [customSpeedInput, setCustomSpeedInput] = useState<string>('1.0');
-  const [isCustomSpeedOpen, setIsCustomSpeedOpen] = useState<boolean>(false);
   const [slowMoMode, setSlowMoMode] = useState<'FRAME_DUP' | 'OPTICAL_SMOOTH'>('FRAME_DUP');
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
@@ -264,26 +285,39 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
     }
   };
 
-  const handleSpeedSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSpeedSelectVal(val);
+  const handleSpeedSelectValChange = (val: string) => {
     if (val === 'CUSTOM') {
-      setIsCustomSpeedOpen(true);
+      setCustomSpeedInput(String(playbackSpeed));
+      setIsEditingCustomSpeed(true);
     } else {
-      setIsCustomSpeedOpen(false);
+      setIsEditingCustomSpeed(false);
+      setSpeedSelectVal(val);
       const num = parseFloat(val);
       if (!isNaN(num)) {
         setPlaybackSpeed(num);
-        setCustomSpeedInput(String(num));
       }
     }
   };
 
-  const handleCustomSpeedBlur = () => {
+  const handleCustomSpeedSubmitAction = () => {
     const parsed = parseAndClampSpeed(customSpeedInput);
     setPlaybackSpeed(parsed);
-    setCustomSpeedInput(String(parsed));
+    setSpeedSelectVal(String(parsed));
+    setIsEditingCustomSpeed(false);
   };
+
+  const dynamicSpeedOptions = React.useMemo(() => {
+    const valStr = String(playbackSpeed);
+    const exists = speedOptions.some((opt) => opt.value === valStr);
+    if (!exists && valStr !== 'CUSTOM') {
+      return [
+        ...speedOptions.slice(0, speedOptions.length - 1),
+        { value: valStr, label: `${valStr}x` },
+        speedOptions[speedOptions.length - 1],
+      ];
+    }
+    return speedOptions;
+  }, [playbackSpeed]);
 
   // Keyboard shortcut listener (Space = play/pause, [ = set In, ] = set Out)
   useEffect(() => {
@@ -511,7 +545,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             flexDirection: 'column',
             gap: '12px',
             minHeight: 0,
-            overflowY: 'auto',
+            overflowY: 'hidden',
           }}
         >
           {/* HTML5 Video Player Container */}
@@ -597,233 +631,232 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
                 <span>Extracting GPU Preview Frame...</span>
               </div>
             )}
-
-            {/* Playhead Overlay Watermark on Pause (Native Player only) */}
-            {isNativeSupported && !isPlaying && !isLoadingPreview && (
-              <div
-                onClick={togglePlayPause}
-                style={{
-                  position: 'absolute',
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  background: 'rgba(0, 0, 0, 0.6)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 24px rgba(6, 182, 212, 0.4)',
-                  transition: 'transform 0.15s ease',
-                }}
-              >
-                <Play size={24} style={{ marginLeft: '3px' }} />
-              </div>
-            )}
           </div>
 
-          {/* Media Playback Controls Row - Single Clean Horizontal Line (No Wrap) */}
+          {/* Media Playback Controls Toolbar - 3-Column Grid with Centered Play & Option 2 Mini-Badges */}
           <div
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 1fr',
               alignItems: 'center',
-              justifyContent: 'center',
-              flexWrap: 'nowrap',
-              gap: '10px',
+              width: '100%',
               padding: '6px 0',
-              overflowX: 'auto',
+              gap: '12px',
             }}
           >
-            {/* Set In Button */}
-            <button
-              type="button"
-              onClick={setInAtCurrent}
-              title="Set In-Point at Playhead (Hotkey: [ )"
+            {/* LEFT COLUMN: Speed Glass Dropdown / In-Place Custom Speed Input */}
+            <div
               style={{
-                ...controlButtonStyle,
-                background: 'rgba(6, 182, 212, 0.15)',
-                borderColor: 'rgba(6, 182, 212, 0.35)',
-                color: 'var(--accent-cyan)',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
+                justifySelf: 'end',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              Set In [
-            </button>
-
-            {/* Speed Dropdown & Custom Input */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '4px 8px',
-                  borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid var(--border-glass)',
-                }}
-              >
-                <Gauge size={13} style={{ color: 'var(--accent-cyan)' }} />
-                <select
-                  value={speedSelectVal}
-                  onChange={handleSpeedSelectChange}
-                  title="Output & Live Preview Playback Speed"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-main)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="0.25" style={{ background: '#18181b', color: '#fff' }}>0.25x (Super Slow)</option>
-                  <option value="0.5" style={{ background: '#18181b', color: '#fff' }}>0.5x (Slow-Mo)</option>
-                  <option value="0.75" style={{ background: '#18181b', color: '#fff' }}>0.75x</option>
-                  <option value="1.0" style={{ background: '#18181b', color: '#fff' }}>1.0x (Normal)</option>
-                  <option value="1.25" style={{ background: '#18181b', color: '#fff' }}>1.25x</option>
-                  <option value="1.5" style={{ background: '#18181b', color: '#fff' }}>1.5x</option>
-                  <option value="2.0" style={{ background: '#18181b', color: '#fff' }}>2.0x (Fast)</option>
-                  <option value="5.0" style={{ background: '#18181b', color: '#fff' }}>5.0x (Timelapse)</option>
-                  <option value="CUSTOM" style={{ background: '#18181b', color: '#fff' }}>Custom...</option>
-                </select>
-              </div>
-
-              {isCustomSpeedOpen && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+              {isEditingCustomSpeed ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
                     type="text"
                     value={customSpeedInput}
                     onChange={(e) => setCustomSpeedInput(e.target.value)}
-                    onBlur={handleCustomSpeedBlur}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCustomSpeedBlur()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomSpeedSubmitAction()}
                     placeholder="1.0"
-                    title="Custom Speed (0.10x to 50.00x)"
+                    autoFocus
                     style={{
-                      width: '46px',
-                      padding: '3px 6px',
+                      width: '48px',
+                      padding: '4px 6px',
                       fontSize: '12px',
                       fontWeight: 600,
                       borderRadius: '6px',
-                      background: 'rgba(0, 0, 0, 0.4)',
+                      background: 'var(--input-bg)',
                       border: '1px solid var(--accent-cyan)',
                       color: 'var(--accent-cyan)',
                       textAlign: 'center',
                       outline: 'none',
                     }}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>x</span>
+                  <button
+                    type="button"
+                    onClick={handleCustomSpeedSubmitAction}
+                    title="Set Speed"
+                    style={{
+                      padding: '5px 7px',
+                      borderRadius: '6px',
+                      background: 'rgba(6, 182, 212, 0.2)',
+                      border: '1px solid var(--accent-cyan)',
+                      color: 'var(--accent-cyan)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Check size={13} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 6px',
+                    borderRadius: '8px',
+                    background: 'var(--input-bg, rgba(255, 255, 255, 0.08))',
+                    border: '1px solid var(--border-glass)',
+                    minWidth: '78px',
+                  }}
+                >
+                  <Gauge size={13} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+                  <GlassSelect
+                    options={dynamicSpeedOptions}
+                    value={speedSelectVal}
+                    onChange={handleSpeedSelectValChange}
+                    placement="top"
+                    style={{ width: '100%' }}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Slow-Mo Mode Dropdown (Visible when speed < 1.0) */}
-            {playbackSpeed < 1.0 && (
-              <div
+            {/* CENTER COLUMN: Central Core Playback Cluster [ Set In ] ( Play ) [ Set Out ] */}
+            <div
+              style={{
+                justifySelf: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              {/* Set In Button */}
+              <button
+                type="button"
+                onClick={setInAtCurrent}
+                title="Set In-Point at Playhead (Hotkey: [ )"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px',
-                  borderRadius: '8px',
-                  background: 'rgba(99, 102, 241, 0.12)',
-                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  ...controlButtonStyle,
+                  background: 'rgba(6, 182, 212, 0.15)',
+                  borderColor: 'rgba(6, 182, 212, 0.4)',
+                  color: 'var(--accent-cyan)',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 8px rgba(6, 182, 212, 0.2)',
                 }}
               >
-                <Zap size={13} style={{ color: '#818cf8' }} />
-                <select
-                  value={slowMoMode}
-                  onChange={(e) => setSlowMoMode(e.target.value as 'FRAME_DUP' | 'OPTICAL_SMOOTH')}
-                  title="Slow-Motion Rendering Engine (Export)"
+                <ChevronsRight size={14} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Set In [</span>
+              </button>
+
+              {/* Main Play/Pause Button */}
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                disabled={!isNativeSupported}
+                title={isNativeSupported ? 'Play/Pause (Space)' : 'Direct playback unavailable for this raw codec'}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: isNativeSupported
+                    ? 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)'
+                    : 'rgba(255, 255, 255, 0.15)',
+                  border: 'none',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: isNativeSupported ? 'pointer' : 'not-allowed',
+                  boxShadow: isNativeSupported ? '0 4px 18px rgba(99, 102, 241, 0.45)' : 'none',
+                  opacity: isNativeSupported ? 1 : 0.6,
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  flexShrink: 0,
+                }}
+              >
+                {isPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: '2px' }} />}
+              </button>
+
+              {/* Set Out Button */}
+              <button
+                type="button"
+                onClick={setOutAtCurrent}
+                title="Set Out-Point at Playhead (Hotkey: ] )"
+                style={{
+                  ...controlButtonStyle,
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  borderColor: 'rgba(99, 102, 241, 0.4)',
+                  color: '#818cf8',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.2)',
+                }}
+              >
+                <span>Set Out ]</span>
+                <ChevronsLeft size={14} style={{ color: '#818cf8' }} />
+              </button>
+            </div>
+
+            {/* RIGHT COLUMN: Audio Toggle & Right-Aligned Slow-Mo Engine */}
+            <div
+              style={{
+                justifySelf: 'start',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsMuted(!isMuted)}
+                title={
+                  isMuted
+                    ? 'Audio Muted in Preview & Export (Click to Unmute)'
+                    : 'Audio Included in Preview & Export (Click to Mute)'
+                }
+                style={{
+                  ...controlButtonStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: isMuted ? 'rgba(239, 68, 68, 0.18)' : 'var(--input-bg, rgba(255, 255, 255, 0.08))',
+                  borderColor: isMuted ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-glass)',
+                  color: isMuted ? '#f87171' : 'var(--text-main)',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                {isMuted ? 'Muted' : 'Audio'}
+              </button>
+
+              {/* Slow-Mo Engine Dropdown (Appears on the right ONLY when speed < 1.0) */}
+              {playbackSpeed < 1.0 && (
+                <div
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#818cf8',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    outline: 'none',
-                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 6px',
+                    borderRadius: '8px',
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    border: '1px solid rgba(99, 102, 241, 0.35)',
+                    minWidth: '145px',
                   }}
                 >
-                  <option value="FRAME_DUP" style={{ background: '#18181b', color: '#fff' }}>Fast (Frame Dup)</option>
-                  <option value="OPTICAL_SMOOTH" style={{ background: '#18181b', color: '#fff' }}>Optical Smooth (AI Motion)</option>
-                </select>
-              </div>
-            )}
-
-            {/* Main Play/Pause Button */}
-            <button
-              type="button"
-              onClick={togglePlayPause}
-              disabled={!isNativeSupported}
-              title={isNativeSupported ? 'Play/Pause (Space)' : 'Direct playback unavailable for this raw codec'}
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                background: isNativeSupported
-                  ? 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)'
-                  : 'rgba(255, 255, 255, 0.15)',
-                border: 'none',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: isNativeSupported ? 'pointer' : 'not-allowed',
-                boxShadow: isNativeSupported ? '0 4px 16px rgba(99, 102, 241, 0.4)' : 'none',
-                opacity: isNativeSupported ? 1 : 0.6,
-                transition: 'transform 0.15s ease',
-                flexShrink: 0,
-              }}
-            >
-              {isPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: '2px' }} />}
-            </button>
-
-            {/* Dedicated Audio Mute Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setIsMuted(!isMuted)}
-              title={
-                isMuted
-                  ? 'Audio Muted in Preview & Export (Click to Unmute)'
-                  : 'Audio Included in Preview & Export (Click to Mute)'
-              }
-              style={{
-                ...controlButtonStyle,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: isMuted ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255, 255, 255, 0.08)',
-                borderColor: isMuted ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-glass)',
-                color: isMuted ? '#f87171' : 'var(--text-main)',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-              {isMuted ? 'Muted' : 'Audio'}
-            </button>
-
-            {/* Set Out Button */}
-            <button
-              type="button"
-              onClick={setOutAtCurrent}
-              title="Set Out-Point at Playhead (Hotkey: ] )"
-              style={{
-                ...controlButtonStyle,
-                background: 'rgba(99, 102, 241, 0.15)',
-                borderColor: 'rgba(99, 102, 241, 0.35)',
-                color: '#818cf8',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Set Out ]
-            </button>
+                  {slowMoMode === 'OPTICAL_SMOOTH' ? (
+                    <Sparkles size={13} style={{ color: '#a855f7', flexShrink: 0 }} />
+                  ) : (
+                    <Zap size={13} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+                  )}
+                  <GlassSelect
+                    options={slowMoOptions}
+                    value={slowMoMode}
+                    onChange={(val) => setSlowMoMode(val as 'FRAME_DUP' | 'OPTICAL_SMOOTH')}
+                    placement="top"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Dual-Handle Timeline Slider */}
@@ -842,23 +875,35 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             }}
           />
 
-          {/* Precision Time Input Fields & Reset Row */}
+          {/* Precision Time Status Bar - Theme-Consistent Frosted Glass Card */}
           <div
+            className="glass-card"
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 1fr',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(0, 0, 0, 0.2)',
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '12px',
+              background: 'var(--bg-glass-card)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
               border: '1px solid var(--border-glass)',
+              gap: '10px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {/* LEFT COLUMN: Clean In & Out Time Inputs (No Emojis/Icons) */}
+            <div
+              style={{
+                justifySelf: 'start',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {/* Start Time Input */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--accent-cyan)' }}>
                   In:
                 </span>
@@ -868,14 +913,18 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
                   onChange={(e) => setInputStart(e.target.value)}
                   onBlur={handleStartBlur}
                   onKeyDown={(e) => e.key === 'Enter' && handleStartBlur()}
-                  style={timeInputStyle}
+                  style={{
+                    ...timeInputStyle,
+                    borderColor: 'rgba(6, 182, 212, 0.4)',
+                    color: 'var(--accent-cyan)',
+                  }}
                   title="In-Point (HH:MM:SS.mmm or seconds)"
                 />
               </div>
 
               {/* End Time Input */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--accent-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#818cf8' }}>
                   Out:
                 </span>
                 <input
@@ -884,50 +933,78 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
                   onChange={(e) => setInputEnd(e.target.value)}
                   onBlur={handleEndBlur}
                   onKeyDown={(e) => e.key === 'Enter' && handleEndBlur()}
-                  style={timeInputStyle}
+                  style={{
+                    ...timeInputStyle,
+                    borderColor: 'rgba(99, 102, 241, 0.4)',
+                    color: '#818cf8',
+                  }}
                   title="Out-Point (HH:MM:SS.mmm or seconds)"
                 />
               </div>
-
-              {/* Duration pill */}
-              <div style={{ fontSize: '11.5px', color: 'var(--text-dim)' }}>
-                Duration:{' '}
-                <strong style={{ color: 'var(--text-main)' }}>
-                  {formatTimeWithMs(Math.max(0, endSec - startSec))}
-                </strong>
-              </div>
             </div>
 
-            {/* Reset Markers Button (on left viewport per user feedback) */}
-            <button
-              type="button"
-              onClick={resetMarkers}
-              title="Reset In/Out markers to full video length"
+            {/* CENTER COLUMN: Centered Trimmed Duration Badge */}
+            <div
               style={{
+                justifySelf: 'center',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '5px 10px',
-                borderRadius: '6px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: 'var(--text-muted)',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--text-main)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--text-muted)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                gap: '6px',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                background: 'var(--bg-glass-card)',
+                border: '1px solid var(--border-glass)',
+                fontSize: '11.5px',
+                color: 'var(--text-dim)',
+                whiteSpace: 'nowrap',
               }}
             >
-              <RotateCcw size={12} /> Reset Markers
-            </button>
+              <Clock size={12} style={{ color: 'var(--accent-cyan)' }} />
+              <span>Duration:</span>
+              <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace', fontWeight: 700 }}>
+                {formatTimeWithMs(Math.max(0, endSec - startSec))}
+              </strong>
+            </div>
+
+            {/* RIGHT COLUMN: Reset Markers Action Button */}
+            <div
+              style={{
+                justifySelf: 'end',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <button
+                type="button"
+                onClick={resetMarkers}
+                title="Reset In/Out markers to full video length"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-glass-card)',
+                  border: '1px solid var(--border-glass)',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--accent-cyan)';
+                  e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }}
+              >
+                <RotateCcw size={12} /> Reset Markers
+              </button>
+            </div>
           </div>
         </div>
 
@@ -968,8 +1045,8 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
 const controlButtonStyle: React.CSSProperties = {
   padding: '6px 10px',
   borderRadius: '8px',
-  background: 'rgba(255, 255, 255, 0.06)',
-  border: '1px solid rgba(255, 255, 255, 0.12)',
+  background: 'var(--input-bg, rgba(255, 255, 255, 0.08))',
+  border: '1px solid var(--border-glass)',
   color: 'var(--text-main)',
   fontSize: '11.5px',
   fontWeight: 600,
@@ -981,11 +1058,11 @@ const controlButtonStyle: React.CSSProperties = {
 };
 
 const timeInputStyle: React.CSSProperties = {
-  width: '105px',
-  padding: '4px 8px',
+  width: '88px',
+  padding: '3px 6px',
   borderRadius: '6px',
-  background: 'rgba(0, 0, 0, 0.4)',
-  border: '1px solid rgba(255, 255, 255, 0.15)',
+  background: 'var(--input-bg, rgba(0, 0, 0, 0.25))',
+  border: '1px solid var(--border-glass)',
   color: 'var(--text-main)',
   fontSize: '11.5px',
   fontFamily: 'monospace',

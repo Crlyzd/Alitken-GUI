@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown, AlertCircle, Scissors } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
@@ -35,6 +34,7 @@ interface DropzoneProps {
   onClearFiles: () => void;
   onReorderFiles?: (sortedFiles: FileItem[]) => void;
   onOpenTrimmer?: (file: FileItem) => void;
+  isDragOver?: boolean;
 }
 
 export const Dropzone: React.FC<DropzoneProps> = ({
@@ -44,14 +44,12 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   onClearFiles,
   onReorderFiles,
   onOpenTrimmer,
+  isDragOver: isDragOverProp = false,
 }) => {
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [localIsDragOver, setLocalIsDragOver] = useState(false);
+  const isDragOver = isDragOverProp || localIsDragOver;
   const [sortOption, setSortOption] = useState<SortOption>('DEFAULT');
   const initialFilesRef = useRef<FileItem[]>([]);
-
-  const onAddFilesRef = useRef(onAddFiles);
-  const lastDropTimeRef = useRef<number>(0);
-  const lastDropPathsRef = useRef<string>('');
 
   // Keep track of original import order when files change length or are first loaded
   useEffect(() => {
@@ -99,48 +97,6 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     onReorderFiles(sorted);
   };
 
-  useEffect(() => {
-    onAddFilesRef.current = onAddFiles;
-  }, [onAddFiles]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const appWindow = getCurrentWindow();
-    const unlistenPromise = appWindow.onDragDropEvent((event: any) => {
-      if (!isMounted) return;
-      if (event.payload.type === 'drop') {
-        setIsDragOver(false);
-        const paths: string[] = event.payload.paths || [];
-        if (paths.length > 0) {
-          const now = Date.now();
-          const fingerprint = paths.map((p) => p.replace(/\\/g, '/').toLowerCase()).join('|');
-          if (now - lastDropTimeRef.current < 300 && lastDropPathsRef.current === fingerprint) {
-            return;
-          }
-          lastDropTimeRef.current = now;
-          lastDropPathsRef.current = fingerprint;
-          onAddFilesRef.current(paths);
-        }
-      } else if (event.payload.type === 'enter') {
-        setIsDragOver(true);
-      } else if (event.payload.type === 'leave' || event.payload.type === 'cancel') {
-        setIsDragOver(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      unlistenPromise
-        .then((unlisten) => {
-          if (typeof unlisten === 'function') {
-            unlisten();
-          }
-        })
-        .catch((err) => console.error('Failed to cleanup drag-drop listener:', err));
-    };
-  }, []);
-
   const handlePickFiles = async () => {
     try {
       const selected = await open({
@@ -180,12 +136,12 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       <div
         onDragOver={(e) => {
           e.preventDefault();
-          setIsDragOver(true);
+          setLocalIsDragOver(true);
         }}
-        onDragLeave={() => setIsDragOver(false)}
+        onDragLeave={() => setLocalIsDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
-          setIsDragOver(false);
+          setLocalIsDragOver(false);
         }}
         className="glass-panel"
         style={{

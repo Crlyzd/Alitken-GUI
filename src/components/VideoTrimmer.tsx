@@ -21,6 +21,7 @@ export interface VideoTrimmerProps {
   imageConfig: ImageConfig;
   onImageConfigChange: (updated: ImageConfig) => void;
   disabled: boolean;
+  isDragOver?: boolean;
 }
 
 export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
@@ -32,6 +33,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
   imageConfig,
   onImageConfigChange,
   disabled,
+  isDragOver = false,
 }) => {
   const trimmer = useTrimmerState({
     file,
@@ -93,6 +95,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             onPause={() => trimmer.setIsPlaying(false)}
             onEnded={() => trimmer.setIsPlaying(false)}
             onVideoClick={trimmer.togglePlayPause}
+            isDragOver={isDragOver}
           />
 
           {/* Media Playback Controls Toolbar */}

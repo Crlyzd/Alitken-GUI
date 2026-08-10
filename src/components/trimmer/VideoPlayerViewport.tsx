@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Scissors } from 'lucide-react';
 
 interface VideoPlayerViewportProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -14,6 +14,7 @@ interface VideoPlayerViewportProps {
   onPause: () => void;
   onEnded: () => void;
   onVideoClick: () => void;
+  isDragOver?: boolean;
 }
 
 export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
@@ -29,6 +30,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   onPause,
   onEnded,
   onVideoClick,
+  isDragOver = false,
 }) => {
   return (
     <div
@@ -47,6 +49,36 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         border: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
+      {isDragOver && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(6, 182, 212, 0.25)',
+            backdropFilter: 'blur(16px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+            border: '2px dashed var(--accent-cyan)',
+            borderRadius: '12px',
+            zIndex: 30,
+            gap: '12px',
+            color: '#ffffff',
+            boxShadow: '0 0 30px rgba(6, 182, 212, 0.4), inset 0 0 20px rgba(6, 182, 212, 0.2)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <Scissors size={40} style={{ color: 'var(--accent-cyan)', filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.8))' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.3px' }}>Drop Single Video File</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '2px' }}>
+              Replace current video target in Trimmer
+            </div>
+          </div>
+        </div>
+      )}
       {isLoadingPreview && (
         <div
           style={{

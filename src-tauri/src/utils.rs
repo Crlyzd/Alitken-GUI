@@ -369,3 +369,57 @@ pub fn resolve_unique_split_stem(dir: &Path, stem: &str, ext: &str) -> String {
         counter += 1;
     }
 }
+
+/// Queries available free bytes on the disk partition containing the given path.
+#[cfg(target_os = "windows")]
+pub fn get_disk_free_space(path: &Path) -> Result<u64, String> {
+    use std::os::windows::ffi::OsStrExt;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetDiskFreeSpaceExW(
+            lpDirectoryName: *const u16,
+            lpFreeBytesAvailableToCaller: *mut u64,
+            lpTotalNumberOfBytes: *mut u64,
+            lpTotalNumberOfFreeBytes: *mut u64,
+        ) -> i32;
+    }
+
+    let mut path_buf = path.to_path_buf();
+    if path_buf.is_file() {
+        if let Some(parent) = path_buf.parent() {
+            path_buf = parent.to_path_buf();
+        }
+    }
+
+    let wpath: Vec<u16> = path_buf
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut free_bytes_available: u64 = 0;
+    let mut total_bytes: u64 = 0;
+    let mut total_free_bytes: u64 = 0;
+
+    let ret = unsafe {
+        GetDiskFreeSpaceExW(
+            wpath.as_ptr(),
+            &mut free_bytes_available,
+            &mut total_bytes,
+            &mut total_free_bytes,
+        )
+    };
+
+    if ret != 0 {
+        Ok(free_bytes_available)
+    } else {
+        Err("Failed to query disk free space".to_string())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn get_disk_free_space(_path: &Path) -> Result<u64, String> {
+    Ok(u64::MAX)
+}
+

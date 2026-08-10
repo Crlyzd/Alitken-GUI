@@ -526,3 +526,44 @@ pub async fn get_wmf_filmstrip(
 
     Ok(Vec::new())
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct StorageValidationResult {
+    pub status: String,
+    pub free_space_bytes: u64,
+    pub required_space_bytes: u64,
+}
+
+#[tauri::command]
+pub fn validate_trimmer_storage(file_path: String, file_size_bytes: u64) -> StorageValidationResult {
+    let mut actual_size = file_size_bytes;
+    if actual_size == 0 {
+        actual_size = std::fs::metadata(&file_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+    }
+
+    let temp_dir = utils::get_temp_dir();
+    let free_space = utils::get_disk_free_space(&temp_dir).unwrap_or(u64::MAX);
+
+    let required_space = (actual_size as f64 * 1.2) as u64;
+    let five_gb: u64 = 5 * 1024 * 1024 * 1024;
+    let ten_gb: u64 = 10 * 1024 * 1024 * 1024;
+
+    let status = if free_space < required_space {
+        "HardFailure".to_string()
+    } else if free_space < ten_gb {
+        "LowStorageWarning".to_string()
+    } else if actual_size >= five_gb {
+        "LargeFileWarning".to_string()
+    } else {
+        "CleanPass".to_string()
+    };
+
+    StorageValidationResult {
+        status,
+        free_space_bytes: free_space,
+        required_space_bytes: required_space,
+    }
+}
+

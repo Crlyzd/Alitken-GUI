@@ -10,6 +10,7 @@ import { AboutModal, UpdateInfo, UpdateProgressPayload } from './components/Abou
 import { SettingsModal } from './components/SettingsModal';
 import { ImageConfig, TrimConfig, TrimPreset } from './types/media';
 import { VideoTrimmer } from './components/VideoTrimmer';
+import { StorageValidationModal } from './components/trimmer/StorageValidationModal';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
 import { Download, AlertCircle, X } from 'lucide-react';
 
@@ -42,6 +43,22 @@ export function App() {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState<UpdateProgressPayload | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const [storageModalState, setStorageModalState] = useState<{
+    isOpen: boolean;
+    status: 'HardFailure' | 'LowStorageWarning' | 'LargeFileWarning' | null;
+    freeBytes: number;
+    requiredBytes: number;
+    fileSizeBytes: number;
+    pendingFile: FileItem | null;
+  }>({
+    isOpen: false,
+    status: null,
+    freeBytes: 0,
+    requiredBytes: 0,
+    fileSizeBytes: 0,
+    pendingFile: null,
+  });
 
   const [hardwareInfo, setHardwareInfo] = useState<{ name: string; encoder: string; details?: string }>({
     name: 'Detecting GPU...',
@@ -666,7 +683,7 @@ export function App() {
     );
   };
 
-  const handleOpenTrimmer = (file: FileItem) => {
+  const performOpenTrimmer = (file: FileItem) => {
     invoke('expand_to_working_window').catch((err) =>
       console.error('Failed to expand to working window:', err)
     );
@@ -674,12 +691,38 @@ export function App() {
     setActiveView('trimmer');
   };
 
+  const handleOpenTrimmer = async (file: FileItem) => {
+    try {
+      const sizeBytes = Math.round((file.sizeMb || 0) * 1024 * 1024);
+      const res = await invoke<{
+        status: 'HardFailure' | 'LowStorageWarning' | 'LargeFileWarning' | 'CleanPass';
+        free_space_bytes: number;
+        required_space_bytes: number;
+      }>('validate_trimmer_storage', {
+        filePath: file.path,
+        fileSizeBytes: sizeBytes,
+      });
+
+      if (res.status === 'CleanPass') {
+        performOpenTrimmer(file);
+      } else {
+        setStorageModalState({
+          isOpen: true,
+          status: res.status,
+          freeBytes: res.free_space_bytes,
+          requiredBytes: res.required_space_bytes,
+          fileSizeBytes: sizeBytes,
+          pendingFile: file,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to validate trimmer storage:', err);
+      performOpenTrimmer(file);
+    }
+  };
+
   const handleOpenTrimmerFromWelcome = async (filePath: string) => {
     try {
-      invoke('expand_to_working_window').catch((err) =>
-        console.error('Failed to expand to working window:', err)
-      );
-
       const meta: any = await invoke('probe_media_file', {
         ffprobePath: '',
         filePath,
@@ -711,8 +754,7 @@ export function App() {
         return [...prev, newItem];
       });
 
-      setTrimmerFile(newItem);
-      setActiveView('trimmer');
+      handleOpenTrimmer(newItem);
     } catch (err) {
       console.error('Failed to open trimmer from welcome:', err);
     }
@@ -1089,6 +1131,24 @@ export function App() {
         onUpdateEngine={(engine) => {
           setIsSettingsOpen(false);
           handleDownloadDependencies(engine);
+        }}
+      />
+      {/* Storage Validation Safety Modal */}
+      <StorageValidationModal
+        isOpen={storageModalState.isOpen}
+        status={storageModalState.status}
+        freeBytes={storageModalState.freeBytes}
+        requiredBytes={storageModalState.requiredBytes}
+        fileSizeBytes={storageModalState.fileSizeBytes}
+        theme={theme}
+        onProceed={() => {
+          if (storageModalState.pendingFile) {
+            performOpenTrimmer(storageModalState.pendingFile);
+          }
+          setStorageModalState((prev) => ({ ...prev, isOpen: false, pendingFile: null }));
+        }}
+        onCancel={() => {
+          setStorageModalState((prev) => ({ ...prev, isOpen: false, pendingFile: null }));
         }}
       />
     </div>

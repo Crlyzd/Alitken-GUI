@@ -80,4 +80,25 @@ export interface DependencyStatus {
   magick_path: string;
 }
 
+export interface TrimPreset {
+  start_sec: number;
+  end_sec: number;
+  fast_copy: boolean;
+  updated_at: number;
+}
+
+export interface TrimConfig {
+  input_file: string;
+  start_sec: number;
+  end_sec: number;
+  fast_copy: boolean;
+  codec_choice: string;
+  target_height: string;
+  target_bitrate: string;
+  custom_output_dir: string | null;
+  playback_speed?: number;
+  mute_audio?: boolean;
+  slow_mo_mode?: 'FRAME_DUP' | 'OPTICAL_SMOOTH';
+}
+
 

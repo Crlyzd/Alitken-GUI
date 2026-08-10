@@ -54,6 +54,47 @@ pub fn get_log_file_path() -> PathBuf {
     get_log_dir().join("alitken.log")
 }
 
+/// Resolves the dedicated presets directory in %LOCALAPPDATA%\Alitken\presets
+pub fn get_presets_dir() -> PathBuf {
+    if let Some(local_dir) = dirs::data_local_dir() {
+        let presets_dir = local_dir.join("Alitken").join("presets");
+        let _ = fs::create_dir_all(&presets_dir);
+        return presets_dir;
+    }
+    let fallback = PathBuf::from("presets");
+    let _ = fs::create_dir_all(&fallback);
+    fallback
+}
+
+pub fn get_trim_presets_path() -> PathBuf {
+    get_presets_dir().join("trim_presets.json")
+}
+
+/// Resolves the dedicated temporary cache directory in %LOCALAPPDATA%\Alitken\temp
+pub fn get_temp_dir() -> PathBuf {
+    if let Some(local_dir) = dirs::data_local_dir() {
+        let temp_dir = local_dir.join("Alitken").join("temp");
+        let _ = fs::create_dir_all(&temp_dir);
+        return temp_dir;
+    }
+    let fallback = PathBuf::from("temp");
+    let _ = fs::create_dir_all(&fallback);
+    fallback
+}
+
+/// Purges all temporary preview files in the temp directory
+pub fn cleanup_temp_dir() {
+    let temp_dir = get_temp_dir();
+    if let Ok(entries) = fs::read_dir(&temp_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+}
+
 /// Appends a log entry to alitken.log (caps log file at 5MB)
 pub fn write_log(level: &str, message: &str) {
     let _guard = LOG_MUTEX.lock();

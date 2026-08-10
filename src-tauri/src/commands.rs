@@ -1,5 +1,5 @@
 use crate::dependencies::{self, DependencyStatus};
-use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata};
+use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata, TrimConfig, TrimPreset};
 use crate::gpu::{self, GpuCapability};
 use crate::image::{self, ImageConversionConfig};
 use crate::updater::{self, UpdateInfo};
@@ -230,6 +230,102 @@ pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn start_trim_video_pipeline<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    config: TrimConfig,
+) -> Result<(), String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists || !deps.ffprobe_exists {
+        return Err("FFmpeg dependencies not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.ffmpeg_valid {
+        return Err(format!(
+            "FFmpeg version ({}) is below the required version 5.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.ffmpeg_version
+        ));
+    }
+
+    let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
+    ffmpeg::run_trim_video_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config, gpu_caps).await
+}
+
+#[tauri::command]
+pub async fn prepare_video_preview(file_path: String) -> Result<String, String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists || !deps.ffprobe_exists {
+        return Err("FFmpeg dependencies not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+
+    ffmpeg::prepare_preview_video(&deps.ffmpeg_path, &deps.ffprobe_path, &file_path).await
+}
+
+#[tauri::command]
+pub async fn get_video_frame_preview(file_path: String, timestamp_sec: f64) -> Result<String, String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists {
+        return Err("FFmpeg binary not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+
+    ffmpeg::extract_frame_base64_hwaccel(&deps.ffmpeg_path, &file_path, timestamp_sec).await
+}
+
+#[tauri::command]
+pub fn save_trim_preset(
+    file_path: String,
+    start_sec: f64,
+    end_sec: f64,
+    fast_copy: bool,
+) -> Result<(), String> {
+    let canonical_key = file_path.replace('\\', "/").to_lowercase();
+    let presets_file = utils::get_trim_presets_path();
+
+    let mut map: std::collections::HashMap<String, TrimPreset> = if presets_file.exists() {
+        std::fs::read_to_string(&presets_file)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    map.insert(
+        canonical_key,
+        TrimPreset {
+            start_sec,
+            end_sec,
+            fast_copy,
+            updated_at: now,
+        },
+    );
+
+    let json_str = serde_json::to_string_pretty(&map).map_err(|e| e.to_string())?;
+    std::fs::write(&presets_file, json_str).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_trim_preset(file_path: String) -> Result<Option<TrimPreset>, String> {
+    let canonical_key = file_path.replace('\\', "/").to_lowercase();
+    let presets_file = utils::get_trim_presets_path();
+
+    if !presets_file.exists() {
+        return Ok(None);
+    }
+
+    let map: std::collections::HashMap<String, TrimPreset> = std::fs::read_to_string(&presets_file)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+
+    Ok(map.get(&canonical_key).cloned())
+}
+
+#[tauri::command]
 pub fn open_log_folder() -> Result<(), String> {
     let log_dir = utils::get_log_dir();
     let _ = utils::create_hidden_cmd("explorer").arg(log_dir).spawn();
@@ -285,9 +381,9 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
     // 1. Re-enable resize FIRST so min_size and set_size take effect.
     window.set_resizable(true).map_err(|e| e.to_string())?;
-    // 2. Apply working-state minimum constraints.
+    // 2. Apply working-state minimum constraints to prevent control wrapping.
     window
-        .set_min_size(Some(LogicalSize::new(840u32, 580u32)))
+        .set_min_size(Some(LogicalSize::new(960u32, 660u32)))
         .map_err(|e| e.to_string())?;
     // 3. Expand to the full working dimensions in-place.
     window

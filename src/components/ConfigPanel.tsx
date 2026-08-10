@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scissors, RefreshCw, Zap, Folder, FolderOpen } from 'lucide-react';
+import { Scissors, RefreshCw, Zap, Folder, FolderOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageConfig } from '../types/media';
@@ -28,6 +28,12 @@ interface ConfigPanelProps {
   disabled: boolean;
   fileCount: number;
   onOpenDestination?: () => void;
+  isTrimmerMode?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onStartTrim?: () => void;
+  fastCopyTrim?: boolean;
+  onFastCopyTrimChange?: (val: boolean) => void;
 }
 
 const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];
@@ -44,6 +50,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   disabled,
   fileCount,
   onOpenDestination,
+  isTrimmerMode = false,
+  isCollapsed = false,
+  onToggleCollapse,
+  onStartTrim,
+  fastCopyTrim = true,
+  onFastCopyTrimChange,
 }) => {
   const [isCustomHeight, setIsCustomHeight] = useState<boolean>(
     !PRESET_HEIGHTS.includes(config.targetHeight)
@@ -81,6 +93,61 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     }
   };
 
+  if (isCollapsed) {
+    return (
+      <div
+        className="glass-panel"
+        style={{
+          width: '44px',
+          height: '100%',
+          borderRadius: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '14px 6px',
+          boxSizing: 'border-box',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          border: '1px solid var(--border-glass)',
+        }}
+        onClick={onToggleCollapse}
+        title="Expand Export Settings"
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--accent-cyan)',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <PanelRightOpen size={18} />
+        </button>
+        <div
+          style={{
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '1px',
+            color: 'var(--text-dim)',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Export Settings
+        </div>
+        <div style={{ height: '24px' }} />
+      </div>
+    );
+  }
+
   return (
     <div
       className="glass-panel"
@@ -105,6 +172,36 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           minHeight: 0,
         }}
       >
+        {/* Top Header Row for Collapse button if available */}
+        {onToggleCollapse && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '-6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+              {isTrimmerMode ? 'Trim Export Configuration' : 'Export Configuration'}
+            </span>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title="Collapse Settings Panel"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '6px',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-cyan)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+            >
+              <PanelRightClose size={16} />
+            </button>
+          </div>
+        )}
+
         {/* RENDER IMAGE CONFIG TAB IF MEDIA TYPE IS IMAGE */}
         {mediaType === 'image' ? (
           <ImageConfigTab
@@ -136,8 +233,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   borderRadius: '10px',
                   border: 'none',
                   background:
-                    config.videoAction === 'CONVERT' ? 'var(--accent-primary)' : 'transparent',
-                  color: config.videoAction === 'CONVERT' ? '#ffffff' : 'var(--text-muted)',
+                    config.videoAction === 'CONVERT' || isTrimmerMode ? 'var(--accent-primary)' : 'transparent',
+                  color: config.videoAction === 'CONVERT' || isTrimmerMode ? '#ffffff' : 'var(--text-muted)',
                   fontWeight: 600,
                   fontSize: '13px',
                   cursor: 'pointer',
@@ -151,17 +248,22 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <RefreshCw size={14} /> Transcode
               </button>
               <button
-                onClick={() => onChange({ videoAction: 'SPLIT' })}
+                onClick={() => {
+                  if (!isTrimmerMode) onChange({ videoAction: 'SPLIT' });
+                }}
+                disabled={isTrimmerMode}
+                title={isTrimmerMode ? 'Split Video is disabled in single clip trimmer' : 'Split Video into segments'}
                 style={{
                   padding: '8px 12px',
                   borderRadius: '10px',
                   border: 'none',
                   background:
-                    config.videoAction === 'SPLIT' ? 'var(--accent-primary)' : 'transparent',
-                  color: config.videoAction === 'SPLIT' ? '#ffffff' : 'var(--text-muted)',
+                    !isTrimmerMode && config.videoAction === 'SPLIT' ? 'var(--accent-primary)' : 'transparent',
+                  color: !isTrimmerMode && config.videoAction === 'SPLIT' ? '#ffffff' : 'var(--text-muted)',
+                  opacity: isTrimmerMode ? 0.35 : 1,
                   fontWeight: 600,
                   fontSize: '13px',
-                  cursor: 'pointer',
+                  cursor: isTrimmerMode ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -631,10 +733,43 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </div>
             </div>
 
-            {/* START VIDEO BUTTON */}
+            {/* FAST COPY TOGGLE FOR TRIMMER MODE */}
+            {isTrimmerMode && onFastCopyTrimChange && (
+              <div
+                onClick={() => onFastCopyTrimChange(!fastCopyTrim)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: fastCopyTrim ? 'rgba(6, 182, 212, 0.12)' : 'var(--input-bg)',
+                  border: `1px solid ${fastCopyTrim ? 'rgba(6, 182, 212, 0.4)' : 'var(--border-glass)'}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    ⚡ Fast Stream Copy (-c copy)
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                    Lossless instant cut without re-encoding
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={fastCopyTrim}
+                  onChange={(e) => onFastCopyTrimChange(e.target.checked)}
+                  style={{ accentColor: 'var(--accent-cyan)', cursor: 'pointer', transform: 'scale(1.2)' }}
+                />
+              </div>
+            )}
+
+            {/* START VIDEO / TRIM BUTTON */}
             <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
               <button
-                onClick={onStart}
+                onClick={isTrimmerMode ? onStartTrim || onStart : onStart}
                 disabled={disabled}
                 style={{
                   width: '100%',
@@ -658,7 +793,15 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   letterSpacing: '0.5px',
                 }}
               >
-                <Zap size={16} /> START {config.videoAction}
+                {isTrimmerMode ? (
+                  <>
+                    <Scissors size={16} /> EXPORT TRIMMED CLIP
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} /> START {config.videoAction}
+                  </>
+                )}
               </button>
             </div>
           </>

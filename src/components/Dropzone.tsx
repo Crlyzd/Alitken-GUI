@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown, AlertCircle, Scissors } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
 
@@ -23,6 +23,9 @@ export interface FileItem {
   codec?: string;
   mediaKind?: 'video' | 'image';
   isMissing?: boolean;
+  trimStartSec?: number;
+  trimEndSec?: number;
+  trimFastCopy?: boolean;
 }
 
 interface DropzoneProps {
@@ -31,6 +34,7 @@ interface DropzoneProps {
   onRemoveFile: (index: number) => void;
   onClearFiles: () => void;
   onReorderFiles?: (sortedFiles: FileItem[]) => void;
+  onOpenTrimmer?: (file: FileItem) => void;
 }
 
 export const Dropzone: React.FC<DropzoneProps> = ({
@@ -39,6 +43,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   onRemoveFile,
   onClearFiles,
   onReorderFiles,
+  onOpenTrimmer,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('DEFAULT');
@@ -324,12 +329,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       >
         {files.map((file, idx) => {
           const isImg = getFileKind(file.path) === 'image';
+          const hasTrim = file.trimStartSec !== undefined && file.trimEndSec !== undefined;
           return (
             <div
               key={idx}
               className="glass-card"
               style={{
-                padding: '12px 16px',
+                padding: '10px 14px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -338,6 +344,48 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 background: file.isMissing ? 'rgba(244, 63, 94, 0.06)' : undefined,
               }}
             >
+              {/* Far-Left Action Box for Video Trimming */}
+              {!isImg && onOpenTrimmer && !file.isMissing && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTrimmer(file);
+                  }}
+                  title={hasTrim ? 'Edit Video Trim Selection' : 'Open Video in Trimmer'}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: hasTrim
+                      ? 'rgba(6, 182, 212, 0.2)'
+                      : 'rgba(255, 255, 255, 0.05)',
+                    border: hasTrim
+                      ? '1px solid rgba(6, 182, 212, 0.5)'
+                      : '1px solid rgba(255, 255, 255, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: hasTrim ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                    e.currentTarget.style.color = 'var(--accent-cyan)';
+                    e.currentTarget.style.background = 'rgba(6, 182, 212, 0.18)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = hasTrim ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.color = hasTrim ? 'var(--accent-cyan)' : 'var(--text-dim)';
+                    e.currentTarget.style.background = hasTrim ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.05)';
+                  }}
+                >
+                  <Scissors size={16} />
+                </button>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                 <div
                   style={{
@@ -384,7 +432,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
                       fontSize: '11px',
                       color: 'var(--text-dim)',
                       marginTop: '3px',
@@ -417,6 +466,24 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         }}
                       >
                         {file.codec}
+                      </span>
+                    )}
+                    {hasTrim && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          background: 'rgba(6, 182, 212, 0.15)',
+                          border: '1px solid rgba(6, 182, 212, 0.35)',
+                          color: 'var(--accent-cyan)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          fontSize: '10.5px',
+                        }}
+                      >
+                        <Scissors size={10} /> Trimmed: {formatDuration(file.trimStartSec!)} - {formatDuration(file.trimEndSec!)}
                       </span>
                     )}
                   </div>

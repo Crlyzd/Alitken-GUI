@@ -48,3 +48,27 @@ pub struct ImageToVideoConfig {
     pub codec_choice: String,
     pub output_dir: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrimConfig {
+    pub input_file: String,
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub fast_copy: bool,
+    pub codec_choice: String,
+    pub target_height: String,
+    pub target_bitrate: String,
+    pub custom_output_dir: Option<String>,
+    pub playback_speed: Option<f64>,
+    pub mute_audio: Option<bool>,
+    pub slow_mo_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrimPreset {
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub fast_copy: bool,
+    pub updated_at: u64,
+}
+

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, Film, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { UploadCloud, Film, Image as ImageIcon, Sparkles, Scissors } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS } from '../utils/mediaType';
 
 interface WelcomeDropzoneProps {
   onAddFiles: (paths: string[]) => void;
+  onOpenTrimmerFile?: (filePath: string) => void;
 }
 
-export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) => {
+export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles, onOpenTrimmerFile }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const onAddFilesRef = useRef(onAddFiles);
   const lastDropTimeRef = useRef<number>(0);
@@ -83,6 +84,27 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
       }
     } catch (err) {
       console.error('File selection error:', err);
+    }
+  };
+
+  const handlePickTrimmerFile = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: 'Video Files',
+            extensions: VIDEO_EXTENSIONS.map((e) => e.replace('.', '')),
+          },
+        ],
+      });
+
+      if (selected && typeof selected === 'string' && onOpenTrimmerFile) {
+        onOpenTrimmerFile(selected);
+      }
+    } catch (err) {
+      console.error('Trimmer file selection error:', err);
     }
   };
 
@@ -194,12 +216,14 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
           </p>
         </div>
 
-        {/* Media Badges */}
+        {/* Media Badges & Trimmer Action */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '8px',
             marginTop: '4px',
           }}
         >
@@ -208,7 +232,7 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 12px',
+              padding: '4px 10px',
               borderRadius: '20px',
               background: 'rgba(6, 182, 212, 0.12)',
               border: '1px solid rgba(6, 182, 212, 0.25)',
@@ -218,14 +242,14 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
               whiteSpace: 'nowrap',
             }}
           >
-            <Film size={13} /> GPU Transcode & Split
+            <Film size={12} /> Transcode & Split
           </div>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 12px',
+              padding: '4px 10px',
               borderRadius: '20px',
               background: 'rgba(168, 85, 247, 0.12)',
               border: '1px solid rgba(168, 85, 247, 0.25)',
@@ -235,8 +259,40 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({ onAddFiles }) 
               whiteSpace: 'nowrap',
             }}
           >
-            <ImageIcon size={13} /> Image Convert, PDF & Slideshow
+            <ImageIcon size={12} /> Image & PDF
           </div>
+          <button
+            type="button"
+            onClick={handlePickTrimmerFile}
+            title="Open single video directly in Video Trimmer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              background: 'rgba(255, 255, 255, 0.07)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(6, 182, 212, 0.18)';
+              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+              e.currentTarget.style.color = 'var(--accent-cyan)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = 'var(--text-main)';
+            }}
+          >
+            <Scissors size={12} /> Video Trimmer
+          </button>
         </div>
       </div>
     </div>

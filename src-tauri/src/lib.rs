@@ -19,6 +19,8 @@ pub fn run() {
         .setup(|_app| {
             // Clean up lingering ALITKEN.exe.old from previous 1-click update
             updater::cleanup_old_version();
+            // Clean up temporary preview files from previous sessions
+            utils::cleanup_temp_dir();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -32,6 +34,11 @@ pub fn run() {
             probe_media_file,
             probe_image_batch,
             start_video_pipeline,
+            start_trim_video_pipeline,
+            prepare_video_preview,
+            get_video_frame_preview,
+            save_trim_preset,
+            load_trim_preset,
             start_image_pipeline,
             start_image_to_video_pipeline,
             open_log_folder,

@@ -8,7 +8,8 @@ import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
 import { AboutModal, UpdateInfo, UpdateProgressPayload } from './components/AboutModal';
 import { SettingsModal } from './components/SettingsModal';
-import { ImageConfig } from './types/media';
+import { ImageConfig, TrimConfig, TrimPreset } from './types/media';
+import { VideoTrimmer } from './components/VideoTrimmer';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
 import { Download, AlertCircle, X } from 'lucide-react';
 
@@ -55,6 +56,8 @@ export function App() {
   const [isDownloadingDeps, setIsDownloadingDeps] = useState(false);
 
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [activeView, setActiveView] = useState<'main' | 'trimmer'>('main');
+  const [trimmerFile, setTrimmerFile] = useState<FileItem | null>(null);
   const pendingPathsRef = useRef(new Set<string>());
 
   const [videoConfig, setVideoConfig] = useState<ConfigState>({
@@ -362,6 +365,12 @@ export function App() {
           ffprobePath: '',
           filePath: p,
         });
+
+        let trimPreset: TrimPreset | null = null;
+        try {
+          trimPreset = await invoke<TrimPreset | null>('load_trim_preset', { filePath: p });
+        } catch {}
+
         newItems.push({
           name: meta.file_name,
           path: normalizePath(meta.file_path || p),
@@ -370,6 +379,9 @@ export function App() {
           resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
           codec: meta.codec_name,
           mediaKind: 'video',
+          trimStartSec: trimPreset?.start_sec,
+          trimEndSec: trimPreset?.end_sec,
+          trimFastCopy: trimPreset?.fast_copy,
         });
       } catch (err) {
         const name = p.split(/[\\/]/).pop() || p;
@@ -654,6 +666,128 @@ export function App() {
     );
   };
 
+  const handleOpenTrimmer = (file: FileItem) => {
+    invoke('expand_to_working_window').catch((err) =>
+      console.error('Failed to expand to working window:', err)
+    );
+    setTrimmerFile(file);
+    setActiveView('trimmer');
+  };
+
+  const handleOpenTrimmerFromWelcome = async (filePath: string) => {
+    try {
+      invoke('expand_to_working_window').catch((err) =>
+        console.error('Failed to expand to working window:', err)
+      );
+
+      const meta: any = await invoke('probe_media_file', {
+        ffprobePath: '',
+        filePath,
+      });
+
+      let trimPreset: TrimPreset | null = null;
+      try {
+        trimPreset = await invoke<TrimPreset | null>('load_trim_preset', { filePath });
+      } catch {}
+
+      const newItem: FileItem = {
+        name: meta.file_name,
+        path: normalizePath(meta.file_path || filePath),
+        sizeMb: meta.file_size_mb,
+        durationSec: meta.duration_sec,
+        resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+        codec: meta.codec_name,
+        mediaKind: 'video',
+        trimStartSec: trimPreset?.start_sec,
+        trimEndSec: trimPreset?.end_sec,
+        trimFastCopy: trimPreset?.fast_copy,
+      };
+
+      setFiles((prev) => {
+        const canonical = canonicalPathKey(newItem.path);
+        if (prev.some((f) => canonicalPathKey(f.path) === canonical)) {
+          return prev.map((f) => (canonicalPathKey(f.path) === canonical ? newItem : f));
+        }
+        return [...prev, newItem];
+      });
+
+      setTrimmerFile(newItem);
+      setActiveView('trimmer');
+    } catch (err) {
+      console.error('Failed to open trimmer from welcome:', err);
+    }
+  };
+
+  const handleBackFromTrimmer = (updatedFile: FileItem) => {
+    setFiles((prev) =>
+      prev.map((f) => (canonicalPathKey(f.path) === canonicalPathKey(updatedFile.path) ? updatedFile : f))
+    );
+
+    // Persist trim preset in AppData
+    invoke('save_trim_preset', {
+      filePath: updatedFile.path,
+      startSec: updatedFile.trimStartSec || 0,
+      endSec: updatedFile.trimEndSec || (updatedFile.durationSec || 60),
+      fastCopy: updatedFile.trimFastCopy ?? true,
+    }).catch(console.error);
+
+    setActiveView('main');
+    setTrimmerFile(null);
+  };
+
+  const handleStartTrim = async (trimConfig: TrimConfig) => {
+    // Persist preset in AppData
+    invoke('save_trim_preset', {
+      filePath: trimConfig.input_file,
+      startSec: trimConfig.start_sec,
+      endSec: trimConfig.end_sec,
+      fast_copy: trimConfig.fast_copy,
+    }).catch(console.error);
+
+    const currentDeps = await checkDepsAndGpu(trimConfig.codec_choice);
+    if (!currentDeps.ffmpeg || !currentDeps.ffprobe) {
+      setValidationError(
+        'FFmpeg / FFprobe dependencies are missing or were removed. Please click "Install All Dependencies" to download.'
+      );
+      return;
+    }
+
+    setProgress({
+      type: 'conversion',
+      isProcessing: true,
+      currentFile: trimmerFile?.name || 'video_clip',
+      fileIndex: 1,
+      totalFiles: 1,
+      percent: 0,
+      currentPart: 1,
+      totalParts: 1,
+      status: trimConfig.fast_copy
+        ? 'Exporting Fast Stream Copy (-c copy)...'
+        : 'Re-encoding Trimmed Clip with Hardware Acceleration...',
+      completed: false,
+    });
+
+    try {
+      await invoke('start_trim_video_pipeline', {
+        config: trimConfig,
+      });
+
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: false,
+        percent: 100,
+        completed: true,
+        status: 'Video trim export completed successfully!',
+      }));
+    } catch (err: any) {
+      setProgress((prev) => ({
+        ...prev,
+        isProcessing: false,
+        error: err.toString(),
+      }));
+    }
+  };
+
   const handleOpenDestination = async () => {
     let targetDir = currentMediaType === 'video' ? videoConfig.outputDir : imageConfig.outputDir;
     if (!targetDir && files.length > 0) {
@@ -845,9 +979,34 @@ export function App() {
       )}
 
       {/* Main Workspace Area */}
-      {files.length === 0 ? (
+      {activeView === 'trimmer' && trimmerFile ? (
+        /* STATE T: Video Trimmer View */
+        <div
+          style={{
+            flex: 1,
+            padding: '16px',
+            overflow: 'hidden',
+            minHeight: 0,
+            display: 'flex',
+          }}
+        >
+          <VideoTrimmer
+            file={trimmerFile}
+            onBack={handleBackFromTrimmer}
+            onStartTrim={handleStartTrim}
+            videoConfig={videoConfig}
+            onVideoConfigChange={handleConfigChange}
+            imageConfig={imageConfig}
+            onImageConfigChange={setImageConfig}
+            disabled={progress.isProcessing}
+          />
+        </div>
+      ) : files.length === 0 ? (
         /* STATE A: Full-Page Welcome Landing Dropzone */
-        <WelcomeDropzone onAddFiles={handleAddFiles} />
+        <WelcomeDropzone
+          onAddFiles={handleAddFiles}
+          onOpenTrimmerFile={handleOpenTrimmerFromWelcome}
+        />
       ) : (
         /* STATE B & C: Active Workspace Split View */
         <div
@@ -882,6 +1041,7 @@ export function App() {
             }}
             onClearFiles={handleClearFiles}
             onReorderFiles={(sortedFiles) => setFiles(sortedFiles)}
+            onOpenTrimmer={handleOpenTrimmer}
           />
 
           <ConfigPanel

@@ -203,6 +203,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
   };
 
   const handleVideoError = () => {
+    if (isLoadingPreview) return;
     setIsNativeSupported(false);
     invoke<string>('get_video_frame_preview', { filePath: file.path, timestampSec: currentSec })
       .then((frame) => setFallbackFrameSrc(frame))
@@ -374,7 +375,11 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
     onStartTrim(trimConfig);
   };
 
-  const activeMediaSrc = previewPath ? convertFileSrc(previewPath) : convertFileSrc(file.path);
+  const activeMediaSrc = previewPath
+    ? convertFileSrc(previewPath)
+    : isLoadingPreview
+    ? ''
+    : convertFileSrc(file.path);
 
   return (
     <div

@@ -645,9 +645,43 @@ pub async fn prepare_preview_video(
         }
     }
 
-    log_info(&format!("Preview Tier 2 (Lossless remuxing): {} -> {:?}", file_path, temp_preview));
+    log_info(&format!("Preview Tier 2a (Instant stream copy): {} -> {:?}", file_path, temp_preview));
 
-    // Tier 2: Fast stream copy with safe audio mapping to stereo AAC
+    // Tier 2a: Instant double stream copy (video copy + audio copy)
+    let direct_copy_output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
+        .args([
+            "-hide_banner",
+            "-y",
+            "-i",
+            file_path,
+            "-c:v",
+            "copy",
+            "-c:a",
+            "copy",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0?",
+            "-movflags",
+            "+faststart",
+            temp_preview.to_str().unwrap_or("preview.mp4"),
+        ])
+        .output()
+        .await;
+
+    let direct_copy_success = match direct_copy_output {
+        Ok(ref out) => out.status.success() && temp_preview.exists() && std::fs::metadata(&temp_preview).map(|m| m.len() > 1024).unwrap_or(false),
+        Err(_) => false,
+    };
+
+    if direct_copy_success {
+        log_info(&format!("Preview Tier 2a Remux Successful: {:?}", temp_preview));
+        return Ok(temp_preview.to_string_lossy().to_string());
+    }
+
+    log_info(&format!("Preview Tier 2b (Video copy + AAC audio remux): {} -> {:?}", file_path, temp_preview));
+
+    // Tier 2b: Stream copy video with safe audio mapping to stereo AAC
     let copy_output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
         .args([
             "-hide_banner",
@@ -658,6 +692,10 @@ pub async fn prepare_preview_video(
             "copy",
             "-c:a",
             "aac",
+            "-b:a",
+            "128k",
+            "-threads",
+            "0",
             "-map",
             "0:v:0",
             "-map",
@@ -675,7 +713,7 @@ pub async fn prepare_preview_video(
     };
 
     if copy_success {
-        log_info(&format!("Preview Tier 2 Remux Successful: {:?}", temp_preview));
+        log_info(&format!("Preview Tier 2b Remux Successful: {:?}", temp_preview));
         return Ok(temp_preview.to_string_lossy().to_string());
     }
 

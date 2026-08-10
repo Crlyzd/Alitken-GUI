@@ -231,7 +231,8 @@ select,
   }
 }
 
-.animate-spin {
+.animate-spin,
+.spinning-loader {
   animation: spin 1s linear infinite;
 }
 

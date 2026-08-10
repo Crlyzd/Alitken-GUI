@@ -202,6 +202,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         maxHeight: '440px',
         overflow: 'hidden',
         gap: '4px',
+        contain: 'layout size',
       }}
     >
       {/* Outer Canvas Container (The Black Area - Matches Target Aspect Ratio) */}
@@ -289,7 +290,9 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
             setVideoScale(1.0);
           }}
           style={{
-            position: 'relative',
+            position: 'absolute',
+            inset: 0,
+            margin: 'auto',
             aspectRatio: `${videoAspect}`,
             width: isVideoWider ? '100%' : 'auto',
             height: isVideoWider ? 'auto' : '100%',

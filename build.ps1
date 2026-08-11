@@ -102,6 +102,14 @@ try {
         $ParentDir = Split-Path -Parent $ScriptDir
         $ParentExePath = Join-Path $ParentDir "Alitken.exe"
 
+        # Fetch current application version from package.json
+        $PackageJsonPath = Join-Path $ScriptDir "package.json"
+        $AppVersion = if (Test-Path $PackageJsonPath) {
+            (Get-Content $PackageJsonPath -Raw | ConvertFrom-Json).version
+        } else {
+            "0.6.0"
+        }
+
         if (Test-Path $ExePath) {
             try {
                 if (-not (Test-Path $ParentDir)) {
@@ -110,17 +118,17 @@ try {
                 Copy-Item -Path $ExePath -Destination $ParentExePath -Force
 
                 # Copy to releases folder with descriptive name
-                $PortableName = "Alitken_v0.5.0_${Profile}_x64-Portable.exe"
+                $PortableName = "Alitken_v${AppVersion}_${Profile}_x64-Portable.exe"
                 Copy-Item -Path $ExePath -Destination (Join-Path $ReleasesDir $PortableName) -Force
             } catch {
                 Write-Host "WARNING: Could not copy executable to parent/releases folder: $_" -ForegroundColor Yellow
             }
         }
 
-        # Copy installer setup binary if present
-        $InstallerExe = Get-ChildItem -Path $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        # Copy installer setup binary if present (sort by LastWriteTime descending to grab latest)
+        $InstallerExe = Get-ChildItem -Path $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($InstallerExe) {
-            $SetupName = "Alitken_v0.5.0_${Profile}_x64-Setup.exe"
+            $SetupName = "Alitken_v${AppVersion}_${Profile}_x64-Setup.exe"
             Copy-Item -Path $InstallerExe.FullName -Destination (Join-Path $ReleasesDir $SetupName) -Force
         }
 

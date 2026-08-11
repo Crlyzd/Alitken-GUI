@@ -1,4 +1,4 @@
-# Alitken Multi-Target Release Build Script (v0.5.0)
+# Alitken Multi-Target Release Build Script
 # Builds 4 Release Binaries:
 #   1. GitHub Release (x86_64)   - Self-Updater Enabled
 #   2. GitHub Release (ARM64)    - Self-Updater Enabled
@@ -11,6 +11,15 @@ Write-Host "====================================================" -ForegroundCol
 
 $RootPath = Resolve-Path "$PSScriptRoot\.."
 Set-Location $RootPath
+
+$PackageJsonPath = Join-Path $RootPath "package.json"
+$AppVersion = if (Test-Path $PackageJsonPath) {
+    (Get-Content $PackageJsonPath -Raw | ConvertFrom-Json).version
+} else {
+    "0.6.0"
+}
+
+Write-Host " Target Application Version: v$AppVersion" -ForegroundColor Yellow
 
 $OutputDistFolder = Join-Path $RootPath "releases"
 if (-not (Test-Path $OutputDistFolder)) {
@@ -60,9 +69,9 @@ try {
             throw "Failed to build $FlavorName for $Target"
         }
 
-        # Locate built NSIS installer executable
+        # Locate built NSIS installer executable (sort by LastWriteTime descending to grab latest)
         $TargetBundleDir = Join-Path $RootPath "src-tauri\target\$Target\release\bundle\nsis"
-        $InstallerExe = Get-ChildItem -Path $TargetBundleDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        $InstallerExe = Get-ChildItem -Path $TargetBundleDir -Filter "*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
         if ($InstallerExe) {
             $DestInstallerName = "${OutputPrefix}-Setup.exe"
@@ -84,16 +93,16 @@ try {
     }
 
     # 1. GitHub Release (x86_64)
-    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (x64)" -OutputPrefix "Alitken_v0.5.0_GitHub_x64"
+    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_x64"
 
     # 2. GitHub Release (ARM64)
-    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v0.5.0_GitHub_ARM64"
+    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_ARM64"
 
     # 3. MS Store Build (x86_64)
-    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (x64)" -OutputPrefix "Alitken_v0.5.0_MSStore_x64" -Features "store-build"
+    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_x64" -Features "store-build"
 
     # 4. MS Store Build (ARM64)
-    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v0.5.0_MSStore_ARM64" -Features "store-build"
+    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_ARM64" -Features "store-build"
 
     Write-Host ""
     Write-Host "====================================================" -ForegroundColor Cyan

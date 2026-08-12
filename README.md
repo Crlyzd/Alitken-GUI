@@ -1,4 +1,4 @@
-# ✨ Alitken v0.4
+# Alitken Media Converter
 
 > **High-Performance Windows Media Converter & Video Splitter**  
 > *A sleek, lightning-fast, borderless desktop app built with Rust & Tauri v2 for all your video, audio, and image processing needs.*

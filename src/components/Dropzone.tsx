@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, FileVideo, FileImage, Trash2, Film, Clock, HardDrive, ArrowUpDown, AlertCircle, Scissors } from 'lucide-react';
+import {
+  UploadCloud,
+  FileVideo,
+  FileImage,
+  Trash2,
+  Film,
+  Clock,
+  HardDrive,
+  ArrowUpDown,
+  AlertCircle,
+  Scissors,
+  GripVertical,
+} from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
 
 export type SortOption =
   | 'DEFAULT'
+  | 'CUSTOM'
   | 'NAME_ASC'
   | 'NAME_DESC'
   | 'SIZE_ASC'
@@ -51,6 +64,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   const [sortOption, setSortOption] = useState<SortOption>('DEFAULT');
   const initialFilesRef = useRef<FileItem[]>([]);
 
+  // Snappy GPU-accelerated inline transform drag state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [startY, setStartY] = useState<number>(0);
+  const [dragOffsetY, setDragOffsetY] = useState<number>(0);
+  const [itemHeight, setItemHeight] = useState<number>(68);
+  const cardsContainerRef = useRef<HTMLDivElement>(null);
+
   // Keep track of original import order when files change length or are first loaded
   useEffect(() => {
     if (files.length === 0) {
@@ -65,9 +85,12 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     setSortOption(newSort);
     if (!onReorderFiles) return;
 
+    if (newSort === 'CUSTOM') {
+      return;
+    }
+
     if (newSort === 'DEFAULT') {
       if (initialFilesRef.current.length > 0) {
-        // Filter out any files that were removed
         const currentPaths = new Set(files.map((f) => f.path.toLowerCase()));
         const restored = initialFilesRef.current.filter((f) => currentPaths.has(f.path.toLowerCase()));
         onReorderFiles(restored);
@@ -95,6 +118,65 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     }
 
     onReorderFiles(sorted);
+  };
+
+  // Pointer event mouse tracking & instant GPU transform engine
+  useEffect(() => {
+    if (draggedIndex === null) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      const deltaY = e.clientY - startY;
+      setDragOffsetY(deltaY);
+    };
+
+    const handlePointerUp = () => {
+      if (draggedIndex !== null && itemHeight > 0) {
+        const slotsMoved = Math.round(dragOffsetY / itemHeight);
+        const targetIndex = Math.min(Math.max(0, draggedIndex + slotsMoved), files.length - 1);
+
+        if (targetIndex !== draggedIndex) {
+          const reordered = [...files];
+          const [removed] = reordered.splice(draggedIndex, 1);
+          reordered.splice(targetIndex, 0, removed);
+
+          setSortOption('CUSTOM');
+          if (onReorderFiles) {
+            onReorderFiles(reordered);
+          }
+        }
+      }
+
+      setDraggedIndex(null);
+      setStartY(0);
+      setDragOffsetY(0);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [draggedIndex, startY, dragOffsetY, itemHeight, files, onReorderFiles]);
+
+  const handleCardPointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    if (files[index]?.isMissing) return;
+
+    if (cardsContainerRef.current && cardsContainerRef.current.children.length > 0) {
+      const firstCard = cardsContainerRef.current.children[0] as HTMLElement;
+      const cardRect = firstCard.getBoundingClientRect();
+      setItemHeight(cardRect.height + 10);
+    }
+
+    setDraggedIndex(index);
+    setStartY(e.clientY);
+    setDragOffsetY(0);
   };
 
   const handlePickFiles = async () => {
@@ -129,6 +211,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   };
 
   const currentMediaKind = files.length > 0 ? getFileKind(files[0].path) : 'unknown';
+
+  // Calculate active target index while dragging
+  let activeTargetIndex = draggedIndex;
+  if (draggedIndex !== null && itemHeight > 0) {
+    const slotsMoved = Math.round(dragOffsetY / itemHeight);
+    activeTargetIndex = Math.min(Math.max(0, draggedIndex + slotsMoved), files.length - 1);
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, minWidth: 0, gap: '14px' }}>
@@ -209,6 +298,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 onChange={(val) => handleSortChange(val as SortOption)}
                 options={[
                   { value: 'DEFAULT', label: 'Original Order' },
+                  ...(sortOption === 'CUSTOM' ? [{ value: 'CUSTOM', label: 'Custom Order' }] : []),
                   { value: 'NAME_ASC', label: 'Name (A → Z / 0 → 9)' },
                   { value: 'NAME_DESC', label: 'Name (Z → A / 9 → 0)' },
                   { value: 'SIZE_ASC', label: 'Size (Smallest)' },
@@ -274,32 +364,91 @@ export const Dropzone: React.FC<DropzoneProps> = ({
 
       {/* File Cards Scroll Area */}
       <div
+        ref={cardsContainerRef}
         style={{
           flex: 1,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
-          paddingRight: '4px',
+          padding: '6px 6px 8px 2px',
+          userSelect: draggedIndex !== null ? 'none' : 'auto',
+          position: 'relative',
         }}
       >
         {files.map((file, idx) => {
           const isImg = getFileKind(file.path) === 'image';
           const hasTrim = file.trimStartSec !== undefined && file.trimEndSec !== undefined;
+          const isBeingDragged = draggedIndex === idx;
+
+          let translateY = 0;
+          if (draggedIndex !== null && activeTargetIndex !== null) {
+            if (isBeingDragged) {
+              translateY = dragOffsetY;
+            } else {
+              if (draggedIndex < activeTargetIndex) {
+                // Dragging DOWN: cards between draggedIndex + 1 and activeTargetIndex shift UP
+                if (idx > draggedIndex && idx <= activeTargetIndex) {
+                  translateY = -itemHeight;
+                }
+              } else if (draggedIndex > activeTargetIndex) {
+                // Dragging UP: cards between activeTargetIndex and draggedIndex - 1 shift DOWN
+                if (idx < draggedIndex && idx >= activeTargetIndex) {
+                  translateY = itemHeight;
+                }
+              }
+            }
+          }
+
           return (
             <div
-              key={idx}
+              key={file.path || idx}
               className="glass-card"
+              onPointerDown={(e) => handleCardPointerDown(e, idx)}
               style={{
                 padding: '10px 14px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px',
-                border: file.isMissing ? '1px solid rgba(244, 63, 94, 0.45)' : undefined,
-                background: file.isMissing ? 'rgba(244, 63, 94, 0.06)' : undefined,
+                border: isBeingDragged
+                  ? '1.5px solid var(--accent-cyan)'
+                  : file.isMissing
+                  ? '1px solid rgba(244, 63, 94, 0.45)'
+                  : undefined,
+                boxShadow: isBeingDragged
+                  ? '0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(6, 182, 212, 0.35)'
+                  : undefined,
+                background: isBeingDragged
+                  ? 'rgba(6, 182, 212, 0.14)'
+                  : file.isMissing
+                  ? 'rgba(244, 63, 94, 0.06)'
+                  : undefined,
+                transform: `translateY(${translateY}px)`,
+                zIndex: isBeingDragged ? 50 : 1,
+                opacity: 1,
+                cursor: file.isMissing ? 'default' : isBeingDragged ? 'grabbing' : 'grab',
+                transition: isBeingDragged
+                  ? 'none'
+                  : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
+                touchAction: 'none',
+                position: 'relative',
               }}
             >
+              {/* Drag Handle Grip Icon */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: isBeingDragged ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                  opacity: isBeingDragged ? 1 : 0.4,
+                  flexShrink: 0,
+                  cursor: 'grab',
+                }}
+              >
+                <GripVertical size={16} />
+              </div>
+
               {/* Far-Left Action Box for Video Trimming */}
               {!isImg && onOpenTrimmer && !file.isMissing && (
                 <button
@@ -334,8 +483,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = hasTrim ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255, 255, 255, 0.12)';
-                    e.currentTarget.style.color = hasTrim ? 'var(--accent-cyan)' : 'var(--text-dim)';
-                    e.currentTarget.style.background = hasTrim ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.color = hasTrim ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.05)';
                   }}
                 >
                   <Scissors size={16} />

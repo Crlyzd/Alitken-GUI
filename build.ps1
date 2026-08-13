@@ -3,7 +3,7 @@
 param (
     [switch]$Dev = $false,
     [ValidateSet("Standard", "Small")]
-    [string]$Profile = ""
+    [string]$BuildProfile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,7 +36,7 @@ if (-not (Test-Path "node_modules")) {
 }
 
 # 2. Interactive Menu (if no parameters supplied)
-if (-not $Dev -and [string]::IsNullOrEmpty($Profile)) {
+if (-not $Dev -and [string]::IsNullOrEmpty($BuildProfile)) {
     Write-Host "Select Build Target:" -ForegroundColor Yellow
     Write-Host "  [1] Standard GitHub Release  (x64 setup installer + exe)" -ForegroundColor Cyan
     Write-Host "  [2] MS Store Release Build   (x64 with store-build features)" -ForegroundColor Blue
@@ -46,11 +46,11 @@ if (-not $Dev -and [string]::IsNullOrEmpty($Profile)) {
     Write-Host ""
     $choice = Read-Host "Enter choice [1-5] (Default: 1)"
     switch ($choice) {
-        "2" { $Profile = "Store" }
+        "2" { $BuildProfile = "Store" }
         "3" { $Dev = $true }
         "4" { $Dev = $true; $StoreDev = $true }
-        "5" { $Profile = "Small" }
-        default { $Profile = "Standard" }
+        "5" { $BuildProfile = "Small" }
+        default { $BuildProfile = "Standard" }
     }
 }
 
@@ -65,7 +65,7 @@ try {
             npm run tauri dev
         }
     } else {
-        if ($Profile -eq "Small") {
+        if ($BuildProfile -eq "Small") {
             Write-Host "[2/2] Compiling Tauri Desktop Executable (Ultra-Small LTO Profile)..." -ForegroundColor Green
             Write-Host "NOTE: Full LLVM Link-Time Optimization enabled. Build will take 2-4 minutes." -ForegroundColor DarkYellow
 
@@ -75,7 +75,7 @@ try {
             $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
             $env:CARGO_PROFILE_RELEASE_STRIP = "true"
             npm run tauri build
-        } elseif ($Profile -eq "Store") {
+        } elseif ($BuildProfile -eq "Store") {
             Write-Host "[2/2] Compiling Tauri Desktop Executable (MS Store Release - Ultra-Small Profile)..." -ForegroundColor Blue
             $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
             $env:CARGO_PROFILE_RELEASE_LTO = "true"
@@ -90,7 +90,6 @@ try {
         }
 
         $ExePath = Join-Path $ScriptDir "src-tauri\target\release\alitken-gui.exe"
-        $BundlePath = Join-Path $ScriptDir "src-tauri\target\release\bundle"
         $NsisDir = Join-Path $ScriptDir "src-tauri\target\release\bundle\nsis"
         $ReleasesDir = Join-Path $ScriptDir "releases"
 
@@ -118,7 +117,7 @@ try {
                 Copy-Item -Path $ExePath -Destination $ParentExePath -Force
 
                 # Copy to releases folder with descriptive name
-                $PortableName = "Alitken_v${AppVersion}_${Profile}_x64-Portable.exe"
+                $PortableName = "Alitken_v${AppVersion}_${BuildProfile}_x64-Portable.exe"
                 Copy-Item -Path $ExePath -Destination (Join-Path $ReleasesDir $PortableName) -Force
             } catch {
                 Write-Host "WARNING: Could not copy executable to parent/releases folder: $_" -ForegroundColor Yellow
@@ -128,7 +127,7 @@ try {
         # Copy installer setup binary if present (sort by LastWriteTime descending to grab latest)
         $InstallerExe = Get-ChildItem -Path $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($InstallerExe) {
-            $SetupName = "Alitken_v${AppVersion}_${Profile}_x64-Setup.exe"
+            $SetupName = "Alitken_v${AppVersion}_${BuildProfile}_x64-Setup.exe"
             Copy-Item -Path $InstallerExe.FullName -Destination (Join-Path $ReleasesDir $SetupName) -Force
         }
 
@@ -136,7 +135,7 @@ try {
         Write-Host "==================================================" -ForegroundColor Green
         Write-Host "               BUILD SUCCESSFUL!                 " -ForegroundColor Green
         Write-Host "==================================================" -ForegroundColor Green
-        Write-Host "Profile Used:                 $Profile" -ForegroundColor Yellow
+        Write-Host "Profile Used:                 $BuildProfile" -ForegroundColor Yellow
         Write-Host "Releases Output Folder:       $ReleasesDir" -ForegroundColor Green
         Write-Host "Executable Location:          $ExePath" -ForegroundColor Cyan
 

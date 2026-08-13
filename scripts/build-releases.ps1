@@ -44,7 +44,7 @@ try {
     }
 
     # Function to run Tauri release build and collect binaries into root releases/ folder
-    function Build-TauriTarget {
+    function Invoke-TauriTarget {
         param(
             [string]$Target,
             [string]$FlavorName,
@@ -93,16 +93,16 @@ try {
     }
 
     # 1. GitHub Release (x86_64)
-    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_x64"
+    Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_x64"
 
     # 2. GitHub Release (ARM64)
-    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_ARM64"
+    Invoke-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_ARM64"
 
     # 3. MS Store Build (x86_64)
-    Build-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_x64" -Features "store-build"
+    Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_x64" -Features "store-build"
 
     # 4. MS Store Build (ARM64)
-    Build-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_ARM64" -Features "store-build"
+    Invoke-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_ARM64" -Features "store-build"
 
     Write-Host ""
     Write-Host "====================================================" -ForegroundColor Cyan

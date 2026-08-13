@@ -505,33 +505,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     onOpenTrimmer(file);
                   }}
                   title={hasTrim ? 'Edit Video Trim Selection' : 'Open Video in Trimmer'}
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
-                    background: hasTrim
-                      ? 'rgba(6, 182, 212, 0.2)'
-                      : 'rgba(255, 255, 255, 0.05)',
-                    border: hasTrim
-                      ? '1px solid rgba(6, 182, 212, 0.5)'
-                      : '1px solid rgba(255, 255, 255, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: hasTrim ? 'var(--accent-cyan)' : 'var(--text-dim)',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-                    e.currentTarget.style.color = 'var(--accent-cyan)';
-                    e.currentTarget.style.background = 'rgba(6, 182, 212, 0.18)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = hasTrim ? 'rgba(6, 182, 212, 0.5)' : 'rgba(255, 255, 255, 0.12)';
-                    e.currentTarget.style.color = hasTrim ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.05)';
-                  }}
+                  className={`queue-trim-btn ${hasTrim ? 'has-trim' : ''}`}
                 >
                   <Scissors size={16} />
                 </button>

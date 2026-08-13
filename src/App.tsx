@@ -12,6 +12,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ImageConfig, StreamCompatibilityResult, TrimConfig, TrimPreset } from './types/media';
 import { VideoTrimmer } from './components/VideoTrimmer';
 import { StorageValidationModal } from './components/trimmer/StorageValidationModal';
+import { FileLoadingOverlay, FileLoadingState } from './components/FileLoadingOverlay';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
 import { Download, AlertCircle, X, AlertTriangle } from 'lucide-react';
 
@@ -76,6 +77,12 @@ export function App() {
   const [isDownloadingDeps, setIsDownloadingDeps] = useState(false);
 
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [fileLoadingState, setFileLoadingState] = useState<FileLoadingState>({
+    isLoading: false,
+    loaded: 0,
+    total: 0,
+    currentFile: '',
+  });
   const [activeView, setActiveView] = useState<'main' | 'trimmer'>('main');
   const [trimmerFile, setTrimmerFile] = useState<FileItem | null>(null);
   const pendingPathsRef = useRef(new Set<string>());
@@ -289,6 +296,16 @@ export function App() {
       setUpdateProgress(event.payload as UpdateProgressPayload);
     });
 
+    const unlistenProbeProgress = listen('file-probe-progress', (event: any) => {
+      const payload = event.payload;
+      setFileLoadingState((prev) => ({
+        ...prev,
+        loaded: payload.loaded,
+        total: payload.total,
+        currentFile: payload.current_file,
+      }));
+    });
+
     // Automatic background update check on app launch
     invoke<UpdateInfo>('check_app_update')
       .then((info) => setUpdateInfo(info))
@@ -299,6 +316,7 @@ export function App() {
       unlistenImageProgress.then((fn) => fn());
       unlistenDownload.then((fn) => fn());
       unlistenUpdateProgress.then((fn) => fn());
+      unlistenProbeProgress.then((fn) => fn());
     };
   }, []);
 
@@ -442,72 +460,98 @@ export function App() {
       }
     }
 
-    const newItems: FileItem[] = [];
+    const totalCount = videoPaths.length + imagePaths.length;
+    const initialName = newPathsToProcess[0].split(/[\\/]/).pop() || newPathsToProcess[0];
 
-    // Probe videos via ffprobe
-    for (const p of videoPaths) {
-      try {
-        const meta: any = await invoke('probe_media_file', {
-          ffprobePath: '',
-          filePath: p,
-        });
-
-        let trimPreset: TrimPreset | null = null;
-        try {
-          trimPreset = await invoke<TrimPreset | null>('load_trim_preset', { filePath: p });
-        } catch {}
-
-        newItems.push({
-          name: meta.file_name,
-          path: normalizePath(meta.file_path || p),
-          sizeMb: meta.file_size_mb,
-          durationSec: meta.duration_sec,
-          resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
-          codec: meta.codec_name,
-          mediaKind: 'video',
-          trimStartSec: trimPreset?.start_sec,
-          trimEndSec: trimPreset?.end_sec,
-          trimFastCopy: trimPreset?.fast_copy,
-        });
-      } catch (err) {
-        const name = p.split(/[\\/]/).pop() || p;
-        newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
-      }
-    }
-
-    // Probe image batch instantly via native Rust stat (< 5ms for 3,000 files)
-    if (imagePaths.length > 0) {
-      try {
-        const batchMeta: any[] = await invoke('probe_image_batch', { filePaths: imagePaths });
-        for (const meta of batchMeta) {
-          newItems.push({
-            name: meta.file_name,
-            path: normalizePath(meta.file_path),
-            sizeMb: meta.file_size_mb,
-            mediaKind: 'image',
-            resolution: meta.width > 0 && meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
-          });
-        }
-      } catch (err) {
-        for (const p of imagePaths) {
-          const name = p.split(/[\\/]/).pop() || p;
-          newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
-        }
-      }
-    }
-
-    setFiles((prev) => {
-      const currentKeys = new Set(prev.map((f) => canonicalPathKey(f.path)));
-      const filteredNew = newItems.filter((item) => !currentKeys.has(canonicalPathKey(item.path)));
-      // Expand from the fixed startup window (560×440) to the full working
-      // window (980×700) exactly once — when the very first file is added.
-      if (prev.length === 0 && filteredNew.length > 0) {
-        invoke('expand_to_working_window').catch((err) =>
-          console.error('Failed to expand to working window:', err)
-        );
-      }
-      return [...prev, ...filteredNew];
+    setFileLoadingState({
+      isLoading: true,
+      loaded: 0,
+      total: totalCount,
+      currentFile: initialName,
     });
+
+    try {
+      const newItems: FileItem[] = [];
+
+      // Probe video batch via multi-threaded Rust probe
+      if (videoPaths.length > 0) {
+        try {
+          const batchMeta: any[] = await invoke('probe_video_batch', {
+            ffprobePath: '',
+            filePaths: videoPaths,
+          });
+
+          for (let i = 0; i < videoPaths.length; i++) {
+            const p = videoPaths[i];
+            const meta = batchMeta[i];
+            if (meta) {
+              let trimPreset: TrimPreset | null = null;
+              try {
+                trimPreset = await invoke<TrimPreset | null>('load_trim_preset', { filePath: p });
+              } catch {}
+
+              newItems.push({
+                name: meta.file_name,
+                path: normalizePath(meta.file_path || p),
+                sizeMb: meta.file_size_mb,
+                durationSec: meta.duration_sec,
+                resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+                codec: meta.codec_name,
+                mediaKind: 'video',
+                trimStartSec: trimPreset?.start_sec,
+                trimEndSec: trimPreset?.end_sec,
+                trimFastCopy: trimPreset?.fast_copy,
+              });
+            } else {
+              const name = p.split(/[\\/]/).pop() || p;
+              newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+            }
+          }
+        } catch (err) {
+          console.error('Failed batch video probe, falling back:', err);
+          for (const p of videoPaths) {
+            const name = p.split(/[\\/]/).pop() || p;
+            newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+          }
+        }
+      }
+
+      // Probe image batch instantly via native Rust stat
+      if (imagePaths.length > 0) {
+        try {
+          const batchMeta: any[] = await invoke('probe_image_batch', { filePaths: imagePaths });
+          for (const meta of batchMeta) {
+            newItems.push({
+              name: meta.file_name,
+              path: normalizePath(meta.file_path),
+              sizeMb: meta.file_size_mb,
+              mediaKind: 'image',
+              resolution: meta.width > 0 && meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+            });
+          }
+        } catch (err) {
+          for (const p of imagePaths) {
+            const name = p.split(/[\\/]/).pop() || p;
+            newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
+          }
+        }
+      }
+
+      setFiles((prev) => {
+        const currentKeys = new Set(prev.map((f) => canonicalPathKey(f.path)));
+        const filteredNew = newItems.filter((item) => !currentKeys.has(canonicalPathKey(item.path)));
+        // Expand from the fixed startup window (560×440) to the full working
+        // window (980×700) exactly once — when the very first file is added.
+        if (prev.length === 0 && filteredNew.length > 0) {
+          invoke('expand_to_working_window').catch((err) =>
+            console.error('Failed to expand to working window:', err)
+          );
+        }
+        return [...prev, ...filteredNew];
+      });
+    } finally {
+      setFileLoadingState({ isLoading: false, loaded: 0, total: 0, currentFile: '' });
+    }
   };
 
   const handleDownloadDependencies = async (
@@ -1203,6 +1247,9 @@ export function App() {
           setIsSettingsOpen(true);
         }}
       />
+
+      {/* Visual File Loading / Probing Overlay Banner */}
+      <FileLoadingOverlay loadingState={fileLoadingState} hasExistingFiles={files.length > 0} />
 
       {/* Validation Error Banner (Single Media Rule Violation) */}
       {validationError && (

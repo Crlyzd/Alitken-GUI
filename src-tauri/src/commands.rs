@@ -8,7 +8,8 @@ use crate::image::{self, ImageConversionConfig};
 use crate::updater::{self, UpdateInfo};
 use crate::utils;
 use crate::win_integration::{self, IntegrationStatus};
-use tauri::AppHandle;
+use serde::Serialize;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 pub fn check_app_dependencies() -> DependencyStatus {
@@ -120,6 +121,75 @@ pub async fn probe_media_file(ffprobe_path: String, file_path: String) -> Result
     };
 
     ffmpeg::probe_file(&path, &file_path).await
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProbeBatchProgress {
+    pub loaded: usize,
+    pub total: usize,
+    pub current_file: String,
+}
+
+#[tauri::command]
+pub async fn probe_video_batch<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    ffprobe_path: String,
+    file_paths: Vec<String>,
+) -> Vec<Option<MediaMetadata>> {
+    let probe_path = if ffprobe_path.is_empty() {
+        dependencies::check_dependencies().ffprobe_path
+    } else {
+        ffprobe_path
+    };
+
+    let total = file_paths.len();
+    if total == 0 {
+        return vec![];
+    }
+
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+    let probe_path_arc = std::sync::Arc::new(probe_path);
+    let loaded_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+    let mut set = tokio::task::JoinSet::new();
+
+    for (index, file_path) in file_paths.into_iter().enumerate() {
+        let sem = semaphore.clone();
+        let p_path = probe_path_arc.clone();
+        let app_handle = app.clone();
+        let counter = loaded_counter.clone();
+
+        set.spawn(async move {
+            let _permit = sem.acquire().await;
+            let result = ffmpeg::probe_file(&p_path, &file_path).await.ok();
+
+            let loaded = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            let current_file = std::path::Path::new(&file_path)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| file_path.clone());
+
+            let _ = app_handle.emit(
+                "file-probe-progress",
+                ProbeBatchProgress {
+                    loaded,
+                    total,
+                    current_file,
+                },
+            );
+
+            (index, result)
+        });
+    }
+
+    let mut results = vec![None; total];
+    while let Some(res) = set.join_next().await {
+        if let Ok((index, meta)) = res {
+            results[index] = meta;
+        }
+    }
+
+    results
 }
 
 #[tauri::command]

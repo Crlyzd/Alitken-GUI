@@ -170,12 +170,11 @@ export function App() {
     setStorageModalState
   );
 
-  // Stream compatibility check for Combine mode (Lossless)
+  // Stream compatibility check for Combine mode
   useEffect(() => {
     if (
       currentMediaType === 'video' &&
       videoConfig.videoAction === 'COMBINE' &&
-      videoConfig.combineFastCopy &&
       files.length >= 2
     ) {
       let cancelled = false;
@@ -185,6 +184,9 @@ export function App() {
         .then((res) => {
           if (!cancelled) {
             setStreamCompatibility(res);
+            if (!res.is_compatible && videoConfig.combineFastCopy) {
+              setVideoConfig((prev) => ({ ...prev, combineFastCopy: false }));
+            }
             setIsCheckingCompatibility(false);
           }
         })
@@ -195,6 +197,9 @@ export function App() {
               is_compatible: false,
               reason: `Stream compatibility error: ${err}`,
             });
+            if (videoConfig.combineFastCopy) {
+              setVideoConfig((prev) => ({ ...prev, combineFastCopy: false }));
+            }
             setIsCheckingCompatibility(false);
           }
         });
@@ -207,6 +212,17 @@ export function App() {
       setIsCheckingCompatibility(false);
     }
   }, [currentMediaType, videoConfig.videoAction, videoConfig.combineFastCopy, files]);
+
+  // Auto-switch out of COMBINE mode if queue file count drops to 1 video
+  useEffect(() => {
+    if (
+      currentMediaType === 'video' &&
+      videoConfig.videoAction === 'COMBINE' &&
+      files.length === 1
+    ) {
+      setVideoConfig((prev) => ({ ...prev, videoAction: 'CONVERT' }));
+    }
+  }, [currentMediaType, videoConfig.videoAction, files.length]);
 
   // Disable right-click context menu in production builds only.
   useEffect(() => {

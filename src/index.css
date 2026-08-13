@@ -67,6 +67,10 @@
   --btn-danger-text: #fb7185;
   --btn-danger-border: rgba(244, 63, 94, 0.3);
 
+  --btn-disabled-bg: rgba(148, 163, 184, 0.12);
+  --btn-disabled-text: #64748b;
+  --btn-disabled-border: rgba(148, 163, 184, 0.25);
+
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
@@ -107,6 +111,10 @@
   --btn-danger-bg: rgba(225, 29, 72, 0.1);
   --btn-danger-text: #be123c;
   --btn-danger-border: rgba(225, 29, 72, 0.3);
+
+  --btn-disabled-bg: rgba(203, 213, 225, 0.65);
+  --btn-disabled-text: #64748b;
+  --btn-disabled-border: rgba(148, 163, 184, 0.4);
 
   --text-main: #0f172a;
   --text-muted: #334155;

@@ -291,7 +291,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   streamCompatibility={streamCompatibility}
                   isCheckingCompatibility={isCheckingCompatibility}
                   fileCount={fileCount}
-                  isCombineMismatch={isCombineMismatch}
                 />
               )}
 
@@ -387,88 +386,72 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
               {/* ACTION BUTTON (CTA) */}
               <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
-                <button
-                  type="button"
-                  onClick={isTrimmerMode ? onStartTrim || onStart : onStart}
-                  disabled={
-                    disabled ||
-                    isCombineMismatch ||
-                    (!isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2) ||
-                    (!isTrimmerMode && config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
-                  }
-                  title={
-                    !isTrimmerMode && isCombineMismatch
-                      ? 'Streams differ — switch to Re-encode or fix files'
-                      : !isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2
-                      ? 'Add at least 2 videos to combine'
-                      : undefined
-                  }
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background:
-                      disabled ||
-                      isCombineMismatch ||
-                      (config.videoAction === 'COMBINE' && fileCount < 2) ||
-                      (config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
-                        ? 'var(--input-bg)'
+              {(() => {
+                const isActionDisabled =
+                  disabled ||
+                  isCombineMismatch ||
+                  (!isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2) ||
+                  (!isTrimmerMode && config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0);
+
+                return (
+                  <button
+                    type="button"
+                    onClick={isTrimmerMode ? onStartTrim || onStart : onStart}
+                    disabled={isActionDisabled}
+                    title={
+                      !isTrimmerMode && isCombineMismatch
+                        ? 'Lossless Copy is enabled but streams differ. Uncheck Lossless Copy to transcode and combine.'
+                        : !isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2
+                        ? 'Add at least 2 videos to combine'
+                        : undefined
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: isActionDisabled ? '1px solid var(--btn-disabled-border)' : 'none',
+                      background: isActionDisabled
+                        ? 'var(--btn-disabled-bg)'
                         : 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-                    color:
-                      disabled ||
-                      isCombineMismatch ||
-                      (config.videoAction === 'COMBINE' && fileCount < 2) ||
-                      (config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
-                        ? 'var(--text-dim)'
-                        : '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor:
-                      disabled ||
-                      isCombineMismatch ||
-                      (config.videoAction === 'COMBINE' && fileCount < 2) ||
-                      (config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
-                        ? 'not-allowed'
-                        : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow:
-                      disabled ||
-                      isCombineMismatch ||
-                      (config.videoAction === 'COMBINE' && fileCount < 2) ||
-                      (config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
-                        ? 'none'
-                        : '0 6px 24px rgba(99, 102, 241, 0.45)',
-                    transition: 'all 0.2s ease',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {isTrimmerMode ? (
-                    <>
-                      <Scissors size={16} /> EXPORT TRIMMED CLIP
-                    </>
-                  ) : config.videoAction === 'COMBINE' ? (
-                    <>
-                      <Link2 size={16} /> START COMBINE
-                    </>
-                  ) : config.videoAction === 'EXTRACT_FRAMES' ? (
-                    <>
-                      <Image size={16} /> EXTRACT ALL FRAMES
-                    </>
-                  ) : config.videoAction === 'SPLIT' ? (
-                    <>
-                      <Scissors size={16} /> START SPLIT
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={16} /> START CONVERT
-                    </>
-                  )}
-                </button>
+                      color: isActionDisabled ? 'var(--btn-disabled-text)' : '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      cursor: isActionDisabled ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: isActionDisabled ? 0.7 : 1,
+                      boxShadow: isActionDisabled ? 'none' : '0 6px 24px rgba(99, 102, 241, 0.45)',
+                      transition: 'all 0.2s ease',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    {isTrimmerMode ? (
+                      <>
+                        <Scissors size={16} /> EXPORT TRIMMED CLIP
+                      </>
+                    ) : config.videoAction === 'COMBINE' ? (
+                      <>
+                        <Link2 size={16} /> START COMBINE
+                      </>
+                    ) : config.videoAction === 'EXTRACT_FRAMES' ? (
+                      <>
+                        <Image size={16} /> EXTRACT ALL FRAMES
+                      </>
+                    ) : config.videoAction === 'SPLIT' ? (
+                      <>
+                        <Scissors size={16} /> START SPLIT
+                      </>
+                    ) : (
+                      <>
+                        <Zap size={16} /> START CONVERT
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
               </div>
               {/* Natural empty space at the bottom to prevent CTA button clipping and allow scrolling past */}
               <div style={{ height: '20px', flexShrink: 0 }} />

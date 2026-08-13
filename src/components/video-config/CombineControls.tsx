@@ -9,7 +9,6 @@ interface CombineControlsProps {
   streamCompatibility?: StreamCompatibilityResult | null;
   isCheckingCompatibility?: boolean;
   fileCount: number;
-  isCombineMismatch: boolean;
 }
 
 export const CombineControls: React.FC<CombineControlsProps> = ({
@@ -18,8 +17,9 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
   streamCompatibility,
   isCheckingCompatibility = false,
   fileCount,
-  isCombineMismatch,
 }) => {
+  const isStreamIncompatible = !!streamCompatibility && !streamCompatibility.is_compatible;
+
   return (
     <div
       style={{
@@ -37,15 +37,21 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          cursor: 'pointer',
+          cursor: isStreamIncompatible ? 'not-allowed' : 'pointer',
           userSelect: 'none',
+          opacity: isStreamIncompatible ? 0.6 : 1,
         }}
+        title={
+          isStreamIncompatible
+            ? 'Lossless Copy is disabled because input streams differ (codecs or resolutions mismatch).'
+            : undefined
+        }
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Zap
             size={16}
             style={{
-              color: config.combineFastCopy ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              color: config.combineFastCopy && !isStreamIncompatible ? 'var(--accent-cyan)' : 'var(--text-muted)',
               flexShrink: 0,
             }}
           />
@@ -54,25 +60,28 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
               Lossless Fast Concat
             </div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Instant stream copy with 0% quality loss (-c copy)
+              {isStreamIncompatible
+                ? 'Unavailable for mismatched streams (-c copy requires identical streams)'
+                : 'Instant stream copy with 0% quality loss (-c copy)'}
             </div>
           </div>
         </div>
         <input
           type="checkbox"
-          checked={config.combineFastCopy}
+          checked={config.combineFastCopy && !isStreamIncompatible}
+          disabled={isStreamIncompatible}
           onChange={(e) => onChange({ combineFastCopy: e.target.checked })}
           style={{
             width: '16px',
             height: '16px',
             accentColor: 'var(--accent-cyan)',
-            cursor: 'pointer',
+            cursor: isStreamIncompatible ? 'not-allowed' : 'pointer',
           }}
         />
       </label>
 
       {/* Stream Mismatch Warning Card */}
-      {isCombineMismatch && (
+      {isStreamIncompatible && (
         <div
           style={{
             padding: '10px 12px',
@@ -96,7 +105,7 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
       )}
 
       {/* Permanent Stream Compatibility Status Line */}
-      {config.combineFastCopy && (() => {
+      {(() => {
         let statusColor = 'var(--text-muted)';
         let statusIcon = <Link2 size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />;
         let statusText = 'Add 2+ videos to check compatibility';
@@ -111,10 +120,10 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           statusColor = 'var(--accent-emerald)';
           statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
           statusText = 'Streams Compatible (Lossless Ready)';
-        } else if (streamCompatibility && !streamCompatibility.is_compatible) {
+        } else if (isStreamIncompatible) {
           statusColor = 'var(--accent-rose)';
           statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)' }} />;
-          statusText = 'Streams Incompatible (Will Re-encode)';
+          statusText = 'Streams Incompatible';
         }
 
         return (

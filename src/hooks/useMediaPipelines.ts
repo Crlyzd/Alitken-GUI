@@ -91,7 +91,11 @@ export function useMediaPipelines(
         await invoke('start_combine_video_pipeline', {
           config: {
             video_files: files.map((f) => f.path),
-            video_items: null,
+            video_items: files.map((f) => ({
+              path: f.path,
+              trim_start_sec: f.trimStartSec ?? null,
+              trim_end_sec: f.trimEndSec ?? null,
+            })),
             video_action: 'COMBINE',
             split_mode: 'DURATION',
             split_value: 0,

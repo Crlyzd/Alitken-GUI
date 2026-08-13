@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -9,11 +9,11 @@ import { ConfigPanel, ConfigState } from './components/ConfigPanel';
 import { ProgressModal, ProgressState } from './components/ProgressModal';
 import { AboutModal, UpdateInfo, UpdateProgressPayload } from './components/AboutModal';
 import { SettingsModal } from './components/SettingsModal';
-import { ImageConfig, TrimConfig, TrimPreset } from './types/media';
+import { ImageConfig, StreamCompatibilityResult, TrimConfig, TrimPreset } from './types/media';
 import { VideoTrimmer } from './components/VideoTrimmer';
 import { StorageValidationModal } from './components/trimmer/StorageValidationModal';
 import { getFileKind, validateSingleMediaBatch } from './utils/mediaType';
-import { Download, AlertCircle, X } from 'lucide-react';
+import { Download, AlertCircle, X, AlertTriangle } from 'lucide-react';
 
 export function normalizePath(p: string): string {
   if (!p) return '';
@@ -90,11 +90,21 @@ export function App() {
     splitMode: 'DURATION',
     splitValue: 0,
     splitFastCopy: false,
+    combineFastCopy: true,
+    combineOutputName: 'combined_output',
+    frameOutputFormat: 'PNG',
+    frameRate: 'MAX',
+    frameQuality: 85,
     targetHeight: 'ORIGINAL',
     targetBitrate: 'ORIGINAL',
     codecChoice: '1',
     outputDir: null,
   });
+
+  const [streamCompatibility, setStreamCompatibility] = useState<StreamCompatibilityResult | null>(null);
+  const [isCheckingCompatibility, setIsCheckingCompatibility] = useState(false);
+  const [largeFrameWarningOpen, setLargeFrameWarningOpen] = useState(false);
+  const [pendingFrameExtract, setPendingFrameExtract] = useState<(() => Promise<void>) | null>(null);
 
   const [imageConfig, setImageConfig] = useState<ImageConfig>({
     outputFormat: 'JPG',
@@ -137,6 +147,57 @@ export function App() {
   useEffect(() => {
     videoConfigRef.current = videoConfig;
   }, [videoConfig]);
+
+  // Stream compatibility check for Combine mode (Lossless)
+  useEffect(() => {
+    if (
+      currentMediaType === 'video' &&
+      videoConfig.videoAction === 'COMBINE' &&
+      videoConfig.combineFastCopy &&
+      files.length >= 2
+    ) {
+      let cancelled = false;
+      setIsCheckingCompatibility(true);
+      const filePaths = files.map((f) => f.path);
+      invoke<StreamCompatibilityResult>('check_stream_compatibility', { filePaths })
+        .then((res) => {
+          if (!cancelled) {
+            setStreamCompatibility(res);
+            setIsCheckingCompatibility(false);
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            console.error('Failed to check stream compatibility:', err);
+            setStreamCompatibility({
+              is_compatible: false,
+              reason: `Stream compatibility error: ${err}`,
+            });
+            setIsCheckingCompatibility(false);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setStreamCompatibility(null);
+      setIsCheckingCompatibility(false);
+    }
+  }, [currentMediaType, videoConfig.videoAction, videoConfig.combineFastCopy, files]);
+
+  // Estimated frames count across queue
+  const estimatedFramesCount = useMemo(() => {
+    if (currentMediaType !== 'video' || files.length === 0) return 0;
+    const effectiveFps =
+      videoConfig.frameRate === 'MAX'
+        ? 30
+        : parseInt(videoConfig.frameRate, 10) || 30;
+    return files.reduce((sum, f) => {
+      const dur = f.durationSec || 0;
+      return sum + Math.round(dur * effectiveFps);
+    }, 0);
+  }, [currentMediaType, files, videoConfig.frameRate]);
 
   // Disable right-click context menu in production builds only.
   // This MUST be its own useEffect — if merged with the listener useEffect below,
@@ -517,6 +578,167 @@ export function App() {
       return;
     }
 
+    // Stream compatibility check for Combine mode (Lossless)
+    if (
+      currentMediaType === 'video' &&
+      videoConfig.videoAction === 'COMBINE' &&
+      videoConfig.combineFastCopy &&
+      streamCompatibility &&
+      !streamCompatibility.is_compatible
+    ) {
+      setValidationError(
+        'Cannot combine files losslessly due to stream mismatch. Please switch off "Lossless Copy" or fix input files.'
+      );
+      return;
+    }
+
+    // Branch 1: COMBINE QUEUE VIDEOS
+    if (videoConfig.videoAction === 'COMBINE') {
+      if (files.length < 2) {
+        setValidationError('At least 2 video files are required to combine.');
+        return;
+      }
+
+      setProgress({
+        isProcessing: true,
+        isSingleOutput: true,
+        currentFile: `${videoConfig.combineOutputName || 'combined_output'}.mp4`,
+        fileIndex: 1,
+        totalFiles: 1,
+        percent: 0,
+        currentPart: 1,
+        totalParts: 1,
+        status: videoConfig.combineFastCopy
+          ? 'Combining videos via lossless stream copy...'
+          : 'Combining and re-encoding videos with hardware acceleration...',
+        completed: false,
+      });
+
+      try {
+        await invoke('start_combine_video_pipeline', {
+          config: {
+            video_files: files.map((f) => f.path),
+            video_items: null,
+            video_action: 'COMBINE',
+            split_mode: 'DURATION',
+            split_value: 0,
+            split_fast_copy: false,
+            combine_output_name: videoConfig.combineOutputName || 'combined_output',
+            combine_fast_copy: videoConfig.combineFastCopy,
+            target_height: videoConfig.targetHeight || 'ORIGINAL',
+            target_bitrate: videoConfig.targetBitrate || 'ORIGINAL',
+            codec_choice: videoConfig.codecChoice,
+            custom_output_dir: videoConfig.outputDir || null,
+          },
+        });
+
+        setProgress((prev) => ({
+          ...prev,
+          isProcessing: false,
+          percent: 100,
+          completed: true,
+          status: 'All queued videos combined successfully!',
+        }));
+      } catch (err: any) {
+        setProgress((prev) => ({
+          ...prev,
+          isProcessing: false,
+          error: err.toString(),
+        }));
+      }
+      return;
+    }
+
+    // Branch 2: EXTRACT ALL FRAMES
+    if (videoConfig.videoAction === 'EXTRACT_FRAMES') {
+      const executeFrameExtraction = async () => {
+        // Disk space pre-check validation
+        const bytesPerFrame =
+          videoConfig.frameOutputFormat === 'PNG'
+            ? 1500000
+            : videoConfig.frameOutputFormat === 'WEBP'
+            ? 300000
+            : 200000;
+
+        try {
+          const res = await invoke<{
+            status: 'HardFailure' | 'LowStorageWarning' | 'CleanPass';
+            free_space_bytes: number;
+            required_space_bytes: number;
+          }>('validate_extraction_storage', {
+            outputDir: videoConfig.outputDir || null,
+            estimatedFrameCount: estimatedFramesCount,
+            bytesPerFrame,
+          });
+
+          if (res.status === 'HardFailure') {
+            setStorageModalState({
+              isOpen: true,
+              status: 'HardFailure',
+              freeBytes: res.free_space_bytes,
+              requiredBytes: res.required_space_bytes,
+              fileSizeBytes: res.required_space_bytes,
+              pendingFile: null,
+            });
+            return;
+          }
+        } catch (e) {
+          console.warn('Storage pre-check skipped:', e);
+        }
+
+        setProgress({
+          isProcessing: true,
+          isSingleOutput: false,
+          currentFile: files[0].name,
+          fileIndex: 1,
+          totalFiles: files.length,
+          percent: 0,
+          currentPart: 1,
+          totalParts: 1,
+          status: `Extracting frames from ${files.length} video(s)...`,
+          completed: false,
+        });
+
+        try {
+          await invoke('start_extract_frames_pipeline', {
+            config: {
+              video_files: files.map((f) => f.path),
+              output_format: videoConfig.frameOutputFormat,
+              frame_rate: videoConfig.frameRate,
+              quality:
+                videoConfig.frameOutputFormat !== 'PNG' ? videoConfig.frameQuality : null,
+              custom_output_dir: videoConfig.outputDir || null,
+            },
+          });
+
+          setProgress((prev) => ({
+            ...prev,
+            isProcessing: false,
+            percent: 100,
+            completed: true,
+            status: 'Frame extraction completed successfully! Check the _frames/ subfolders.',
+          }));
+        } catch (err: any) {
+          setProgress((prev) => ({
+            ...prev,
+            isProcessing: false,
+            error: err.toString(),
+          }));
+        }
+      };
+
+      // If estimated frames count > 10,000, prompt the user with a confirmation modal first
+      if (estimatedFramesCount > 10000) {
+        setPendingFrameExtract(() => executeFrameExtraction);
+        setLargeFrameWarningOpen(true);
+        return;
+      }
+
+      await executeFrameExtraction();
+      return;
+    }
+
+    // Branch 3: STANDARD TRANSCODE & SPLIT
     setProgress({
       isProcessing: true,
       currentFile: files[0].name,
@@ -1209,6 +1431,9 @@ export function App() {
             disabled={files.length === 0 || progress.isProcessing}
             fileCount={files.length}
             onOpenDestination={handleOpenDestination}
+            streamCompatibility={streamCompatibility}
+            isCheckingCompatibility={isCheckingCompatibility}
+            estimatedFramesCount={estimatedFramesCount}
           />
         </div>
       )}
@@ -1263,6 +1488,105 @@ export function App() {
           setStorageModalState((prev) => ({ ...prev, isOpen: false, pendingFile: null }));
         }}
       />
+
+      {/* Large Frame Extraction Confirmation Modal */}
+      {largeFrameWarningOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '420px',
+              padding: '24px',
+              borderRadius: '16px',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              background: 'var(--bg-glass-card)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertTriangle size={24} color="#f59e0b" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
+                  Large Frame Extraction
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  High disk usage warning
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+              This operation will extract approximately{' '}
+              <strong style={{ color: '#fcd34d' }}>
+                ~{estimatedFramesCount.toLocaleString()} frames
+              </strong>{' '}
+              across {files.length} video(s). Please make sure you have sufficient storage space.
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLargeFrameWarningOpen(false);
+                  setPendingFrameExtract(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-glass)',
+                  background: 'var(--input-bg)',
+                  color: 'var(--text-muted)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const run = pendingFrameExtract;
+                  setLargeFrameWarningOpen(false);
+                  setPendingFrameExtract(null);
+                  if (run) {
+                    run();
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(245, 158, 11, 0.4)',
+                }}
+              >
+                Extract Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

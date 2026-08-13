@@ -114,4 +114,18 @@ export interface CacheInfo {
   preserved_active_files?: number;
 }
 
+export interface StreamCompatibilityResult {
+  is_compatible: boolean;
+  reason: string;
+}
+
+export interface ExtractFramesPayload {
+  video_files: string[];
+  output_format: 'PNG' | 'JPEG' | 'WEBP';
+  frame_rate: string;
+  quality: number | null;
+  custom_output_dir: string | null;
+}
+
+
 

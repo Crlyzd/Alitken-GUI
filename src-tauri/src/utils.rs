@@ -426,6 +426,23 @@ pub fn resolve_unique_split_dir(parent: &Path, stem: &str) -> PathBuf {
     }
 }
 
+/// For bulk frame extraction: returns a unique `<video_stem>_frames/` sub-folder path.
+/// E.g. `parent/MyVideo_frames/`, `parent/MyVideo_frames_1/`, etc.
+pub fn resolve_unique_frames_dir(parent: &Path, stem: &str) -> PathBuf {
+    let first = parent.join(format!("{}_frames", stem));
+    if !first.exists() {
+        return first;
+    }
+    let mut counter = 1u32;
+    loop {
+        let candidate = parent.join(format!("{}_frames_{}", stem, counter));
+        if !candidate.exists() {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
 /// For video split with a **custom output dir chosen by the user**.
 /// Files must stay flat inside that folder (no nested sub-dirs).
 /// Returns a deconflicted stem prefix to plug into FFmpeg's `%03d` pattern.

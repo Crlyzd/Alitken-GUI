@@ -1,7 +1,10 @@
 use super::process::execute_ffmpeg_process;
 use super::probe::probe_file;
-use super::types::{ConversionConfig, TrimConfig};
-use crate::utils::{log_error, log_info, resolve_conflict_path, resolve_unique_split_dir, resolve_unique_split_stem};
+use super::types::{ConversionConfig, ExtractFramesConfig, StreamCompatibilityResult, TrimConfig};
+use crate::utils::{
+    log_error, log_info, resolve_conflict_path, resolve_unique_frames_dir, resolve_unique_split_dir,
+    resolve_unique_split_stem,
+};
 use std::path::{Path, PathBuf};
 
 
@@ -1063,4 +1066,450 @@ pub async fn extract_ffmpeg_filmstrip(
     }
     Ok(results)
 }
+
+/// Pre-flight stream compatibility check for lossless video combination.
+/// Validates that all queued video files share matching codecs, resolutions, pixel formats, and audio presence.
+pub async fn check_stream_compatibility(
+    ffprobe_path: &str,
+    file_paths: &[String],
+) -> Result<StreamCompatibilityResult, String> {
+    if file_paths.len() < 2 {
+        return Ok(StreamCompatibilityResult {
+            is_compatible: true,
+            reason: String::new(),
+        });
+    }
+
+    struct StreamInfo {
+        file_name: String,
+        v_codec: String,
+        width: u32,
+        height: u32,
+        pix_fmt: String,
+        fps_num: u64,
+        fps_den: u64,
+        has_audio: bool,
+        a_codec: String,
+    }
+
+    let mut first_info: Option<StreamInfo> = None;
+
+    for path_str in file_paths {
+        let path = Path::new(path_str);
+        if !path.exists() {
+            return Ok(StreamCompatibilityResult {
+                is_compatible: false,
+                reason: format!("File not found: '{}'", path_str),
+            });
+        }
+
+        let output = crate::utils::create_tokio_hidden_cmd(ffprobe_path)
+            .args([
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_streams",
+                path_str,
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("ffprobe failed to spawn: {}", e))?;
+
+        let json_str = String::from_utf8_lossy(&output.stdout);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
+
+        let mut v_codec = String::new();
+        let mut width = 0;
+        let mut height = 0;
+        let mut pix_fmt = String::new();
+        let mut fps_num = 0;
+        let mut fps_den = 1;
+        let mut has_audio = false;
+        let mut a_codec = String::new();
+
+        if let Some(streams) = parsed["streams"].as_array() {
+            for stream in streams {
+                let codec_type = stream["codec_type"].as_str().unwrap_or("");
+                if codec_type == "video" && v_codec.is_empty() {
+                    v_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
+                    width = stream["width"].as_u64().unwrap_or(0) as u32;
+                    height = stream["height"].as_u64().unwrap_or(0) as u32;
+                    pix_fmt = stream["pix_fmt"].as_str().unwrap_or("").to_string();
+                    if let Some(r_fps) = stream["r_frame_rate"].as_str() {
+                        let parts: Vec<&str> = r_fps.split('/').collect();
+                        if parts.len() == 2 {
+                            fps_num = parts[0].parse::<u64>().unwrap_or(0);
+                            fps_den = parts[1].parse::<u64>().unwrap_or(1);
+                        }
+                    }
+                } else if codec_type == "audio" && !has_audio {
+                    has_audio = true;
+                    a_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
+                }
+            }
+        }
+
+        let current = StreamInfo {
+            file_name: path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            v_codec,
+            width,
+            height,
+            pix_fmt,
+            fps_num,
+            fps_den,
+            has_audio,
+            a_codec,
+        };
+
+        if let Some(ref base) = first_info {
+            if current.v_codec != base.v_codec {
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!(
+                        "Codec mismatch: '{}' is {} while '{}' is {}. Lossless copy requires matching video codecs.",
+                        base.file_name, base.v_codec, current.file_name, current.v_codec
+                    ),
+                });
+            }
+            if current.width != base.width || current.height != base.height {
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!(
+                        "Resolution mismatch: '{}' is {}x{} while '{}' is {}x{}. Lossless copy requires identical resolution.",
+                        base.file_name, base.width, base.height, current.file_name, current.width, current.height
+                    ),
+                });
+            }
+            if current.pix_fmt != base.pix_fmt && !current.pix_fmt.is_empty() && !base.pix_fmt.is_empty() {
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!(
+                        "Pixel format mismatch: '{}' is {} while '{}' is {}.",
+                        base.file_name, base.pix_fmt, current.file_name, current.pix_fmt
+                    ),
+                });
+            }
+            if base.fps_den > 0 && current.fps_den > 0 {
+                let fps1 = base.fps_num as f64 / base.fps_den as f64;
+                let fps2 = current.fps_num as f64 / current.fps_den as f64;
+                if (fps1 - fps2).abs() > 0.05 {
+                    return Ok(StreamCompatibilityResult {
+                        is_compatible: false,
+                        reason: format!(
+                            "Frame rate mismatch: '{}' is {:.2} fps while '{}' is {:.2} fps.",
+                            base.file_name, fps1, current.file_name, fps2
+                        ),
+                    });
+                }
+            }
+            if current.has_audio != base.has_audio {
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!(
+                        "Audio stream mismatch: '{}' has {} audio while '{}' has {} audio track. Lossless copy requires consistent audio tracks.",
+                        base.file_name,
+                        if base.has_audio { "an" } else { "no" },
+                        current.file_name,
+                        if current.has_audio { "an" } else { "no" }
+                    ),
+                });
+            }
+            if base.has_audio && current.has_audio && base.a_codec != current.a_codec {
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!(
+                        "Audio codec mismatch: '{}' is {} while '{}' is {}.",
+                        base.file_name, base.a_codec, current.file_name, current.a_codec
+                    ),
+                });
+            }
+        } else {
+            first_info = Some(current);
+        }
+    }
+
+    Ok(StreamCompatibilityResult {
+        is_compatible: true,
+        reason: String::new(),
+    })
+}
+
+/// Concatenates all queued video files into a single output file using FFmpeg's concat demuxer (lossless) or re-encoding.
+pub async fn run_combine_pipeline<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    ffmpeg_path: &str,
+    ffprobe_path: &str,
+    config: ConversionConfig,
+    gpu_caps: crate::gpu::GpuCapability,
+) -> Result<(), String> {
+    if config.video_files.len() < 2 {
+        return Err("At least 2 video files are required to combine.".to_string());
+    }
+
+    crate::utils::reset_cancel_flag();
+
+    // 1. Probe all files to compute total combined duration and ensure validity
+    let mut total_duration_sec = 0.0;
+    for file_path in &config.video_files {
+        if !Path::new(file_path).exists() {
+            return Err(format!("Input video file not found: '{}'", file_path));
+        }
+        let meta = probe_file(ffprobe_path, file_path).await?;
+        total_duration_sec += meta.duration_sec;
+    }
+
+    // 2. Build temporary concat.txt file
+    let timestamp_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let temp_dir = std::env::temp_dir();
+    let concat_file_path = temp_dir.join(format!("alitken_concat_{}.txt", timestamp_nanos));
+    {
+        let mut file = std::fs::File::create(&concat_file_path)
+            .map_err(|e| format!("Failed to create temporary concat list: {}", e))?;
+        use std::io::Write;
+        for path_str in &config.video_files {
+            // Escape single quotes for ffmpeg concat demuxer: ' -> '\''
+            let safe_path = path_str.replace('\'', "'\\''");
+            writeln!(file, "file '{}'", safe_path)
+                .map_err(|e| format!("Failed to write to concat list: {}", e))?;
+        }
+    }
+
+    // 3. Resolve destination output path
+    let first_path = Path::new(&config.video_files[0]);
+    let parent_dir = if let Some(ref custom_dir) = config.custom_output_dir {
+        PathBuf::from(custom_dir)
+    } else {
+        first_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+    };
+    let _ = std::fs::create_dir_all(&parent_dir);
+
+    let raw_stem = config
+        .combine_output_name
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("combined_output");
+    let ext = first_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("mp4");
+    let initial_output = parent_dir.join(format!("{}.{}", raw_stem, ext));
+    let final_output = resolve_conflict_path(initial_output);
+
+    let is_fast_copy = config.combine_fast_copy.unwrap_or(true);
+    let output_str = final_output.to_string_lossy().to_string();
+
+    log_info(&format!(
+        "Starting combine pipeline: fast_copy={}, output='{}', total_duration={:.2}s",
+        is_fast_copy, output_str, total_duration_sec
+    ));
+
+    let mut args: Vec<String> = vec![
+        "-hide_banner".to_string(),
+        "-f".to_string(),
+        "concat".to_string(),
+        "-safe".to_string(),
+        "0".to_string(),
+        "-i".to_string(),
+        concat_file_path.to_string_lossy().to_string(),
+    ];
+
+    if is_fast_copy {
+        args.push("-c".to_string());
+        args.push("copy".to_string());
+    } else {
+        // GPU or CPU re-encode
+        args.push("-c:v".to_string());
+        args.push(gpu_caps.encoder.clone());
+
+        for arg in gpu_caps.encoder_args.split_whitespace() {
+            args.push(arg.to_string());
+        }
+
+        let mut vf_filters = Vec::new();
+        if config.target_height != "ORIGINAL" {
+            vf_filters.push(format!("scale=-2:{}", config.target_height));
+        }
+        vf_filters.push("format=yuv420p".to_string());
+        args.push("-vf".to_string());
+        args.push(vf_filters.join(","));
+
+        if config.target_bitrate != "ORIGINAL" {
+            args.push("-b:v".to_string());
+            args.push(format!("{}k", config.target_bitrate));
+        }
+
+        args.push("-c:a".to_string());
+        args.push("aac".to_string());
+        args.push("-b:a".to_string());
+        args.push("192k".to_string());
+    }
+
+    args.push("-movflags".to_string());
+    args.push("+faststart".to_string());
+    args.push("-progress".to_string());
+    args.push("pipe:1".to_string());
+    args.push("-y".to_string());
+    args.push(output_str.clone());
+
+    let result = execute_ffmpeg_process(
+        app,
+        ffmpeg_path,
+        args,
+        raw_stem,
+        0,
+        1,
+        total_duration_sec,
+        1,
+    )
+    .await;
+
+    // Clean up temporary concat list
+    let _ = std::fs::remove_file(&concat_file_path);
+
+    result
+}
+
+/// Extracts all frames from each queued video into separate `<video_stem>_frames/` image directories.
+pub async fn run_extract_frames_pipeline<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    ffmpeg_path: &str,
+    ffprobe_path: &str,
+    config: ExtractFramesConfig,
+) -> Result<(), String> {
+    if config.video_files.is_empty() {
+        return Err("No video files provided for frame extraction.".to_string());
+    }
+
+    crate::utils::reset_cancel_flag();
+    let total_files = config.video_files.len();
+
+    for (file_idx, file_path) in config.video_files.iter().enumerate() {
+        if crate::utils::check_cancel_flag() {
+            return Err("Processing aborted by user.".to_string());
+        }
+
+        let input_path = Path::new(file_path);
+        if !input_path.exists() {
+            return Err(format!("Video file not found: '{}'", file_path));
+        }
+
+        let meta = probe_file(ffprobe_path, file_path).await?;
+        let parent_dir = if let Some(ref custom_dir) = config.custom_output_dir {
+            PathBuf::from(custom_dir)
+        } else {
+            input_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+        };
+
+        let file_stem = input_path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "frames".to_string());
+
+        let out_dir = resolve_unique_frames_dir(&parent_dir, &file_stem);
+        if let Err(e) = std::fs::create_dir_all(&out_dir) {
+            return Err(format!(
+                "Failed to create frame output directory {:?}: {}",
+                out_dir, e
+            ));
+        }
+
+        let format_ext = match config.output_format.to_uppercase().as_str() {
+            "JPEG" | "JPG" => "jpg",
+            "WEBP" => "webp",
+            _ => "png",
+        };
+
+        let output_pattern = out_dir
+            .join(format!("frame_%05d.{}", format_ext))
+            .to_string_lossy()
+            .to_string();
+
+        let mut args: Vec<String> = vec![
+            "-hide_banner".to_string(),
+            "-hwaccel".to_string(),
+            "auto".to_string(),
+            "-i".to_string(),
+            file_path.clone(),
+        ];
+
+        // Frame rate filter
+        match config.frame_rate.as_str() {
+            "30" => {
+                args.push("-vf".to_string());
+                args.push("fps=30".to_string());
+            }
+            "10" => {
+                args.push("-vf".to_string());
+                args.push("fps=10".to_string());
+            }
+            "5" => {
+                args.push("-vf".to_string());
+                args.push("fps=5".to_string());
+            }
+            "1" => {
+                args.push("-vf".to_string());
+                args.push("fps=1".to_string());
+            }
+            _ => {
+                // "MAX" / Every Frame
+                args.push("-vsync".to_string());
+                args.push("0".to_string());
+            }
+        }
+
+        // Quality mapping
+        let q_val = config.quality.unwrap_or(85);
+        match format_ext {
+            "png" => {
+                args.push("-compression_level".to_string());
+                args.push("2".to_string());
+            }
+            "jpg" => {
+                // Map 1..100 quality to ffmpeg JPEG q:v (2 is best, 31 is worst)
+                let q_scale =
+                    (((100.0 - q_val as f64) / 100.0 * 29.0) + 2.0).clamp(2.0, 31.0) as u32;
+                args.push("-q:v".to_string());
+                args.push(q_scale.to_string());
+            }
+            "webp" => {
+                args.push("-quality".to_string());
+                args.push(q_val.to_string());
+            }
+            _ => {}
+        }
+
+        args.push("-progress".to_string());
+        args.push("pipe:1".to_string());
+        args.push("-y".to_string());
+        args.push(output_pattern);
+
+        log_info(&format!(
+            "Extracting frames: file='{}' -> dir='{:?}', fmt={}, rate={}",
+            file_path, out_dir, format_ext, config.frame_rate
+        ));
+
+        execute_ffmpeg_process(
+            app,
+            ffmpeg_path,
+            args,
+            &file_stem,
+            file_idx,
+            total_files,
+            meta.duration_sec,
+            1,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
 

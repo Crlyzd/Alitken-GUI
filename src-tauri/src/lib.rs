@@ -66,7 +66,11 @@ pub fn run() {
             check_wmf_support,
             get_wmf_frame_preview,
             get_wmf_filmstrip,
-            validate_trimmer_storage
+            validate_trimmer_storage,
+            start_combine_video_pipeline,
+            check_stream_compatibility,
+            start_extract_frames_pipeline,
+            validate_extraction_storage
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

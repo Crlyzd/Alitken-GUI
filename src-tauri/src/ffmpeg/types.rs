@@ -25,13 +25,30 @@ pub struct VideoInputItem {
 pub struct ConversionConfig {
     pub video_files: Vec<String>,
     pub video_items: Option<Vec<VideoInputItem>>,
-    pub video_action: String, // "CONVERT" or "SPLIT"
+    pub video_action: String, // "CONVERT", "SPLIT", or "COMBINE"
     pub split_mode: String,   // "DURATION" or "PARTS"
     pub split_value: f64,
     pub split_fast_copy: bool,
+    pub combine_output_name: Option<String>,
+    pub combine_fast_copy: Option<bool>,
     pub target_height: String,  // "ORIGINAL", "1080", "720", "480", "2160"
     pub target_bitrate: String, // "ORIGINAL" or kbps e.g. "5000"
     pub codec_choice: String,   // "1"=H264, "2"=HEVC, "3"=AV1
+    pub custom_output_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamCompatibilityResult {
+    pub is_compatible: bool,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractFramesConfig {
+    pub video_files: Vec<String>,
+    pub output_format: String,  // "PNG", "JPEG", "WEBP"
+    pub frame_rate: String,     // "MAX", "1", "5", "10", "30"
+    pub quality: Option<u32>,   // 1-100 for JPEG/WEBP
     pub custom_output_dir: Option<String>,
 }
 

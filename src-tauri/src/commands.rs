@@ -1,5 +1,8 @@
 use crate::dependencies::{self, DependencyStatus};
-use crate::ffmpeg::{self, ConversionConfig, ImageToVideoConfig, MediaMetadata, TrimConfig, TrimPreset};
+use crate::ffmpeg::{
+    self, ConversionConfig, ExtractFramesConfig, ImageToVideoConfig, MediaMetadata,
+    StreamCompatibilityResult, TrimConfig, TrimPreset,
+};
 use crate::gpu::{self, GpuCapability};
 use crate::image::{self, ImageConversionConfig};
 use crate::updater::{self, UpdateInfo};
@@ -167,6 +170,56 @@ pub async fn start_video_pipeline<R: tauri::Runtime>(
 
     let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
     ffmpeg::run_video_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config, gpu_caps).await
+}
+
+#[tauri::command]
+pub async fn start_combine_video_pipeline<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    config: ConversionConfig,
+) -> Result<(), String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists || !deps.ffprobe_exists {
+        return Err("FFmpeg dependencies not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.ffmpeg_valid {
+        return Err(format!(
+            "FFmpeg version ({}) is below the required version 5.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.ffmpeg_version
+        ));
+    }
+
+    let gpu_caps = gpu::get_gpu_encoder(&config.codec_choice, &deps.ffmpeg_path);
+    ffmpeg::run_combine_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config, gpu_caps).await
+}
+
+#[tauri::command]
+pub async fn check_stream_compatibility(
+    file_paths: Vec<String>,
+) -> Result<StreamCompatibilityResult, String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffprobe_exists {
+        return Err("FFprobe dependency not found.".to_string());
+    }
+    ffmpeg::check_stream_compatibility(&deps.ffprobe_path, &file_paths).await
+}
+
+#[tauri::command]
+pub async fn start_extract_frames_pipeline<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    config: ExtractFramesConfig,
+) -> Result<(), String> {
+    let deps = dependencies::check_dependencies();
+    if !deps.ffmpeg_exists || !deps.ffprobe_exists {
+        return Err("FFmpeg dependencies not found. Please click 'Install Dependencies' in Settings.".to_string());
+    }
+    if !deps.ffmpeg_valid {
+        return Err(format!(
+            "FFmpeg version ({}) is below the required version 5.0+. Please click 'Update Dependencies' in Settings to update.",
+            deps.ffmpeg_version
+        ));
+    }
+
+    ffmpeg::run_extract_frames_pipeline(&app, &deps.ffmpeg_path, &deps.ffprobe_path, config).await
 }
 
 #[tauri::command]
@@ -579,4 +632,34 @@ pub fn validate_trimmer_storage(file_path: String, file_size_bytes: u64) -> Stor
         required_space_bytes: required_space,
     }
 }
+
+#[tauri::command]
+pub fn validate_extraction_storage(
+    output_dir: Option<String>,
+    estimated_frame_count: u64,
+    bytes_per_frame: u64,
+) -> StorageValidationResult {
+    let target_dir = output_dir
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(utils::get_temp_dir);
+    let free_space = utils::get_disk_free_space(&target_dir).unwrap_or(u64::MAX);
+    let required_space = estimated_frame_count * bytes_per_frame;
+    let ten_gb: u64 = 10 * 1024 * 1024 * 1024;
+
+    let status = if free_space < required_space {
+        "HardFailure".to_string()
+    } else if free_space < ten_gb {
+        "LowStorageWarning".to_string()
+    } else {
+        "CleanPass".to_string()
+    };
+
+    StorageValidationResult {
+        status,
+        free_space_bytes: free_space,
+        required_space_bytes: required_space,
+    }
+}
+
 

@@ -95,6 +95,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       (config.videoAction === 'COMBINE' && config.combineFastCopy);
 
   const isCombineMismatch =
+    !isTrimmerMode &&
     config.videoAction === 'COMBINE' &&
     config.combineFastCopy &&
     !!streamCompatibility &&
@@ -309,8 +310,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <SplitControls config={config} onChange={onChange} />
               )}
 
-              {/* TARGET CODEC, RESOLUTION & BITRATE (Hidden in EXTRACT_FRAMES mode) */}
-              {config.videoAction !== 'EXTRACT_FRAMES' && (
+              {/* TARGET CODEC, RESOLUTION & BITRATE (Hidden in EXTRACT_FRAMES mode unless in Trimmer Mode) */}
+              {(isTrimmerMode || config.videoAction !== 'EXTRACT_FRAMES') && (
                 <TranscodeControls
                   config={config}
                   onChange={onChange}
@@ -392,13 +393,13 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   disabled={
                     disabled ||
                     isCombineMismatch ||
-                    (config.videoAction === 'COMBINE' && fileCount < 2) ||
-                    (config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
+                    (!isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2) ||
+                    (!isTrimmerMode && config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0)
                   }
                   title={
-                    isCombineMismatch
+                    !isTrimmerMode && isCombineMismatch
                       ? 'Streams differ — switch to Re-encode or fix files'
-                      : config.videoAction === 'COMBINE' && fileCount < 2
+                      : !isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2
                       ? 'Add at least 2 videos to combine'
                       : undefined
                   }

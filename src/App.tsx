@@ -44,7 +44,7 @@ export function App() {
     splitMode: 'DURATION',
     splitValue: 0,
     splitFastCopy: false,
-    combineFastCopy: true,
+    combineFastCopy: false,
     combineOutputName: 'combined_output',
     frameOutputFormat: 'PNG',
     frameRate: 'MAX',

@@ -70,11 +70,14 @@ export function useMediaPipelines(
       }
 
       setProgress({
+        type: 'conversion',
+        mediaKind: 'video',
+        action: 'COMBINE',
         isProcessing: true,
         isSingleOutput: true,
         currentFile: `${videoConfig.combineOutputName || 'combined_output'}.mp4`,
         fileIndex: 1,
-        totalFiles: 1,
+        totalFiles: files.length,
         percent: 0,
         currentPart: 1,
         totalParts: 1,

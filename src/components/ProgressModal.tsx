@@ -3,6 +3,8 @@ import { Loader2, CheckCircle2, AlertCircle, FolderOpen, X } from 'lucide-react'
 
 export interface ProgressState {
   type?: 'conversion' | 'download';
+  mediaKind?: 'video' | 'image' | 'audio' | 'download';
+  action?: 'CONVERT' | 'SPLIT' | 'COMBINE' | 'EXTRACT' | 'IMAGE';
   isProcessing: boolean;
   isSingleOutput?: boolean;
   currentFile: string;
@@ -283,15 +285,21 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, gap: '8px' }}>
                 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                  {isDownload
-                    ? progress.totalFiles > 1
-                      ? `Download Progress (${progress.fileIndex}/${progress.totalFiles})`
-                      : 'Download Progress'
-                    : isSingleOutput
-                      ? `Image ${progress.fileIndex} of ${progress.totalFiles}`
-                      : `File ${progress.fileIndex} of ${progress.totalFiles}${
-                          progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
-                        }`}
+                  {(() => {
+                    const isImageTask = progress.mediaKind === 'image' || progress.action === 'IMAGE';
+
+                    if (isDownload) {
+                      return progress.totalFiles > 1
+                        ? `Download Progress (${progress.fileIndex}/${progress.totalFiles})`
+                        : 'Download Progress';
+                    }
+                    if (isImageTask) {
+                      return `Image ${progress.fileIndex} of ${progress.totalFiles}`;
+                    }
+                    return `File ${progress.fileIndex} of ${progress.totalFiles}${
+                      progress.totalParts > 1 ? ` (Part ${progress.currentPart}/${progress.totalParts})` : ''
+                    }`;
+                  })()}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)', flexShrink: 0 }}>
                   {progress.completed ? '100.0' : progress.percent.toFixed(1)}%

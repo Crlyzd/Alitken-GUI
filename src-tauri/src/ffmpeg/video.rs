@@ -1,4 +1,4 @@
-use super::process::execute_ffmpeg_process;
+use super::process::{execute_ffmpeg_combine_process, execute_ffmpeg_process};
 use super::probe::probe_file;
 use super::types::{ConversionConfig, ExtractFramesConfig, StreamCompatibilityResult, TrimConfig};
 use crate::utils::{
@@ -1255,14 +1255,29 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
 
     crate::utils::reset_cancel_flag();
 
-    // 1. Probe all files to compute total combined duration and ensure validity
+    // 1. Probe all files to compute total combined duration and track clip boundaries
     let mut total_duration_sec = 0.0;
-    for file_path in &config.video_files {
+    let mut first_height: Option<u32> = None;
+    let mut first_width: Option<u32> = None;
+    let mut clip_boundaries: Vec<(String, f64)> = Vec::new();
+
+    for (idx, file_path) in config.video_files.iter().enumerate() {
         if !Path::new(file_path).exists() {
             return Err(format!("Input video file not found: '{}'", file_path));
         }
         let meta = probe_file(ffprobe_path, file_path).await?;
         total_duration_sec += meta.duration_sec;
+
+        let name = Path::new(file_path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        clip_boundaries.push((name, total_duration_sec));
+
+        if idx == 0 && meta.width > 0 && meta.height > 0 {
+            first_width = Some(meta.width);
+            first_height = Some(meta.height);
+        }
     }
 
     // 2. Build temporary concat.txt file
@@ -1337,22 +1352,44 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         }
 
         let mut vf_filters = Vec::new();
-        if config.target_height != "ORIGINAL" {
-            vf_filters.push(format!("scale=-2:{}", config.target_height));
-        }
-        vf_filters.push("format=yuv420p".to_string());
+
+        // Calculate target bounding box dimensions to prevent stretching (letterbox/pillarbox)
+        let (target_w, target_h) = if config.target_height != "ORIGINAL" {
+            let h = config.target_height.parse::<u32>().unwrap_or(720).clamp(144, 8192);
+            let w = match h {
+                1080 => 1920,
+                720 => 1280,
+                480 => 854,
+                2160 => 3840,
+                _ => (h * 16 / 9 / 2) * 2,
+            };
+            ((w / 2) * 2, (h / 2) * 2)
+        } else {
+            let w = (first_width.unwrap_or(1920) / 2) * 2;
+            let h = (first_height.unwrap_or(1080) / 2) * 2;
+            (w.max(2), h.max(2))
+        };
+
+        // Aspect-ratio preserving scaling with black letterbox/pillarbox padding
+        let scale_pad_filter = format!(
+            "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p",
+            target_w, target_h, target_w, target_h
+        );
+        log_info(&format!("Combine video scaling filter (no stretch): {}", scale_pad_filter));
+        vf_filters.push(scale_pad_filter);
         args.push("-vf".to_string());
         args.push(vf_filters.join(","));
 
-        if config.target_bitrate != "ORIGINAL" {
-            args.push("-b:v".to_string());
-            args.push(format!("{}k", config.target_bitrate));
-        }
+        append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
         args.push("-c:a".to_string());
         args.push("aac".to_string());
         args.push("-b:a".to_string());
         args.push("192k".to_string());
+        args.push("-ar".to_string());
+        args.push("48000".to_string());
+        args.push("-fps_mode".to_string());
+        args.push("cfr".to_string());
     }
 
     args.push("-movflags".to_string());
@@ -1362,16 +1399,14 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     args.push("-y".to_string());
     args.push(output_str.clone());
 
-    let result = execute_ffmpeg_process(
+    let output_file_name = format!("{}.{}", raw_stem, ext);
+    let result = execute_ffmpeg_combine_process(
         app,
         ffmpeg_path,
         args,
-        raw_stem,
-        0,
-        1,
+        &output_file_name,
+        clip_boundaries,
         total_duration_sec,
-        1,
-        None,
     )
     .await;
 

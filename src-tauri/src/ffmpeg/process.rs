@@ -242,10 +242,14 @@ pub async fn execute_ffmpeg_combine_process<R: tauri::Runtime>(
                         }
                     }
 
-                    let status_msg = format!(
-                        "Combining File {} of {}: {}...",
-                        active_idx, total_clips, active_file
-                    );
+                    let status_msg = if pct >= 99.9 {
+                        "Finalizing MP4 container metadata (+faststart)...".to_string()
+                    } else {
+                        format!(
+                            "Combining File {} of {}: {}...",
+                            active_idx, total_clips, active_file
+                        )
+                    };
 
                     let _ = app.emit(
                         "ffmpeg-progress",

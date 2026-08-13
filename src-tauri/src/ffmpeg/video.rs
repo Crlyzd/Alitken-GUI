@@ -1260,12 +1260,16 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     let mut first_height: Option<u32> = None;
     let mut first_width: Option<u32> = None;
     let mut clip_boundaries: Vec<(String, f64)> = Vec::new();
+    let mut has_av1_input = false;
 
     for (idx, file_path) in config.video_files.iter().enumerate() {
         if !Path::new(file_path).exists() {
             return Err(format!("Input video file not found: '{}'", file_path));
         }
         let meta = probe_file(ffprobe_path, file_path).await?;
+        if meta.codec_name == "av1" {
+            has_av1_input = true;
+        }
         total_duration_sec += meta.duration_sec;
 
         let name = Path::new(file_path)
@@ -1325,19 +1329,31 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     let output_str = final_output.to_string_lossy().to_string();
 
     log_info(&format!(
-        "Starting combine pipeline: fast_copy={}, output='{}', total_duration={:.2}s",
-        is_fast_copy, output_str, total_duration_sec
+        "Starting combine pipeline: fast_copy={}, output='{}', total_duration={:.2}s, has_av1={}",
+        is_fast_copy, output_str, total_duration_sec, has_av1_input
     ));
 
-    let mut args: Vec<String> = vec![
-        "-hide_banner".to_string(),
+    let mut args: Vec<String> = vec!["-hide_banner".to_string()];
+
+    if !is_fast_copy {
+        if has_av1_input {
+            log_info("AV1 input detected in combine queue: Forcing VideoLAN libdav1d software decoder");
+            args.push("-c:v:0".to_string());
+            args.push("libdav1d".to_string());
+        } else {
+            args.push("-hwaccel".to_string());
+            args.push("auto".to_string());
+        }
+    }
+
+    args.extend([
         "-f".to_string(),
         "concat".to_string(),
         "-safe".to_string(),
         "0".to_string(),
         "-i".to_string(),
         concat_file_path.to_string_lossy().to_string(),
-    ];
+    ]);
 
     if is_fast_copy {
         args.push("-c".to_string());
@@ -1372,7 +1388,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
 
         // Aspect-ratio preserving scaling with black letterbox/pillarbox padding
         let scale_pad_filter = format!(
-            "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p",
+            "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-ih)/2:(oh-ih)/2:black,format=yuv420p",
             target_w, target_h, target_w, target_h
         );
         log_info(&format!("Combine video scaling filter (no stretch): {}", scale_pad_filter));
@@ -1389,7 +1405,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         args.push("-ar".to_string());
         args.push("48000".to_string());
         args.push("-fps_mode".to_string());
-        args.push("cfr".to_string());
+        args.push("passthrough".to_string());
     }
 
     args.push("-movflags".to_string());

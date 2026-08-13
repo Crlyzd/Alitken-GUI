@@ -62,6 +62,15 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   const [isDraggingMove, setIsDraggingMove] = useState(false);
   const [isDraggingResize, setIsDraggingResize] = useState<string | null>(null);
 
+  const [isSnappedX, setIsSnappedX] = useState(false);
+  const [isSnappedY, setIsSnappedY] = useState(false);
+  const [isSnappedLeft, setIsSnappedLeft] = useState(false);
+  const [isSnappedRight, setIsSnappedRight] = useState(false);
+  const [isSnappedTop, setIsSnappedTop] = useState(false);
+  const [isSnappedBottom, setIsSnappedBottom] = useState(false);
+  const [isAltActive, setIsAltActive] = useState(false);
+  const [activeAxisLock, setActiveAxisLock] = useState<'vertical' | 'horizontal' | 'both' | null>(null);
+
   const dragStartRef = useRef<{
     mouseX: number;
     mouseY: number;
@@ -75,8 +84,6 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
     startOffsetY: 0.5,
     startScale: 1.0,
   });
-
-
 
   const handleMetadata = useCallback(() => {
     onLoadedMetadata();
@@ -94,8 +101,6 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
     },
     [onSelectAspectRatio, onCropOffsetChange]
   );
-
-
 
   // Handle Drag Move Start (body of video layer)
   const handleMoveStart = useCallback(
@@ -151,25 +156,139 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         const sensitivityX = 1 / wW;
         const sensitivityY = 1 / wH;
 
-        const rawX = dragStartRef.current.startOffsetX + deltaX * sensitivityX;
-        const rawY = dragStartRef.current.startOffsetY + deltaY * sensitivityY;
+        // Axis locking with modifier keys:
+        // Shift key -> lock vertical movement (Y remains fixed at startOffsetY)
+        // Ctrl/Cmd key -> lock horizontal movement (X remains fixed at startOffsetX)
+        const isShift = e.shiftKey;
+        const isCtrl = e.ctrlKey || e.metaKey;
+        const isAlt = e.altKey;
+        setIsAltActive(isAlt);
+
+        let lock: 'vertical' | 'horizontal' | 'both' | null = null;
+        if (isShift && isCtrl) {
+          lock = 'both';
+        } else if (isShift) {
+          lock = 'vertical';
+        } else if (isCtrl) {
+          lock = 'horizontal';
+        }
+        setActiveAxisLock(lock);
+
+        let rawX = isCtrl ? dragStartRef.current.startOffsetX : dragStartRef.current.startOffsetX + deltaX * sensitivityX;
+        let rawY = isShift ? dragStartRef.current.startOffsetY : dragStartRef.current.startOffsetY + deltaY * sensitivityY;
+
+        // Center cross section magnetic snapping (0.5 = center)
+        const SNAP_THRESHOLD = 0.02;
+        let snappedX = false;
+        let snappedY = false;
+        let snapL = false;
+        let snapR = false;
+        let snapT = false;
+        let snapB = false;
+
+        if (Math.abs(rawX - 0.5) <= SNAP_THRESHOLD) {
+          rawX = 0.5;
+          snappedX = true;
+        }
+
+        if (Math.abs(rawY - 0.5) <= SNAP_THRESHOLD) {
+          rawY = 0.5;
+          snappedY = true;
+        }
+
+        // Alt key: Outer video container edge magnetic snapping
+        if (isAlt && rect.width > 0 && rect.height > 0) {
+          const halfW = (wW / rect.width) / 2;
+          const halfH = (wH / rect.height) / 2;
+
+          const leftSnapX = halfW;
+          const rightSnapX = 1.0 - halfW;
+          const topSnapY = halfH;
+          const bottomSnapY = 1.0 - halfH;
+
+          if (!snappedX) {
+            if (Math.abs(rawX - leftSnapX) <= SNAP_THRESHOLD) {
+              rawX = leftSnapX;
+              snapL = true;
+            } else if (Math.abs(rawX - rightSnapX) <= SNAP_THRESHOLD) {
+              rawX = rightSnapX;
+              snapR = true;
+            }
+          }
+
+          if (!snappedY) {
+            if (Math.abs(rawY - topSnapY) <= SNAP_THRESHOLD) {
+              rawY = topSnapY;
+              snapT = true;
+            } else if (Math.abs(rawY - bottomSnapY) <= SNAP_THRESHOLD) {
+              rawY = bottomSnapY;
+              snapB = true;
+            }
+          }
+        }
+
+        setIsSnappedX(snappedX);
+        setIsSnappedY(snappedY);
+        setIsSnappedLeft(snapL);
+        setIsSnappedRight(snapR);
+        setIsSnappedTop(snapT);
+        setIsSnappedBottom(snapB);
 
         onCropOffsetChange({ x: rawX, y: rawY });
       } else if (isDraggingResize) {
+        const isAlt = e.altKey;
+        setIsAltActive(isAlt);
+
         // Uniform aspect ratio locked resize based on drag distance
-        // minFillScale = scale needed to fill the entire canvas (no black bars)
         const minFillScale = Math.max(canvasAspect / videoAspect, videoAspect / canvasAspect);
         const maxScale = Math.max(10.0, minFillScale * 1.5);
         const distance = (deltaX + deltaY) / (rect.width || 400);
         const factor = isDraggingResize.includes('top') || isDraggingResize.includes('left') ? -distance : distance;
-        const newScale = Math.max(0.3, Math.min(maxScale, dragStartRef.current.startScale + factor * 1.5));
-        setVideoScale(newScale);
+        let targetScale = Math.max(0.3, Math.min(maxScale, dragStartRef.current.startScale + factor * 1.5));
+
+        let snapL = false;
+        let snapR = false;
+        let snapT = false;
+        let snapB = false;
+
+        // Alt key: Outer container magnetic snapping during corner resize
+        if (isAlt) {
+          const SCALE_SNAP_THRESHOLD = 0.04;
+          if (Math.abs(targetScale - minFillScale) <= SCALE_SNAP_THRESHOLD) {
+            targetScale = minFillScale;
+            snapL = true;
+            snapR = true;
+            snapT = true;
+            snapB = true;
+          } else if (Math.abs(targetScale - 1.0) <= SCALE_SNAP_THRESHOLD) {
+            targetScale = 1.0;
+            snapL = true;
+            snapR = true;
+            snapT = true;
+            snapB = true;
+          }
+        }
+
+        setIsSnappedLeft(snapL);
+        setIsSnappedRight(snapR);
+        setIsSnappedTop(snapT);
+        setIsSnappedBottom(snapB);
+
+        setVideoScale(targetScale);
       }
     };
 
     const handleMouseUp = () => {
       setIsDraggingMove(false);
       setIsDraggingResize(null);
+      setIsSnappedX(false);
+      setIsSnappedY(false);
+      setIsSnappedLeft(false);
+      setIsSnappedRight(false);
+      setIsSnappedTop(false);
+      setIsSnappedBottom(false);
+      setIsAltActive(false);
+      setActiveAxisLock(null);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -254,6 +373,163 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 Replace current video target in Trimmer
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Thin Glowing Center Cross Section Magnet Guide Lines */}
+        {isDraggingMove && (isSnappedX || Math.abs(cropOffset.x - 0.5) < 0.001) && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: '50%',
+              width: '1px',
+              transform: 'translateX(-50%)',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {isDraggingMove && (isSnappedY || Math.abs(cropOffset.y - 0.5) < 0.001) && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: '50%',
+              height: '1px',
+              transform: 'translateY(-50%)',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {/* Outer Container Edge Magnet Guide Lines (Alt key move or resize) */}
+        {(isDraggingMove || isDraggingResize) && isSnappedLeft && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: '1px',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {(isDraggingMove || isDraggingResize) && isSnappedRight && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              right: 0,
+              width: '1px',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {(isDraggingMove || isDraggingResize) && isSnappedTop && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              height: '1px',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {(isDraggingMove || isDraggingResize) && isSnappedBottom && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: '1px',
+              background: 'rgba(6, 182, 212, 0.95)',
+              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}
+          />
+        )}
+
+        {/* Center Crosshair Point indicator when both axes are centered */}
+        {isDraggingMove &&
+          (isSnappedX || Math.abs(cropOffset.x - 0.5) < 0.001) &&
+          (isSnappedY || Math.abs(cropOffset.y - 0.5) < 0.001) && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#ffffff',
+                border: '1.5px solid var(--accent-cyan)',
+                transform: 'translate(-50%, -50%)',
+                boxShadow: '0 0 8px var(--accent-cyan)',
+                pointerEvents: 'none',
+                zIndex: 26,
+              }}
+            />
+          )}
+
+        {/* Axis & Magnet Lock Feedback Toast */}
+        {(isDraggingMove || isDraggingResize) && (activeAxisLock || isAltActive) && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(6, 182, 212, 0.4)',
+              color: 'var(--accent-cyan)',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.3px',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              zIndex: 35,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-cyan)', boxShadow: '0 0 6px var(--accent-cyan)', flexShrink: 0 }} />
+            {activeAxisLock === 'vertical' && 'SHIFT: Locked Vertical'}
+            {activeAxisLock === 'horizontal' && 'CTRL: Locked Horizontal'}
+            {activeAxisLock === 'both' && 'SHIFT + CTRL: Position Locked'}
+            {isAltActive && !activeAxisLock && (isDraggingResize ? 'ALT: Outer Container Resize Magnet Active' : 'ALT: Outer Container Magnet Active')}
           </div>
         )}
 

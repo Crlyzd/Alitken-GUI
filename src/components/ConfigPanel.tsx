@@ -10,6 +10,8 @@ import {
   Link2,
   Image,
   AlertTriangle,
+  Loader2,
+  CheckCircle,
 } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -520,18 +522,49 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     </div>
                   )}
 
-                  {/* Checking Stream Compatibility Indicator */}
-                  {isCheckingCompatibility && (
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        color: 'var(--text-dim)',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      Checking stream compatibility...
-                    </div>
-                  )}
+                  {/* Permanent Stream Compatibility Status Line (Option B - Sleek Text + Icon) */}
+                  {config.combineFastCopy && (() => {
+                    let statusColor = 'var(--text-muted)';
+                    let statusIcon = <Link2 size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />;
+                    let statusText = 'Add 2+ videos to check compatibility';
+
+                    if (fileCount < 2) {
+                      statusText = 'Add 2+ videos to check compatibility';
+                    } else if (isCheckingCompatibility) {
+                      statusColor = 'var(--accent-cyan)';
+                      statusIcon = <Loader2 size={12} className="spin" style={{ flexShrink: 0, color: 'var(--accent-cyan)' }} />;
+                      statusText = 'Checking stream compatibility...';
+                    } else if (streamCompatibility?.is_compatible) {
+                      statusColor = 'var(--accent-emerald)';
+                      statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
+                      statusText = 'Streams Compatible (Lossless Ready)';
+                    } else if (streamCompatibility && !streamCompatibility.is_compatible) {
+                      statusColor = 'var(--accent-rose)';
+                      statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)' }} />;
+                      statusText = 'Streams Incompatible (Will Re-encode)';
+                    }
+
+                    return (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: statusColor,
+                          height: '20px',
+                          lineHeight: '20px',
+                          boxSizing: 'border-box',
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {statusIcon}
+                        <span>{statusText}</span>
+                      </div>
+                    );
+                  })()}
 
                   <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
 

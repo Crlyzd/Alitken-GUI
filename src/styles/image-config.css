@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: 18px;
+  gap: 12px;
   min-height: 0;
 }
 
@@ -13,7 +13,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   padding-right: 4px;
 }
 
@@ -274,6 +274,7 @@
 .image-config-start-wrapper {
   margin-top: auto;
   padding-top: 8px;
+  padding-bottom: 12px;
 }
 
 .image-config-start-btn {

@@ -196,10 +196,10 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '20px',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '12px',
           minHeight: 0,
         }}
       >
@@ -1391,6 +1391,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   )}
                 </button>
               </div>
+              {/* Natural empty space at the bottom to prevent CTA button clipping and allow scrolling past */}
+              <div style={{ height: '20px', flexShrink: 0 }} />
             </div>
           </div>
         )}

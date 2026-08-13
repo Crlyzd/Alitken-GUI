@@ -33,10 +33,10 @@ struct GitHubRelease {
     assets: Vec<GitHubAsset>,
 }
 
-#[derive(Debug, Deserialize)]
-struct GitHubAsset {
-    name: String,
-    browser_download_url: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitHubAsset {
+    pub name: String,
+    pub browser_download_url: String,
 }
 
 /// Asynchronously removes ALITKEN.exe.old if left over from a previous update
@@ -82,6 +82,67 @@ fn is_version_newer(current: &str, latest: &str) -> bool {
     }
 
     false
+}
+
+/// Helper to determine the target architecture string
+pub fn get_target_arch() -> &'static str {
+    if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "x64"
+    }
+}
+
+/// Resolves the most appropriate GitHub release asset URL for the running system architecture.
+/// Ensures that:
+/// 1. Portable standalone executables (.exe) are strictly selected for in-place self-replacement.
+/// 2. Installer packages (-Setup.exe / NSIS) are NEVER selected by the in-place self-updater.
+/// 3. Microsoft Store release assets (-MSStore_*.exe) are NEVER selected.
+/// 4. Matches host CPU architecture (x64 vs ARM64).
+pub fn resolve_target_asset(assets: &[GitHubAsset], target_arch: &str) -> Option<String> {
+    let arch_needle = target_arch.to_lowercase();
+    let opposite_arch = if arch_needle == "arm64" { "x64" } else { "arm64" };
+
+    // 1st Priority: Exact architecture + portable executable, excluding store & setup
+    for asset in assets {
+        let name = asset.name.to_lowercase();
+        if name.ends_with(".exe")
+            && !name.contains("msstore")
+            && !name.contains("setup")
+            && name.contains(&arch_needle)
+            && name.contains("portable")
+        {
+            return Some(asset.browser_download_url.clone());
+        }
+    }
+
+    // 2nd Priority: Exact architecture match, excluding store & setup & opposite arch
+    for asset in assets {
+        let name = asset.name.to_lowercase();
+        if name.ends_with(".exe")
+            && !name.contains("msstore")
+            && !name.contains("setup")
+            && name.contains(&arch_needle)
+            && !name.contains(opposite_arch)
+        {
+            return Some(asset.browser_download_url.clone());
+        }
+    }
+
+    // 3rd Priority: Generic portable executable (legacy naming), excluding store, setup, and opposite arch
+    for asset in assets {
+        let name = asset.name.to_lowercase();
+        if name.ends_with(".exe")
+            && !name.contains("msstore")
+            && !name.contains("setup")
+            && !name.contains(opposite_arch)
+            && (name.contains("portable") || !name.contains("arm64"))
+        {
+            return Some(asset.browser_download_url.clone());
+        }
+    }
+
+    None
 }
 
 /// Queries GitHub releases API to check for newer Alitken release
@@ -143,23 +204,13 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     let latest_version = release.tag_name.trim_start_matches('v').to_string();
     let available = is_version_newer(&current_version, &latest_version);
 
-    // Look for Windows executable (.exe) or zip asset
-    let mut download_url = String::new();
-    for asset in &release.assets {
-        let name_lower = asset.name.to_lowercase();
-        if name_lower.ends_with(".exe") {
-            download_url = asset.browser_download_url.clone();
-            break;
-        }
-    }
+    // Resolve matching architecture-specific portable binary
+    let target_arch = get_target_arch();
+    let mut download_url = resolve_target_asset(&release.assets, target_arch).unwrap_or_default();
 
-    // Fallback if asset is zip or release link
+    // Fallback if no matching asset found
     if download_url.is_empty() {
-        if let Some(first_asset) = release.assets.first() {
-            download_url = first_asset.browser_download_url.clone();
-        } else {
-            download_url = release.html_url.clone();
-        }
+        download_url = release.html_url.clone();
     }
 
     let release_name = release.name.unwrap_or_else(|| release.tag_name.clone());
@@ -315,3 +366,92 @@ pub async fn download_and_install_update(
     // Step 4: Exit old process
     std::process::exit(0);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_mock_assets() -> Vec<GitHubAsset> {
+        vec![
+            GitHubAsset {
+                name: "Alitken_v0.7.0_GitHub_ARM64-Portable.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_ARM64-Portable.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_GitHub_ARM64-Setup.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_ARM64-Setup.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_GitHub_x64-Portable.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_x64-Portable.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_GitHub_x64-Setup.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_x64-Setup.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_MSStore_ARM64-Portable.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_MSStore_ARM64-Portable.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_MSStore_ARM64-Setup.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_MSStore_ARM64-Setup.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_MSStore_x64-Portable.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_MSStore_x64-Portable.exe".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_MSStore_x64-Setup.exe".to_string(),
+                browser_download_url: "https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_MSStore_x64-Setup.exe".to_string(),
+            },
+        ]
+    }
+
+    #[test]
+    fn test_x64_selects_github_x64_portable() {
+        let assets = create_mock_assets();
+        let selected = resolve_target_asset(&assets, "x64");
+        assert_eq!(
+            selected,
+            Some("https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_x64-Portable.exe".to_string())
+        );
+    }
+
+    #[test]
+    fn test_arm64_selects_github_arm64_portable() {
+        let assets = create_mock_assets();
+        let selected = resolve_target_asset(&assets, "arm64");
+        assert_eq!(
+            selected,
+            Some("https://github.com/kaleksanan/Alitken-GUI/releases/download/v0.7.0/Alitken_v0.7.0_GitHub_ARM64-Portable.exe".to_string())
+        );
+    }
+
+    #[test]
+    fn test_excludes_msstore_and_setup_installers() {
+        let assets = vec![
+            GitHubAsset {
+                name: "Alitken_v0.7.0_MSStore_x64-Portable.exe".to_string(),
+                browser_download_url: "url_msstore_portable".to_string(),
+            },
+            GitHubAsset {
+                name: "Alitken_v0.7.0_GitHub_x64-Setup.exe".to_string(),
+                browser_download_url: "url_github_setup".to_string(),
+            },
+        ];
+        let selected = resolve_target_asset(&assets, "x64");
+        assert_eq!(selected, None);
+    }
+
+    #[test]
+    fn test_version_newer_logic() {
+        assert!(is_version_newer("0.6.0", "0.7.0"));
+        assert!(is_version_newer("0.6.9", "0.7.0"));
+        assert!(is_version_newer("0.7.0", "1.0.0"));
+        assert!(!is_version_newer("0.7.0", "0.7.0"));
+        assert!(!is_version_newer("0.7.1", "0.7.0"));
+        assert!(!is_version_newer("1.0.0", "0.7.0"));
+    }
+}
+

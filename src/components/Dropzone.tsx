@@ -64,12 +64,15 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   const [sortOption, setSortOption] = useState<SortOption>('DEFAULT');
   const initialFilesRef = useRef<FileItem[]>([]);
 
-  // Snappy GPU-accelerated inline transform drag state
+  // Snappy GPU-accelerated drag state & focus loss handling
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [startY, setStartY] = useState<number>(0);
   const [dragOffsetY, setDragOffsetY] = useState<number>(0);
   const [itemHeight, setItemHeight] = useState<number>(68);
+  const [isJustDropped, setIsJustDropped] = useState<boolean>(false);
   const cardsContainerRef = useRef<HTMLDivElement>(null);
+  const activePointerIdRef = useRef<number | null>(null);
+  const activePointerElemRef = useRef<HTMLElement | null>(null);
 
   // Keep track of original import order when files change length or are first loaded
   useEffect(() => {
@@ -120,11 +123,31 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     onReorderFiles(sorted);
   };
 
+  const cancelOrReleaseDrag = () => {
+    if (activePointerIdRef.current !== null && activePointerElemRef.current) {
+      try {
+        activePointerElemRef.current.releasePointerCapture(activePointerIdRef.current);
+      } catch (err) {
+        // Ignore pointer release error if already released
+      }
+      activePointerIdRef.current = null;
+      activePointerElemRef.current = null;
+    }
+    setDraggedIndex(null);
+    setStartY(0);
+    setDragOffsetY(0);
+  };
+
   // Pointer event mouse tracking & instant GPU transform engine
   useEffect(() => {
     if (draggedIndex === null) return;
 
     const handlePointerMove = (e: PointerEvent) => {
+      // Auto-release drag if mouse button is no longer held down
+      if (e.buttons === 0) {
+        handlePointerUp();
+        return;
+      }
       const deltaY = e.clientY - startY;
       setDragOffsetY(deltaY);
     };
@@ -146,19 +169,34 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         }
       }
 
-      setDraggedIndex(null);
-      setStartY(0);
-      setDragOffsetY(0);
+      setIsJustDropped(true);
+      cancelOrReleaseDrag();
+
+      setTimeout(() => {
+        setIsJustDropped(false);
+      }, 120);
+    };
+
+    const handleBlurOrLeave = () => {
+      setIsJustDropped(true);
+      cancelOrReleaseDrag();
+      setTimeout(() => {
+        setIsJustDropped(false);
+      }, 120);
     };
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', handleBlurOrLeave);
+    window.addEventListener('mouseleave', handleBlurOrLeave);
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handleBlurOrLeave);
+      window.removeEventListener('mouseleave', handleBlurOrLeave);
     };
   }, [draggedIndex, startY, dragOffsetY, itemHeight, files, onReorderFiles]);
 
@@ -174,9 +212,18 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       setItemHeight(cardRect.height + 10);
     }
 
+    activePointerIdRef.current = e.pointerId;
+    activePointerElemRef.current = e.currentTarget;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // Ignore if pointer capture fails
+    }
+
     setDraggedIndex(index);
     setStartY(e.clientY);
     setDragOffsetY(0);
+    setIsJustDropped(false);
   };
 
   const handlePickFiles = async () => {
@@ -428,7 +475,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 zIndex: isBeingDragged ? 50 : 1,
                 opacity: 1,
                 cursor: file.isMissing ? 'default' : isBeingDragged ? 'grabbing' : 'grab',
-                transition: isBeingDragged
+                transition: isBeingDragged || isJustDropped
                   ? 'none'
                   : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
                 touchAction: 'none',

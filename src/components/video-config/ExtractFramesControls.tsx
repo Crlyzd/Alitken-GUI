@@ -156,14 +156,14 @@ export const ExtractFramesControls: React.FC<ExtractFramesControlsProps> = ({
           borderRadius: '8px',
           background:
             estimatedFramesCount > 10000
-              ? 'rgba(245, 158, 11, 0.12)'
+              ? 'var(--warning-bg)'
               : 'rgba(6, 182, 212, 0.08)',
           border: `1px solid ${
             estimatedFramesCount > 10000
-              ? 'rgba(245, 158, 11, 0.4)'
+              ? 'var(--warning-border)'
               : 'rgba(6, 182, 212, 0.2)'
           }`,
-          color: estimatedFramesCount > 10000 ? '#fcd34d' : 'var(--accent-cyan)',
+          color: estimatedFramesCount > 10000 ? 'var(--warning-text)' : 'var(--accent-cyan)',
           fontSize: '11px',
           lineHeight: '1.4',
         }}

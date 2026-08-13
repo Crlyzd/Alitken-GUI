@@ -523,18 +523,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       transition: 'all 0.2s ease',
                       background: deps?.ffmpeg_valid
                         ? (deps.has_update
-                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.15)' : 'rgba(245, 158, 11, 0.22)')
+                          ? 'var(--warning-bg)'
                           : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
                         : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
                       color: deps?.ffmpeg_valid
                         ? (deps.has_update
-                          ? (theme === 'light' ? '#b45309' : '#fbbf24')
+                          ? 'var(--warning-text)'
                           : (theme === 'light' ? '#047857' : '#34d399'))
                         : (theme === 'light' ? '#e11d48' : '#fb7185'),
                       border: `1px solid ${
                         deps?.ffmpeg_valid
                           ? (deps.has_update
-                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(245, 158, 11, 0.5)')
+                            ? 'var(--warning-border)'
                             : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
                           : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
                       }`,
@@ -631,18 +631,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       transition: 'all 0.2s ease',
                       background: deps?.magick_valid
                         ? (deps.magick_has_update
-                          ? (theme === 'light' ? 'rgba(217, 119, 6, 0.15)' : 'rgba(245, 158, 11, 0.22)')
+                          ? 'var(--warning-bg)'
                           : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
                         : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
                       color: deps?.magick_valid
                         ? (deps.magick_has_update
-                          ? (theme === 'light' ? '#b45309' : '#fbbf24')
+                          ? 'var(--warning-text)'
                           : (theme === 'light' ? '#047857' : '#34d399'))
                         : (theme === 'light' ? '#e11d48' : '#fb7185'),
                       border: `1px solid ${
                         deps?.magick_valid
                           ? (deps.magick_has_update
-                            ? (theme === 'light' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(245, 158, 11, 0.5)')
+                            ? 'var(--warning-border)'
                             : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
                           : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
                       }`,

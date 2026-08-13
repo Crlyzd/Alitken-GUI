@@ -76,11 +76,11 @@ export const StorageValidationModal: React.FC<StorageValidationModalProps> = ({
     : '0 24px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.08)';
 
   // ── Icon & accent colour per status ─────────────────────────────────────
-  const accent      = isHardFailure ? '#ef4444' : isLowStorage ? '#f59e0b' : '#60a5fa';
+  const accent      = isHardFailure ? '#ef4444' : isLowStorage ? 'var(--accent-amber)' : '#60a5fa';
   const accentAlpha = isHardFailure
     ? 'rgba(239, 68, 68, 0.15)'
     : isLowStorage
-    ? 'rgba(245, 158, 11, 0.15)'
+    ? 'var(--warning-bg)'
     : 'rgba(96, 165, 250, 0.12)';
 
   const Icon = isHardFailure ? AlertOctagon : isLowStorage ? AlertTriangle : FileVideo;
@@ -111,7 +111,7 @@ export const StorageValidationModal: React.FC<StorageValidationModalProps> = ({
       return (
         <>
           Your drive is running low on space (
-          <strong style={{ color: '#f59e0b' }}>{freeGB} GB</strong> remaining). Opening this video in
+          <strong style={{ color: 'var(--warning-text)' }}>{freeGB} GB</strong> remaining). Opening this video in
           edit mode will use ~<strong style={{ color: colorText }}>{requiredMB} MB</strong> for temporary
           preview caching.
           <br />

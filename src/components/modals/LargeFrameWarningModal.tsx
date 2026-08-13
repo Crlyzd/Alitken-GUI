@@ -37,7 +37,7 @@ export const LargeFrameWarningModal: React.FC<LargeFrameWarningModalProps> = ({
           width: '420px',
           padding: '24px',
           borderRadius: '16px',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
+          border: '1px solid var(--warning-border)',
           background: 'var(--bg-glass-card)',
           display: 'flex',
           flexDirection: 'column',
@@ -46,7 +46,7 @@ export const LargeFrameWarningModal: React.FC<LargeFrameWarningModalProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <AlertTriangle size={24} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <AlertTriangle size={24} color="var(--accent-amber)" style={{ flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
               Large Frame Extraction
@@ -59,7 +59,7 @@ export const LargeFrameWarningModal: React.FC<LargeFrameWarningModalProps> = ({
 
         <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>
           This operation will extract approximately{' '}
-          <strong style={{ color: '#fcd34d' }}>
+          <strong style={{ color: 'var(--warning-text)' }}>
             ~{estimatedFramesCount.toLocaleString()} frames
           </strong>{' '}
           across {fileCount} video(s). Please make sure you have sufficient storage space.

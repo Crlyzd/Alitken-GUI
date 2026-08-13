@@ -77,8 +77,8 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           style={{
             padding: '10px 12px',
             borderRadius: '10px',
-            background: 'rgba(245, 158, 11, 0.12)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
+            background: 'var(--warning-bg)',
+            border: '1px solid var(--warning-border)',
             display: 'flex',
             gap: '8px',
             alignItems: 'flex-start',
@@ -86,10 +86,10 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
         >
           <AlertTriangle
             size={16}
-            color="#f59e0b"
+            color="var(--accent-amber)"
             style={{ flexShrink: 0, marginTop: '2px' }}
           />
-          <div style={{ fontSize: '11px', color: '#fcd34d', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '11px', color: 'var(--warning-text)', lineHeight: '1.4' }}>
             {streamCompatibility?.reason}
           </div>
         </div>

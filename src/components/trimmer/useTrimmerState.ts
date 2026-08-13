@@ -92,9 +92,25 @@ export function useTrimmerState({
     setFallbackFrameSrc(null);
     setFilmstrip([]);
 
-    // Launch ONLY prepare_video_preview on mount as a single isolated process.
-    // All filmstrip extraction is deferred until preview preparation finishes to guarantee
-    // max NVMe disk throughput and zero dual-process FFmpeg contention.
+    // Fetch WMF support and filmstrip immediately on mount using the source file.path
+    // WMF native COM API is zero-lag (<20ms) and populates seek bar thumbnails instantly
+    invoke<boolean>('check_wmf_support', { filePath: file.path })
+      .then((supported) => {
+        if (!isCancelled) {
+          setIsWmfSupported(supported);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setIsWmfSupported(false);
+      });
+
+    invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 16 })
+      .then((strip) => {
+        if (!isCancelled && strip.length > 0) setFilmstrip(strip);
+      })
+      .catch(() => {});
+
+    // Launch prepare_video_preview in parallel for web player preview stream
     invoke<string>('prepare_video_preview', { filePath: file.path })
       .then((resolvedPath) => {
         if (!isCancelled) {
@@ -102,21 +118,14 @@ export function useTrimmerState({
           setIsNativeSupported(true);
           setIsLoadingPreview(false);
 
-          // Fetch WMF support and filmstrip on the prepared web-compatible preview file (.mp4)
-          invoke<boolean>('check_wmf_support', { filePath: resolvedPath })
-            .then((supported) => {
-              if (!isCancelled) {
-                setIsWmfSupported(supported);
-                invoke<string[]>('get_wmf_filmstrip', { filePath: resolvedPath, count: 16 })
-                  .then((strip) => {
-                    if (!isCancelled && strip.length > 0) setFilmstrip(strip);
-                  })
-                  .catch(() => {});
+          // Secondary fallback if filmstrip was not populated yet for non-standard formats
+          invoke<string[]>('get_wmf_filmstrip', { filePath: resolvedPath, count: 16 })
+            .then((strip) => {
+              if (!isCancelled && strip.length > 0) {
+                setFilmstrip((prev) => (prev.length === 0 ? strip : prev));
               }
             })
-            .catch(() => {
-              if (!isCancelled) setIsWmfSupported(false);
-            });
+            .catch(() => {});
         }
       })
       .catch((err) => {

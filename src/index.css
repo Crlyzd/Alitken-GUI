@@ -250,7 +250,8 @@ select,
 }
 
 .animate-spin,
-.spinning-loader {
+.spinning-loader,
+.spinner {
   animation: spin 1s linear infinite;
 }
 

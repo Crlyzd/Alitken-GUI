@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface TimelineSliderProps {
   durationSec: number;
@@ -219,16 +220,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
                   gap: '4px',
                 }}
               >
-                <div
-                  className="spinner"
-                  style={{
-                    width: '12px',
-                    height: '12px',
-                    border: '2px solid rgba(255,255,255,0.2)',
-                    borderTopColor: '#ffffff',
-                    borderRadius: '50%',
-                  }}
-                />
+                <Loader2 size={12} className="animate-spin" style={{ color: '#ffffff' }} />
                 Seeking...
               </div>
             )}

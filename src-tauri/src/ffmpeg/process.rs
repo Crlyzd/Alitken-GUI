@@ -14,6 +14,7 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
     total_files: usize,
     duration_sec: f64,
     total_parts: usize,
+    custom_status: Option<&str>,
 ) -> Result<(), String> {
     log_info(&format!("Spawning FFmpeg: {} {}", ffmpeg_path, args.join(" ")));
 
@@ -29,11 +30,27 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
         })?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
     let mut reader = BufReader::new(stdout).lines();
+
+    let stderr_lines = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+    let stderr_lines_clone = stderr_lines.clone();
+
+    let stderr_handle = tokio::spawn(async move {
+        let mut err_reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = err_reader.next_line().await {
+            let mut lines = stderr_lines_clone.lock().await;
+            if lines.len() >= 50 {
+                lines.remove(0);
+            }
+            lines.push(line);
+        }
+    });
 
     while let Ok(Some(line)) = reader.next_line().await {
         if crate::utils::check_cancel_flag() {
             let _ = child.kill().await;
+            let _ = stderr_handle.await;
             return Err("Processing aborted by user.".to_string());
         }
 
@@ -58,6 +75,14 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
                         1
                     };
 
+                    let status_msg = if let Some(cs) = custom_status {
+                        cs.to_string()
+                    } else if total_parts > 1 {
+                        format!("Splitting segment {} of {}...", cur_part, total_parts)
+                    } else {
+                        "Transcoding video stream...".to_string()
+                    };
+
                     let _ = app.emit(
                         "ffmpeg-progress",
                         FfmpegProgressPayload {
@@ -67,17 +92,15 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
                             percent: pct,
                             current_part: cur_part,
                             total_parts,
-                            status: if total_parts > 1 {
-                                format!("Splitting segment {} of {}...", cur_part, total_parts)
-                            } else {
-                                "Transcoding video stream...".to_string()
-                            },
+                            status: status_msg,
                         },
                     );
                 }
             }
         }
     }
+
+    let _ = stderr_handle.await;
 
     let status = child
         .wait()
@@ -92,8 +115,30 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
         log_info(&format!("Successfully processed {}", file_name));
         Ok(())
     } else {
-        log_error(&format!("FFmpeg failed with exit code: {:?}", status.code()));
-        Err("FFmpeg processing failed".to_string())
+        let captured_err = {
+            let lines = stderr_lines.lock().await;
+            lines.join("\n")
+        };
+        let err_summary = if captured_err.trim().is_empty() {
+            format!("FFmpeg exited with code {:?}", status.code())
+        } else {
+            captured_err
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .rev()
+                .take(6)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        log_error(&format!(
+            "FFmpeg failed for {}: {}\nFull Stderr: {}",
+            file_name, err_summary, captured_err
+        ));
+        Err(format!("FFmpeg processing failed: {}", err_summary))
     }
 }
 

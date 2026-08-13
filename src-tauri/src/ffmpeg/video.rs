@@ -282,6 +282,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 total_videos,
                 effective_duration,
                 num_parts,
+                None,
             )
             .await?;
 
@@ -364,6 +365,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             total_videos,
             effective_duration,
             1,
+            None,
         )
         .await?;
     }
@@ -638,6 +640,7 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         1,
         effective_output_duration,
         1,
+        None,
     )
     .await?;
 
@@ -1368,6 +1371,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         1,
         total_duration_sec,
         1,
+        None,
     )
     .await;
 
@@ -1432,13 +1436,17 @@ pub async fn run_extract_frames_pipeline<R: tauri::Runtime>(
             .to_string_lossy()
             .to_string();
 
-        let mut args: Vec<String> = vec![
-            "-hide_banner".to_string(),
-            "-hwaccel".to_string(),
-            "auto".to_string(),
-            "-i".to_string(),
-            file_path.clone(),
-        ];
+        let mut args: Vec<String> = vec!["-hide_banner".to_string()];
+
+        // Decoder handling (AV1 libdav1d enforcement per Domain Principle #4)
+        if meta.codec_name == "av1" {
+            log_info("AV1 input detected: Forcing VideoLAN libdav1d software decoder");
+            args.push("-c:v:0".to_string());
+            args.push("libdav1d".to_string());
+        }
+
+        args.push("-i".to_string());
+        args.push(file_path.clone());
 
         // Frame rate filter
         match config.frame_rate.as_str() {
@@ -1459,9 +1467,9 @@ pub async fn run_extract_frames_pipeline<R: tauri::Runtime>(
                 args.push("fps=1".to_string());
             }
             _ => {
-                // "MAX" / Every Frame
-                args.push("-vsync".to_string());
-                args.push("0".to_string());
+                // "MAX" / Every Frame (Modern FFmpeg fps_mode passthrough)
+                args.push("-fps_mode".to_string());
+                args.push("passthrough".to_string());
             }
         }
 
@@ -1505,6 +1513,7 @@ pub async fn run_extract_frames_pipeline<R: tauri::Runtime>(
             total_files,
             meta.duration_sec,
             1,
+            Some("Extracting frame sequence..."),
         )
         .await?;
     }

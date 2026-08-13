@@ -1084,7 +1084,6 @@ pub async fn check_stream_compatibility(
     }
 
     struct StreamInfo {
-        file_name: String,
         v_codec: String,
         width: u32,
         height: u32,
@@ -1098,66 +1097,61 @@ pub async fn check_stream_compatibility(
     let mut first_info: Option<StreamInfo> = None;
 
     for path_str in file_paths {
-        let path = Path::new(path_str);
+        let path = PathBuf::from(&path_str);
         if !path.exists() {
-            return Ok(StreamCompatibilityResult {
-                is_compatible: false,
-                reason: format!("File not found: '{}'", path_str),
-            });
+            continue;
         }
 
         let output = crate::utils::create_tokio_hidden_cmd(ffprobe_path)
-            .args([
+            .args(&[
                 "-v",
-                "quiet",
-                "-print_format",
+                "error",
+                "-show_entries",
+                "stream=codec_name,width,height,pix_fmt,r_frame_rate,codec_type",
+                "-of",
                 "json",
-                "-show_streams",
-                path_str,
+                path.to_str().unwrap_or_default(),
             ])
             .output()
-            .await
-            .map_err(|e| format!("ffprobe failed to spawn: {}", e))?;
-
-        let json_str = String::from_utf8_lossy(&output.stdout);
-        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
+            .await;
 
         let mut v_codec = String::new();
-        let mut width = 0;
-        let mut height = 0;
+        let mut width = 0u32;
+        let mut height = 0u32;
         let mut pix_fmt = String::new();
-        let mut fps_num = 0;
-        let mut fps_den = 1;
+        let mut fps_num = 0u64;
+        let mut fps_den = 1u64;
         let mut has_audio = false;
         let mut a_codec = String::new();
 
-        if let Some(streams) = parsed["streams"].as_array() {
-            for stream in streams {
-                let codec_type = stream["codec_type"].as_str().unwrap_or("");
-                if codec_type == "video" && v_codec.is_empty() {
-                    v_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
-                    width = stream["width"].as_u64().unwrap_or(0) as u32;
-                    height = stream["height"].as_u64().unwrap_or(0) as u32;
-                    pix_fmt = stream["pix_fmt"].as_str().unwrap_or("").to_string();
-                    if let Some(r_fps) = stream["r_frame_rate"].as_str() {
-                        let parts: Vec<&str> = r_fps.split('/').collect();
-                        if parts.len() == 2 {
-                            fps_num = parts[0].parse::<u64>().unwrap_or(0);
-                            fps_den = parts[1].parse::<u64>().unwrap_or(1);
+        if let Ok(out) = output {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                if let Some(streams) = json["streams"].as_array() {
+                    for stream in streams {
+                        let codec_type = stream["codec_type"].as_str().unwrap_or("");
+                        if codec_type == "video" && v_codec.is_empty() {
+                            v_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
+                            width = stream["width"].as_u64().unwrap_or(0) as u32;
+                            height = stream["height"].as_u64().unwrap_or(0) as u32;
+                            pix_fmt = stream["pix_fmt"].as_str().unwrap_or("").to_string();
+
+                            if let Some(r_fps) = stream["r_frame_rate"].as_str() {
+                                let parts: Vec<&str> = r_fps.split('/').collect();
+                                if parts.len() == 2 {
+                                    fps_num = parts[0].parse::<u64>().unwrap_or(0);
+                                    fps_den = parts[1].parse::<u64>().unwrap_or(1);
+                                }
+                            }
+                        } else if codec_type == "audio" {
+                            has_audio = true;
+                            a_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
                         }
                     }
-                } else if codec_type == "audio" && !has_audio {
-                    has_audio = true;
-                    a_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
                 }
             }
         }
 
         let current = StreamInfo {
-            file_name: path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default(),
             v_codec,
             width,
             height,
@@ -1173,8 +1167,8 @@ pub async fn check_stream_compatibility(
                 return Ok(StreamCompatibilityResult {
                     is_compatible: false,
                     reason: format!(
-                        "Codec mismatch: '{}' is {} while '{}' is {}. Lossless copy requires matching video codecs.",
-                        base.file_name, base.v_codec, current.file_name, current.v_codec
+                        "Codec mismatch: {} vs {}",
+                        base.v_codec, current.v_codec
                     ),
                 });
             }
@@ -1182,8 +1176,8 @@ pub async fn check_stream_compatibility(
                 return Ok(StreamCompatibilityResult {
                     is_compatible: false,
                     reason: format!(
-                        "Resolution mismatch: '{}' is {}x{} while '{}' is {}x{}. Lossless copy requires identical resolution.",
-                        base.file_name, base.width, base.height, current.file_name, current.width, current.height
+                        "Resolution mismatch: {}x{} vs {}x{}",
+                        base.width, base.height, current.width, current.height
                     ),
                 });
             }
@@ -1191,8 +1185,8 @@ pub async fn check_stream_compatibility(
                 return Ok(StreamCompatibilityResult {
                     is_compatible: false,
                     reason: format!(
-                        "Pixel format mismatch: '{}' is {} while '{}' is {}.",
-                        base.file_name, base.pix_fmt, current.file_name, current.pix_fmt
+                        "Pixel format mismatch: {} vs {}",
+                        base.pix_fmt, current.pix_fmt
                     ),
                 });
             }
@@ -1203,8 +1197,8 @@ pub async fn check_stream_compatibility(
                     return Ok(StreamCompatibilityResult {
                         is_compatible: false,
                         reason: format!(
-                            "Frame rate mismatch: '{}' is {:.2} fps while '{}' is {:.2} fps.",
-                            base.file_name, fps1, current.file_name, fps2
+                            "Frame rate mismatch: {:.2} fps vs {:.2} fps",
+                            fps1, fps2
                         ),
                     });
                 }
@@ -1213,11 +1207,9 @@ pub async fn check_stream_compatibility(
                 return Ok(StreamCompatibilityResult {
                     is_compatible: false,
                     reason: format!(
-                        "Audio stream mismatch: '{}' has {} audio while '{}' has {} audio track. Lossless copy requires consistent audio tracks.",
-                        base.file_name,
-                        if base.has_audio { "an" } else { "no" },
-                        current.file_name,
-                        if current.has_audio { "an" } else { "no" }
+                        "Audio stream mismatch: {} audio vs {} audio",
+                        if base.has_audio { "with" } else { "without" },
+                        if current.has_audio { "with" } else { "without" }
                     ),
                 });
             }
@@ -1225,8 +1217,8 @@ pub async fn check_stream_compatibility(
                 return Ok(StreamCompatibilityResult {
                     is_compatible: false,
                     reason: format!(
-                        "Audio codec mismatch: '{}' is {} while '{}' is {}.",
-                        base.file_name, base.a_codec, current.file_name, current.a_codec
+                        "Audio codec mismatch: {} vs {}",
+                        base.a_codec, current.a_codec
                     ),
                 });
             }
@@ -1439,11 +1431,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         // Transcode mode: Multi-input + filter_complex for robust combination of mismatched codecs/resolutions
         let mut args: Vec<String> = vec!["-hide_banner".to_string()];
 
-        if has_av1_input {
-            log_info("AV1 input detected in combine queue: Forcing VideoLAN libdav1d software decoder");
-            args.push("-c:v".to_string());
-            args.push("libdav1d".to_string());
-        } else {
+        if !has_av1_input {
             args.push("-hwaccel".to_string());
             args.push("auto".to_string());
         }
@@ -1451,6 +1439,18 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         // Add each input file with trim boundaries (-ss and -to before -i)
         for (idx, file_path) in config.video_files.iter().enumerate() {
             let info = &clip_infos[idx];
+
+            // Scope VideoLAN libdav1d software decoder per-input specifically for AV1 clips
+            let is_av1 = info.meta.codec_name.to_lowercase().contains("av1");
+            if is_av1 {
+                log_info(&format!(
+                    "Input [{}] '{}' is AV1: Forcing VideoLAN libdav1d software decoder",
+                    idx, file_path
+                ));
+                args.push("-c:v".to_string());
+                args.push("libdav1d".to_string());
+            }
+
             if info.has_trim {
                 args.push("-ss".to_string());
                 args.push(format!("{:.3}", info.start_sec));

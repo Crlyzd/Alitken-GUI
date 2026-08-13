@@ -68,7 +68,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   const [isSnappedRight, setIsSnappedRight] = useState(false);
   const [isSnappedTop, setIsSnappedTop] = useState(false);
   const [isSnappedBottom, setIsSnappedBottom] = useState(false);
-  const [isAltActive, setIsAltActive] = useState(false);
+  const [isMagnetActive, setIsMagnetActive] = useState(false);
   const [activeAxisLock, setActiveAxisLock] = useState<'vertical' | 'horizontal' | 'both' | null>(null);
 
   const dragStartRef = useRef<{
@@ -159,10 +159,12 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         // Axis locking with modifier keys:
         // Shift key -> lock vertical movement (Y remains fixed at startOffsetY)
         // Ctrl/Cmd key -> lock horizontal movement (X remains fixed at startOffsetX)
+        // Shift / Ctrl / Alt keys -> activate edge magnetic snapping
         const isShift = e.shiftKey;
         const isCtrl = e.ctrlKey || e.metaKey;
         const isAlt = e.altKey;
-        setIsAltActive(isAlt);
+        const isMagnet = isShift || isCtrl || isAlt;
+        setIsMagnetActive(isMagnet);
 
         let lock: 'vertical' | 'horizontal' | 'both' | null = null;
         if (isShift && isCtrl) {
@@ -196,8 +198,8 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
           snappedY = true;
         }
 
-        // Alt key: Outer video container edge magnetic snapping
-        if (isAlt && rect.width > 0 && rect.height > 0) {
+        // Shift / Ctrl / Alt key: Outer video container edge magnetic snapping
+        if (isMagnet && rect.width > 0 && rect.height > 0) {
           const halfW = (wW / rect.width) / 2;
           const halfH = (wH / rect.height) / 2;
 
@@ -236,8 +238,11 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
 
         onCropOffsetChange({ x: rawX, y: rawY });
       } else if (isDraggingResize) {
+        const isShift = e.shiftKey;
+        const isCtrl = e.ctrlKey || e.metaKey;
         const isAlt = e.altKey;
-        setIsAltActive(isAlt);
+        const isMagnet = isShift || isCtrl || isAlt;
+        setIsMagnetActive(isMagnet);
 
         // Uniform aspect ratio locked resize based on drag distance
         const minFillScale = Math.max(canvasAspect / videoAspect, videoAspect / canvasAspect);
@@ -251,8 +256,8 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         let snapT = false;
         let snapB = false;
 
-        // Alt key: Outer container magnetic snapping during corner resize
-        if (isAlt) {
+        // Shift / Ctrl / Alt key: Outer container magnetic snapping during corner resize
+        if (isMagnet) {
           const SCALE_SNAP_THRESHOLD = 0.04;
           if (Math.abs(targetScale - minFillScale) <= SCALE_SNAP_THRESHOLD) {
             targetScale = minFillScale;
@@ -287,7 +292,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
       setIsSnappedRight(false);
       setIsSnappedTop(false);
       setIsSnappedBottom(false);
-      setIsAltActive(false);
+      setIsMagnetActive(false);
       setActiveAxisLock(null);
     };
 
@@ -499,7 +504,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
           )}
 
         {/* Axis & Magnet Lock Feedback Toast */}
-        {(isDraggingMove || isDraggingResize) && (activeAxisLock || isAltActive) && (
+        {(isDraggingMove || isDraggingResize) && (activeAxisLock || isMagnetActive) && (
           <div
             style={{
               position: 'absolute',
@@ -529,7 +534,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
             {activeAxisLock === 'vertical' && 'SHIFT: Locked Vertical'}
             {activeAxisLock === 'horizontal' && 'CTRL: Locked Horizontal'}
             {activeAxisLock === 'both' && 'SHIFT + CTRL: Position Locked'}
-            {isAltActive && !activeAxisLock && (isDraggingResize ? 'ALT: Outer Container Resize Magnet Active' : 'ALT: Outer Container Magnet Active')}
+            {isMagnetActive && !activeAxisLock && (isDraggingResize ? 'Resize Magnet Active' : 'Edge Magnet Active')}
           </div>
         )}
 

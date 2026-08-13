@@ -84,21 +84,21 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
       {isStreamIncompatible && (
         <div
           style={{
-            padding: '10px 12px',
-            borderRadius: '10px',
+            padding: '8px 10px',
+            borderRadius: '8px',
             background: 'var(--warning-bg)',
             border: '1px solid var(--warning-border)',
             display: 'flex',
             gap: '8px',
-            alignItems: 'flex-start',
+            alignItems: 'center',
           }}
         >
           <AlertTriangle
-            size={16}
+            size={14}
             color="var(--accent-amber)"
-            style={{ flexShrink: 0, marginTop: '2px' }}
+            style={{ flexShrink: 0 }}
           />
-          <div style={{ fontSize: '11px', color: 'var(--warning-text)', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--warning-text)', lineHeight: '1.3' }}>
             {streamCompatibility?.reason}
           </div>
         </div>

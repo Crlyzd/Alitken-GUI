@@ -88,10 +88,10 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     !PRESET_BITRATES.includes(config.targetBitrate)
   );
 
-  const isFastCopyActive =
-    !isTrimmerMode &&
-    ((config.videoAction === 'SPLIT' && config.splitFastCopy) ||
-      (config.videoAction === 'COMBINE' && config.combineFastCopy));
+  const isFastCopyActive = isTrimmerMode
+    ? !!fastCopyTrim
+    : (config.videoAction === 'SPLIT' && config.splitFastCopy) ||
+      (config.videoAction === 'COMBINE' && config.combineFastCopy);
 
   const isCombineMismatch =
     config.videoAction === 'COMBINE' &&

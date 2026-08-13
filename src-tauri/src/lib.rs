@@ -47,6 +47,8 @@ pub fn run() {
             start_image_to_video_pipeline,
             open_log_folder,
             open_folder,
+            show_in_folder,
+            open_file,
             minimize_window,
             toggle_maximize_window,
             close_window,

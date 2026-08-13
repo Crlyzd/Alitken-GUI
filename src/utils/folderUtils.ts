@@ -21,3 +21,22 @@ export async function openDestinationFolder(
     }
   }
 }
+
+export async function showFileInFolder(filePath: string): Promise<void> {
+  if (!filePath) return;
+  try {
+    await invoke('show_in_folder', { filePath });
+  } catch (err) {
+    console.error('Failed to show file in folder:', err);
+  }
+}
+
+export async function openFileWithDefaultApp(filePath: string): Promise<void> {
+  if (!filePath) return;
+  try {
+    await invoke('open_file', { filePath });
+  } catch (err) {
+    console.error('Failed to open file with default app:', err);
+  }
+}
+

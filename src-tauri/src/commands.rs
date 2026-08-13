@@ -483,6 +483,38 @@ pub fn open_folder(folder_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn show_in_folder(file_path: String) -> Result<(), String> {
+    if file_path.is_empty() {
+        return Err("File path is empty".to_string());
+    }
+    let normalized = file_path.replace('/', "\\");
+    let path = std::path::Path::new(&normalized);
+    if path.exists() {
+        let _ = utils::create_hidden_cmd("explorer").arg("/select,").arg(&normalized).spawn();
+    } else if let Some(parent) = path.parent() {
+        let _ = utils::create_hidden_cmd("explorer").arg(parent).spawn();
+    } else {
+        return Err("File path or folder does not exist".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_file(file_path: String) -> Result<(), String> {
+    if file_path.is_empty() {
+        return Err("File path is empty".to_string());
+    }
+    let normalized = file_path.replace('/', "\\");
+    if std::path::Path::new(&normalized).exists() {
+        let _ = utils::create_hidden_cmd("cmd").args(&["/C", "start", "", &normalized]).spawn();
+        Ok(())
+    } else {
+        Err("File not found on disk".to_string())
+    }
+}
+
+
+#[tauri::command]
 pub fn minimize_window(window: tauri::Window) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }

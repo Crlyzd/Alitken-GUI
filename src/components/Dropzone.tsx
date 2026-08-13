@@ -12,8 +12,11 @@ import {
   AlertCircle,
   Scissors,
   GripVertical,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
+import { showFileInFolder, openFileWithDefaultApp } from '../utils/folderUtils';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
 
 export type SortOption =
@@ -453,11 +456,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
               className="glass-card"
               onPointerDown={(e) => handleCardPointerDown(e, idx)}
               style={{
-                padding: '10px 14px',
+                padding: '10px 10px 10px 8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '12px',
+                gap: '8px',
                 border: isBeingDragged
                   ? '1.5px solid var(--accent-cyan)'
                   : file.isMissing
@@ -482,36 +485,41 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 position: 'relative',
               }}
             >
-              {/* Drag Handle Grip Icon */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: isBeingDragged ? 'var(--accent-cyan)' : 'var(--text-dim)',
-                  opacity: isBeingDragged ? 1 : 0.4,
-                  flexShrink: 0,
-                  cursor: 'grab',
-                }}
-              >
-                <GripVertical size={16} />
+              {/* Compact Left Grip & Trim Action Group */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                {/* Drag Handle Grip Icon */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: isBeingDragged ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                    opacity: isBeingDragged ? 1 : 0.4,
+                    flexShrink: 0,
+                    cursor: 'grab',
+                    padding: '2px 0 2px 2px',
+                  }}
+                  title="Drag to reorder queue"
+                >
+                  <GripVertical size={14} />
+                </div>
+
+                {/* Video Trim Button */}
+                {!isImg && onOpenTrimmer && !file.isMissing && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenTrimmer(file);
+                    }}
+                    title={hasTrim ? 'Edit Video Trim Selection' : 'Open Video in Trimmer'}
+                    className={`queue-trim-btn ${hasTrim ? 'has-trim' : ''}`}
+                  >
+                    <Scissors size={15} />
+                  </button>
+                )}
               </div>
 
-              {/* Far-Left Action Box for Video Trimming */}
-              {!isImg && onOpenTrimmer && !file.isMissing && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenTrimmer(file);
-                  }}
-                  title={hasTrim ? 'Edit Video Trim Selection' : 'Open Video in Trimmer'}
-                  className={`queue-trim-btn ${hasTrim ? 'has-trim' : ''}`}
-                >
-                  <Scissors size={16} />
-                </button>
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     width: '38px',
@@ -615,11 +623,12 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 </div>
               </div>
 
+              {/* Right Side Action Cluster */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '4px',
                   flexShrink: 0,
                 }}
               >
@@ -637,26 +646,126 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                       fontSize: '10.5px',
                       fontWeight: 700,
                       whiteSpace: 'nowrap',
+                      marginRight: '4px',
                     }}
                   >
                     <AlertCircle size={10} /> File Missing
                   </span>
                 )}
+
+                {/* Open File Button */}
                 <button
-                  onClick={() => onRemoveFile(idx)}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFileWithDefaultApp(file.path);
+                  }}
+                  disabled={file.isMissing}
+                  title="Open File (Default Viewer)"
                   style={{
                     background: 'transparent',
                     border: 'none',
                     color: 'var(--text-dim)',
+                    opacity: file.isMissing ? 0.3 : 0.7,
+                    cursor: file.isMissing ? 'not-allowed' : 'pointer',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!file.isMissing) {
+                      e.currentTarget.style.color = 'var(--accent-cyan)';
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!file.isMissing) {
+                      e.currentTarget.style.color = 'var(--text-dim)';
+                      e.currentTarget.style.opacity = '0.7';
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <ExternalLink size={15} />
+                </button>
+
+                {/* Open Containing Folder Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showFileInFolder(file.path);
+                  }}
+                  disabled={file.isMissing}
+                  title="Open Containing Folder"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    opacity: file.isMissing ? 0.3 : 0.7,
+                    cursor: file.isMissing ? 'not-allowed' : 'pointer',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!file.isMissing) {
+                      e.currentTarget.style.color = 'var(--accent-cyan)';
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!file.isMissing) {
+                      e.currentTarget.style.color = 'var(--text-dim)';
+                      e.currentTarget.style.opacity = '0.7';
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <FolderOpen size={15} />
+                </button>
+
+                {/* Remove File Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFile(idx);
+                  }}
+                  title="Remove from Queue"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    opacity: 0.7,
                     cursor: 'pointer',
                     padding: '6px',
                     borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-rose)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent-rose)';
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-dim)';
+                    e.currentTarget.style.opacity = '0.7';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>

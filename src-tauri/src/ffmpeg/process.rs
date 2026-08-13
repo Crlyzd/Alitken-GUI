@@ -47,6 +47,9 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
         }
     });
 
+    let mut cur_frame: u64 = 0;
+    let mut cur_fps: f64 = 0.0;
+
     while let Ok(Some(line)) = reader.next_line().await {
         if crate::utils::check_cancel_flag() {
             let _ = child.kill().await;
@@ -54,8 +57,17 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
             return Err("Processing aborted by user.".to_string());
         }
 
-        if line.starts_with("out_time_ms=") {
-            let ms_str = line.trim_start_matches("out_time_ms=");
+        let trimmed = line.trim();
+        if trimmed.starts_with("frame=") {
+            if let Ok(f) = trimmed.trim_start_matches("frame=").trim().parse::<u64>() {
+                cur_frame = f;
+            }
+        } else if trimmed.starts_with("fps=") {
+            if let Ok(fps) = trimmed.trim_start_matches("fps=").trim().parse::<f64>() {
+                cur_fps = fps;
+            }
+        } else if trimmed.starts_with("out_time_ms=") {
+            let ms_str = trimmed.trim_start_matches("out_time_ms=");
             if let Ok(cur_ms) = ms_str.parse::<f64>() {
                 if duration_sec > 0.0 {
                     let total_ms = duration_sec * 1_000_000.0;
@@ -76,7 +88,15 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
                     };
 
                     let status_msg = if let Some(cs) = custom_status {
-                        cs.to_string()
+                        if cur_frame > 0 {
+                            if cur_fps > 0.0 {
+                                format!("{}: Frame {} ({:.0} FPS)...", cs, cur_frame, cur_fps)
+                            } else {
+                                format!("{}: Frame {}...", cs, cur_frame)
+                            }
+                        } else {
+                            format!("{}...", cs)
+                        }
                     } else if total_parts > 1 {
                         format!("Splitting segment {} of {}...", cur_part, total_parts)
                     } else {

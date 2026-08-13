@@ -1509,11 +1509,11 @@ pub async fn run_extract_frames_pipeline<R: tauri::Runtime>(
             ffmpeg_path,
             args,
             &file_stem,
-            file_idx,
+            file_idx + 1,
             total_files,
             meta.duration_sec,
             1,
-            Some("Extracting frame sequence..."),
+            Some(&format!("Extracting {} frames", format_ext.to_uppercase())),
         )
         .await?;
     }

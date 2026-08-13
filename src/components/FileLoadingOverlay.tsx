@@ -33,14 +33,14 @@ export const FileLoadingOverlay: React.FC<FileLoadingOverlayProps> = ({
           zIndex: 100,
           width: '100%',
           padding: '10px 16px',
-          background: 'rgba(15, 23, 42, 0.75)',
+          background: 'var(--bg-glass-dropdown)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+          borderBottom: '1px solid var(--border-glass)',
           display: 'flex',
           alignItems: 'center',
           gap: '14px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          boxShadow: 'var(--shadow-panel)',
           animation: 'fadeIn 0.2s ease-out',
         }}
       >
@@ -57,7 +57,7 @@ export const FileLoadingOverlay: React.FC<FileLoadingOverlayProps> = ({
             style={{
               height: '5px',
               width: '100%',
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: 'var(--scrollbar-thumb)',
               borderRadius: '3px',
               overflow: 'hidden',
             }}
@@ -107,8 +107,8 @@ export const FileLoadingOverlay: React.FC<FileLoadingOverlayProps> = ({
           alignItems: 'center',
           textAlign: 'center',
           gap: '20px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: 'var(--shadow-panel)',
+          border: '1px solid var(--border-glass)',
         }}
       >
         {/* Animated Icon Ring */}
@@ -119,7 +119,7 @@ export const FileLoadingOverlay: React.FC<FileLoadingOverlayProps> = ({
             height: '64px',
             borderRadius: '50%',
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2))',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            border: '1px solid var(--border-glass)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -187,7 +187,7 @@ export const FileLoadingOverlay: React.FC<FileLoadingOverlayProps> = ({
             style={{
               height: '10px',
               borderRadius: '5px',
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: 'var(--scrollbar-thumb)',
               overflow: 'hidden',
               position: 'relative',
             }}

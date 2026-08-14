@@ -138,6 +138,9 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         };
 
         let has_trim = start_sec > 0.001 || (end_sec > start_sec && end_sec < meta.duration_sec - 0.05);
+        let has_crop = (crop_w.is_some() && crop_h.is_some()) || crop_filter.is_some();
+        let effective_split_fast_copy = config.split_fast_copy && !has_crop;
+
         let effective_duration = if has_trim {
             (end_sec - start_sec).max(0.1)
         } else {
@@ -163,7 +166,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 1
             };
 
-            let out_ext = if config.split_fast_copy {
+            let out_ext = if effective_split_fast_copy {
                 input_path
                     .extension()
                     .map(|s| s.to_string_lossy().to_string())
@@ -181,7 +184,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 if let Err(e) = std::fs::create_dir_all(&split_dir) {
                     log_error(&format!("Failed to create split output directory {:?}: {}", split_dir, e));
                 }
-                let pat = if config.split_fast_copy {
+                let pat = if effective_split_fast_copy {
                     split_dir.join(format!("{}_part%03d.{}", file_stem, out_ext))
                 } else {
                     split_dir.join(format!("{}_part%03d_{}_{}.{}", file_stem, res_tag, bit_tag, out_ext))
@@ -189,7 +192,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 (pat, file_stem.clone())
             } else {
                 let batch_stem = resolve_unique_split_stem(&parent_dir, &file_stem, &out_ext);
-                let pat = if config.split_fast_copy {
+                let pat = if effective_split_fast_copy {
                     parent_dir.join(format!("{}_part%03d.{}", batch_stem, out_ext))
                 } else {
                     parent_dir.join(format!("{}_part%03d_{}_{}.{}", batch_stem, res_tag, bit_tag, out_ext))
@@ -200,7 +203,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
             let mut args: Vec<String> = vec!["-hide_banner".to_string()];
 
-            if config.split_fast_copy {
+            if effective_split_fast_copy {
                 if has_trim {
                     args.extend([
                         "-ss".to_string(),
@@ -211,10 +214,13 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 }
                 args.extend(["-i".to_string(), file_path.to_string()]);
                 args.extend([
+                    "-map".to_string(),
+                    "0:v:0".to_string(),
+                    "-map".to_string(),
+                    "0:a?".to_string(),
                     "-c".to_string(),
                     "copy".to_string(),
-                    "-map".to_string(),
-                    "0".to_string(),
+                    "-dn".to_string(),
                     "-segment_time".to_string(),
                     format!("{}", segment_sec),
                     "-f".to_string(),
@@ -277,6 +283,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                     "0:a?".to_string(),
                     "-c:a".to_string(),
                     "copy".to_string(),
+                    "-dn".to_string(),
                     "-fps_mode".to_string(),
                     "cfr".to_string(),
                     "-segment_time".to_string(),
@@ -378,6 +385,7 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             "0:a?".to_string(),
             "-c:a".to_string(),
             "copy".to_string(),
+            "-dn".to_string(),
             "-fps_mode".to_string(),
             "cfr".to_string(),
             "-y".to_string(),

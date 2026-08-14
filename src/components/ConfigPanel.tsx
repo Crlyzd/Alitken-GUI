@@ -98,6 +98,13 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     : (config.videoAction === 'SPLIT' && config.splitFastCopy) ||
       (config.videoAction === 'COMBINE' && config.combineFastCopy);
 
+  const croppedFilesCount = (files || []).filter(
+    (f) =>
+      f.isCropApplied ||
+      (f.crop_w !== undefined && f.crop_h !== undefined) ||
+      (f.aspectRatio && f.aspectRatio !== 'ORIGINAL')
+  ).length;
+
   const isCombineMismatch =
     !isTrimmerMode &&
     config.videoAction === 'COMBINE' &&
@@ -297,6 +304,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   isCheckingCompatibility={isCheckingCompatibility}
                   fileCount={fileCount}
                   files={files}
+                  croppedFilesCount={croppedFilesCount}
                 />
               )}
 
@@ -312,7 +320,11 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
               {/* SPLIT VIDEO OPTIONS */}
               {!isTrimmerMode && config.videoAction === 'SPLIT' && (
-                <SplitControls config={config} onChange={onChange} />
+                <SplitControls
+                  config={config}
+                  onChange={onChange}
+                  croppedFilesCount={croppedFilesCount}
+                />
               )}
 
               {/* TARGET CODEC, RESOLUTION & BITRATE (Hidden in EXTRACT_FRAMES mode unless in Trimmer Mode) */}
@@ -327,6 +339,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   setIsCustomBitrate={setIsCustomBitrate}
                   PRESET_HEIGHTS={PRESET_HEIGHTS}
                   PRESET_BITRATES={PRESET_BITRATES}
+                  croppedFilesCount={croppedFilesCount}
                 />
               )}
 

@@ -12,6 +12,7 @@ interface TranscodeControlsProps {
   setIsCustomBitrate: (val: boolean) => void;
   PRESET_HEIGHTS: string[];
   PRESET_BITRATES: string[];
+  croppedFilesCount?: number;
 }
 
 export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
@@ -24,7 +25,10 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
   setIsCustomBitrate,
   PRESET_HEIGHTS,
   PRESET_BITRATES,
+  croppedFilesCount = 0,
 }) => {
+  const isEffectivelyBypassed = isFastCopyActive && croppedFilesCount === 0;
+
   return (
     <>
       {/* TARGET CODEC SECTION */}
@@ -49,15 +53,31 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
             Target Codec
           </span>
           {isFastCopyActive && (
-            <span
-              style={{
-                fontSize: '10px',
-                color: 'var(--accent-cyan)',
-                fontWeight: 600,
-              }}
-            >
-              Bypassed (-c copy)
-            </span>
+            croppedFilesCount > 0 ? (
+              <span
+                style={{
+                  fontSize: '10px',
+                  color: '#c084fc',
+                  fontWeight: 600,
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                }}
+              >
+                ⚡ Active for {croppedFilesCount} Cropped Clip{croppedFilesCount > 1 ? 's' : ''}
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: '10px',
+                  color: 'var(--accent-cyan)',
+                  fontWeight: 600,
+                }}
+              >
+                Bypassed (-c copy)
+              </span>
+            )
           )}
         </div>
 
@@ -66,8 +86,8 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '8px',
-            opacity: isFastCopyActive ? 0.4 : 1,
-            pointerEvents: isFastCopyActive ? 'none' : 'auto',
+            opacity: isEffectivelyBypassed ? 0.4 : 1,
+            pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
             transition: 'opacity 0.2s ease',
           }}
         >
@@ -81,7 +101,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
               <button
                 key={codec.id}
                 type="button"
-                disabled={isFastCopyActive}
+                disabled={isEffectivelyBypassed}
                 onClick={() => onChange({ codecChoice: codec.id })}
                 style={{
                   padding: '10px 6px',
@@ -126,8 +146,8 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
       {/* TARGET RESOLUTION SECTION */}
       <div
         style={{
-          opacity: isFastCopyActive ? 0.4 : 1,
-          pointerEvents: isFastCopyActive ? 'none' : 'auto',
+          opacity: isEffectivelyBypassed ? 0.4 : 1,
+          pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
           transition: 'opacity 0.2s ease',
         }}
       >
@@ -146,7 +166,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
         </span>
         <GlassSelect
           value={isCustomHeight ? 'CUSTOM' : config.targetHeight}
-          disabled={isFastCopyActive}
+          disabled={isEffectivelyBypassed}
           onChange={(val) => {
             if (val === 'CUSTOM') {
               setIsCustomHeight(true);
@@ -174,7 +194,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
               type="number"
               min="144"
               max="8192"
-              disabled={isFastCopyActive}
+              disabled={isEffectivelyBypassed}
               placeholder="Custom height (144 - 8192 px)"
               value={config.targetHeight === 'CUSTOM' ? '1080' : config.targetHeight}
               onChange={(e) => onChange({ targetHeight: e.target.value })}
@@ -205,8 +225,8 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
       {/* TARGET BITRATE / QUALITY SECTION */}
       <div
         style={{
-          opacity: isFastCopyActive ? 0.4 : 1,
-          pointerEvents: isFastCopyActive ? 'none' : 'auto',
+          opacity: isEffectivelyBypassed ? 0.4 : 1,
+          pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
           transition: 'opacity 0.2s ease',
         }}
       >
@@ -225,7 +245,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
         </span>
         <GlassSelect
           value={isCustomBitrate ? 'CUSTOM' : config.targetBitrate}
-          disabled={isFastCopyActive}
+          disabled={isEffectivelyBypassed}
           onChange={(val) => {
             if (val === 'CUSTOM') {
               setIsCustomBitrate(true);
@@ -254,7 +274,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
               type="number"
               min="100"
               max="500000"
-              disabled={isFastCopyActive}
+              disabled={isEffectivelyBypassed}
               placeholder="Custom bitrate (100 - 500000 kbps)"
               value={config.targetBitrate === 'CUSTOM' ? '5000' : config.targetBitrate}
               onChange={(e) => onChange({ targetBitrate: e.target.value })}

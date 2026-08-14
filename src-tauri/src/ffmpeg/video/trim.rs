@@ -79,7 +79,7 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
     let raw_speed = config.playback_speed.unwrap_or(1.0);
     let speed = raw_speed.clamp(0.1, 50.0);
     let is_speed_changed = (speed - 1.0).abs() > 0.001;
-    let has_crop = config.crop_w.is_some() && config.crop_h.is_some();
+    let has_crop = (config.crop_w.is_some() && config.crop_h.is_some()) || config.crop_filter.is_some();
     let effective_fast_copy = config.fast_copy && !is_speed_changed && !has_crop;
 
     let start_sec = config.start_sec.max(0.0);
@@ -101,6 +101,8 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
             format!("{:.3}", end_sec),
             "-i".to_string(),
             config.input_file.clone(),
+            "-map".to_string(),
+            "0:v:0".to_string(),
             "-c:v".to_string(),
             "copy".to_string(),
         ]);
@@ -109,14 +111,15 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
             args.push("-an".to_string());
         } else {
             args.extend([
+                "-map".to_string(),
+                "0:a?".to_string(),
                 "-c:a".to_string(),
                 "copy".to_string(),
-                "-map".to_string(),
-                "0".to_string(),
             ]);
         }
 
         args.extend([
+            "-dn".to_string(),
             "-reset_timestamps".to_string(),
             "1".to_string(),
             "-y".to_string(),
@@ -158,19 +161,27 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
                 config.target_height.clone()
             };
             vf_filters.push(format!("scale=-2:{},format=yuv420p", effective_height));
+        } else if !vf_filters.is_empty() {
+            vf_filters.push("format=yuv420p".to_string());
         }
 
         if is_speed_changed {
             let pts_factor = 1.0 / speed;
-            if speed < 1.0 && config.slow_mo_mode.as_deref() == Some("OPTICAL_SMOOTH") {
-                log_info(&format!("Applying Optical Smooth slow-mo (speed: {:.2}x)", speed));
+            let slowmo_mode = config.slow_mo_mode.as_deref().unwrap_or("fast");
+
+            if speed < 1.0 && slowmo_mode == "OPTICAL_SMOOTH" {
+                let base_fps = if meta.duration_sec > 0.0 && meta.total_frames > 0.0 {
+                    (meta.total_frames / meta.duration_sec).clamp(1.0, 240.0)
+                } else {
+                    60.0
+                };
+                let target_fps = (base_fps * (1.0 / speed)).clamp(24.0, 120.0);
                 vf_filters.push(format!(
-                    "setpts={:.6}*PTS,minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir",
-                    pts_factor
+                    "minterpolate='mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:fps={:.2}',setpts={:.4}*PTS",
+                    target_fps, pts_factor
                 ));
             } else {
-                log_info(&format!("Applying Frame Dup speed scale (speed: {:.2}x)", speed));
-                vf_filters.push(format!("setpts={:.6}*PTS", pts_factor));
+                vf_filters.push(format!("setpts={:.4}*PTS", pts_factor));
             }
         }
 
@@ -178,25 +189,32 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
             args.extend(["-vf".to_string(), vf_filters.join(",")]);
         }
 
-        args.extend(["-c:v".to_string(), gpu_caps.encoder.clone()]);
+        args.extend([
+            "-map".to_string(),
+            "0:v:0".to_string(),
+            "-c:v".to_string(),
+            gpu_caps.encoder.clone(),
+        ]);
         for arg in gpu_caps.encoder_args.split_whitespace() {
             args.push(arg.to_string());
         }
 
         append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
-        args.extend(["-map".to_string(), "0:v:0".to_string()]);
-
-        if mute_audio || speed > 4.0 || speed < 0.25 {
+        if mute_audio {
             args.push("-an".to_string());
         } else if is_speed_changed {
             let mut af_filters: Vec<String> = Vec::new();
-            if speed >= 0.5 && speed <= 2.0 {
+            if (0.5..=2.0).contains(&speed) {
                 af_filters.push(format!("atempo={:.4}", speed));
-            } else if speed > 2.0 && speed <= 4.0 {
-                af_filters.push("atempo=2.0".to_string());
-                af_filters.push(format!("atempo={:.4}", speed / 2.0));
-            } else if speed >= 0.25 && speed < 0.5 {
+            } else if speed > 2.0 {
+                let mut remaining_speed = speed;
+                while remaining_speed > 2.0 {
+                    af_filters.push("atempo=2.0".to_string());
+                    remaining_speed /= 2.0;
+                }
+                af_filters.push(format!("atempo={:.4}", remaining_speed));
+            } else {
                 af_filters.push("atempo=0.5".to_string());
                 af_filters.push(format!("atempo={:.4}", speed / 0.5));
             }
@@ -221,6 +239,7 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         }
 
         args.extend([
+            "-dn".to_string(),
             "-fps_mode".to_string(),
             "cfr".to_string(),
             "-y".to_string(),

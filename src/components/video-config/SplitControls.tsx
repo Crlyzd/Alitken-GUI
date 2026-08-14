@@ -1,13 +1,18 @@
 import React from 'react';
-import { Zap } from 'lucide-react';
+import { Zap, Info } from 'lucide-react';
 import { ConfigState } from '../ConfigPanel';
 
 interface SplitControlsProps {
   config: ConfigState;
   onChange: (updated: Partial<ConfigState>) => void;
+  croppedFilesCount?: number;
 }
 
-export const SplitControls: React.FC<SplitControlsProps> = ({ config, onChange }) => {
+export const SplitControls: React.FC<SplitControlsProps> = ({
+  config,
+  onChange,
+  croppedFilesCount = 0,
+}) => {
   return (
     <div
       style={{
@@ -58,6 +63,25 @@ export const SplitControls: React.FC<SplitControlsProps> = ({ config, onChange }
           }}
         />
       </label>
+
+      {config.splitFastCopy && croppedFilesCount > 0 && (
+        <div
+          style={{
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.25)',
+            borderRadius: '8px',
+            padding: '7px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Info size={14} color="#c084fc" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.3' }}>
+            <strong style={{ color: '#c084fc' }}>{croppedFilesCount} cropped clip{croppedFilesCount > 1 ? 's' : ''}</strong> will use GPU transcode below.
+          </span>
+        </div>
+      )}
 
       <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
 

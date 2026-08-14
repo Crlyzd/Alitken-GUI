@@ -637,7 +637,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         <Scissors size={10} /> Trimmed: {formatDuration((file.trimEndSec ?? 0) - (file.trimStartSec ?? 0))}
                       </span>
                     )}
-                    {(file.isCropApplied || (file.crop_w !== undefined && file.crop_h !== undefined)) && (
+                    {(file.isCropApplied || (file.crop_w !== undefined && file.crop_h !== undefined) || (file.aspectRatio && file.aspectRatio !== 'ORIGINAL')) && (
                       <span
                         style={{
                           display: 'inline-flex',

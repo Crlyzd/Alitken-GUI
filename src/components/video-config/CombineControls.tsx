@@ -11,6 +11,7 @@ interface CombineControlsProps {
   isCheckingCompatibility?: boolean;
   fileCount: number;
   files?: FileItem[];
+  croppedFilesCount?: number;
 }
 
 const formatTotalDuration = (sec: number): string => {
@@ -34,8 +35,10 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
   isCheckingCompatibility = false,
   fileCount,
   files,
+  croppedFilesCount = 0,
 }) => {
   const isStreamIncompatible = !!streamCompatibility && !streamCompatibility.is_compatible;
+  const hasCropInFastConcat = !!config.combineFastCopy && croppedFilesCount > 0;
 
   const totalCombinedDurationSec = useMemo(() => {
     if (!files || files.length === 0) return 0;
@@ -106,6 +109,26 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           }}
         />
       </label>
+
+      {/* Crop detected warning in Combine Lossless Mode */}
+      {hasCropInFastConcat && (
+        <div
+          style={{
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.25)',
+            borderRadius: '8px',
+            padding: '7px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <AlertTriangle size={14} color="#c084fc" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.3' }}>
+            Lossless Concat does not support crops. Uncheck to combine with GPU re-encoding.
+          </span>
+        </div>
+      )}
 
       {/* Stream Mismatch Warning Card */}
       {isStreamIncompatible && (

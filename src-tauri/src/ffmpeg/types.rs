@@ -106,5 +106,14 @@ pub struct TrimPreset {
     pub end_sec: f64,
     pub fast_copy: bool,
     pub updated_at: u64,
+    pub aspect_ratio: Option<String>,
+    pub crop_offset_x: Option<f64>,
+    pub crop_offset_y: Option<f64>,
+    pub crop_scale: Option<f64>,
+    pub crop_w: Option<u32>,
+    pub crop_h: Option<u32>,
+    pub crop_x: Option<u32>,
+    pub crop_y: Option<u32>,
+    pub crop_filter: Option<String>,
 }
 

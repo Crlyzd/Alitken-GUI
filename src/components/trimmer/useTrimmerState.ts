@@ -542,58 +542,70 @@ export function useTrimmerState({
     let scaledVW = Math.round(baseVW * scale);
     let scaledVH = Math.round(baseVH * scale);
 
-    scaledVW = Math.max(2, scaledVW);
-    scaledVH = Math.max(2, scaledVH);
-
     // Delta X/Y from cropOffset relative to center
     const deltaX = (cropOffset.x - 0.5) * baseVW;
     const deltaY = (cropOffset.y - 0.5) * baseVH;
 
+    // Center point of the scaled video inside canvas
+    const centerX = canvasW / 2 + deltaX;
+    const centerY = canvasH / 2 + deltaY;
+
     // Top-Left corner position of video inside canvas
-    let px = Math.round((canvasW - scaledVW) / 2 + deltaX);
-    let py = Math.round((canvasH - scaledVH) / 2 + deltaY);
+    let px = Math.round(centerX - scaledVW / 2);
+    let py = Math.round(centerY - scaledVH / 2);
 
-    // Ensure even dimensions for FFmpeg libx264 compatibility
-    canvasW = canvasW - (canvasW % 2);
-    canvasH = canvasH - (canvasH % 2);
-    scaledVW = scaledVW - (scaledVW % 2);
-    scaledVH = scaledVH - (scaledVH % 2);
+    // Ensure even dimensions for strict FFmpeg & GPU hardware codec compatibility
+    canvasW = Math.max(2, canvasW - (canvasW % 2));
+    canvasH = Math.max(2, canvasH - (canvasH % 2));
+    scaledVW = Math.max(2, scaledVW - (scaledVW % 2));
+    scaledVH = Math.max(2, scaledVH - (scaledVH % 2));
 
+    let cropLeft = 0;
+    let cropTop = 0;
     let cropW = scaledVW;
     let cropH = scaledVH;
-    let cropX = 0;
-    let cropY = 0;
+    let padX = 0;
+    let padY = 0;
 
     if (px < 0) {
-      cropX = Math.abs(px);
-      cropW = Math.min(scaledVW - cropX, canvasW);
-      px = 0;
-    }
-    if (py < 0) {
-      cropY = Math.abs(py);
-      cropH = Math.min(scaledVH - cropY, canvasH);
-      py = 0;
+      cropLeft = Math.abs(px);
+      cropW = Math.min(scaledVW - cropLeft, canvasW);
+      padX = 0;
+    } else {
+      cropLeft = 0;
+      cropW = Math.min(scaledVW, canvasW - px);
+      padX = px;
     }
 
+    if (py < 0) {
+      cropTop = Math.abs(py);
+      cropH = Math.min(scaledVH - cropTop, canvasH);
+      padY = 0;
+    } else {
+      cropTop = 0;
+      cropH = Math.min(scaledVH, canvasH - py);
+      padY = py;
+    }
+
+    cropLeft = Math.max(0, cropLeft - (cropLeft % 2));
+    cropTop = Math.max(0, cropTop - (cropTop % 2));
     cropW = Math.max(2, cropW - (cropW % 2));
     cropH = Math.max(2, cropH - (cropH % 2));
-    cropX = Math.max(0, cropX - (cropX % 2));
-    cropY = Math.max(0, cropY - (cropY % 2));
-    px = Math.max(0, px - (px % 2));
-    py = Math.max(0, py - (py % 2));
+    padX = Math.max(0, padX - (padX % 2));
+    padY = Math.max(0, padY - (padY % 2));
 
-    // Construct filter string: scale -> (crop if overflow) -> pad
+    // Construct 1:1 WYSIWYG filter string: scale -> (crop if overflow) -> pad to canvas
     let filter = `scale=${scaledVW}:${scaledVH}`;
-    if (cropX > 0 || cropY > 0 || cropW < scaledVW || cropH < scaledVH) {
-      filter += `,crop=${cropW}:${cropH}:${cropX}:${cropY}`;
+    if (cropLeft > 0 || cropTop > 0 || cropW < scaledVW || cropH < scaledVH) {
+      filter += `,crop=${cropW}:${cropH}:${cropLeft}:${cropTop}`;
     }
-    filter += `,pad=${canvasW}:${canvasH}:${px}:${py}:black`;
+    filter += `,pad=${canvasW}:${canvasH}:${padX}:${padY}:black`;
 
     return {
       crop_w: canvasW,
       crop_h: canvasH,
-      crop_x: px,
-      crop_y: py,
+      crop_x: padX,
+      crop_y: padY,
       crop_filter: filter,
     };
   }, [aspectRatio, cropOffset, cropScale, file.resolution, file.crop_w, file.crop_h, file.crop_filter]);

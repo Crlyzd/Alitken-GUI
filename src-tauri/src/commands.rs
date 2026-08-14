@@ -411,6 +411,15 @@ pub fn save_trim_preset(
     start_sec: f64,
     end_sec: f64,
     fast_copy: bool,
+    aspect_ratio: Option<String>,
+    crop_offset_x: Option<f64>,
+    crop_offset_y: Option<f64>,
+    crop_scale: Option<f64>,
+    crop_w: Option<u32>,
+    crop_h: Option<u32>,
+    crop_x: Option<u32>,
+    crop_y: Option<u32>,
+    crop_filter: Option<String>,
 ) -> Result<(), String> {
     let canonical_key = file_path.replace('\\', "/").to_lowercase();
     let presets_file = utils::get_trim_presets_path();
@@ -436,6 +445,15 @@ pub fn save_trim_preset(
             end_sec,
             fast_copy,
             updated_at: now,
+            aspect_ratio,
+            crop_offset_x,
+            crop_offset_y,
+            crop_scale,
+            crop_w,
+            crop_h,
+            crop_x,
+            crop_y,
+            crop_filter,
         },
     );
 

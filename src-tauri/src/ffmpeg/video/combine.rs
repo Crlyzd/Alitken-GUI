@@ -246,10 +246,17 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             }
         }
 
-        if trim_start.is_none() && trim_end.is_none() {
+        if trim_start.is_none() && trim_end.is_none() && crop_filter.is_none() {
             if let Ok(Some(preset)) = crate::commands::load_trim_preset(file_path.clone()) {
                 trim_start = Some(preset.start_sec);
                 trim_end = Some(preset.end_sec);
+                if crop_filter.is_none() {
+                    crop_x = preset.crop_x;
+                    crop_y = preset.crop_y;
+                    crop_w = preset.crop_w;
+                    crop_h = preset.crop_h;
+                    crop_filter = preset.crop_filter;
+                }
             }
         }
 

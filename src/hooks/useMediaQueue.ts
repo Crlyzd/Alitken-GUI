@@ -180,6 +180,21 @@ export function useMediaQueue(
                 trimStartSec: trimPreset?.start_sec,
                 trimEndSec: trimPreset?.end_sec,
                 trimFastCopy: trimPreset?.fast_copy,
+                aspectRatio: trimPreset?.aspect_ratio,
+                cropOffset:
+                  trimPreset?.crop_offset_x !== undefined && trimPreset?.crop_offset_y !== undefined
+                    ? { x: trimPreset.crop_offset_x, y: trimPreset.crop_offset_y }
+                    : undefined,
+                cropScale: trimPreset?.crop_scale,
+                isCropApplied: Boolean(
+                  trimPreset?.crop_filter ||
+                    (trimPreset?.aspect_ratio && trimPreset.aspect_ratio !== 'ORIGINAL')
+                ),
+                crop_w: trimPreset?.crop_w,
+                crop_h: trimPreset?.crop_h,
+                crop_x: trimPreset?.crop_x,
+                crop_y: trimPreset?.crop_y,
+                crop_filter: trimPreset?.crop_filter,
               });
             } else {
               const name = p.split(/[\\/]/).pop() || p;
@@ -303,6 +318,21 @@ export function useMediaQueue(
           trimStartSec: trimPreset?.start_sec,
           trimEndSec: trimPreset?.end_sec,
           trimFastCopy: trimPreset?.fast_copy,
+          aspectRatio: trimPreset?.aspect_ratio,
+          cropOffset:
+            trimPreset?.crop_offset_x !== undefined && trimPreset?.crop_offset_y !== undefined
+              ? { x: trimPreset.crop_offset_x, y: trimPreset.crop_offset_y }
+              : undefined,
+          cropScale: trimPreset?.crop_scale,
+          isCropApplied: Boolean(
+            trimPreset?.crop_filter ||
+              (trimPreset?.aspect_ratio && trimPreset.aspect_ratio !== 'ORIGINAL')
+          ),
+          crop_w: trimPreset?.crop_w,
+          crop_h: trimPreset?.crop_h,
+          crop_x: trimPreset?.crop_x,
+          crop_y: trimPreset?.crop_y,
+          crop_filter: trimPreset?.crop_filter,
         };
 
         setFiles((prev) => {
@@ -331,6 +361,15 @@ export function useMediaQueue(
       startSec: updatedFile.trimStartSec || 0,
       endSec: updatedFile.trimEndSec || (updatedFile.durationSec || 60),
       fastCopy: updatedFile.trimFastCopy ?? true,
+      aspectRatio: updatedFile.aspectRatio || null,
+      cropOffsetX: updatedFile.cropOffset?.x ?? null,
+      cropOffsetY: updatedFile.cropOffset?.y ?? null,
+      cropScale: updatedFile.cropScale ?? null,
+      cropW: updatedFile.crop_w ?? null,
+      cropH: updatedFile.crop_h ?? null,
+      cropX: updatedFile.crop_x ?? null,
+      cropY: updatedFile.crop_y ?? null,
+      cropFilter: updatedFile.crop_filter || null,
     }).catch(console.error);
 
     setActiveView('main');
@@ -343,7 +382,16 @@ export function useMediaQueue(
         filePath: trimConfig.input_file,
         startSec: trimConfig.start_sec,
         endSec: trimConfig.end_sec,
-        fast_copy: trimConfig.fast_copy,
+        fastCopy: trimConfig.fast_copy,
+        aspectRatio: trimmerFile?.aspectRatio || null,
+        cropOffsetX: trimmerFile?.cropOffset?.x ?? null,
+        cropOffsetY: trimmerFile?.cropOffset?.y ?? null,
+        cropScale: trimmerFile?.cropScale ?? null,
+        cropW: trimConfig.crop_w ?? null,
+        cropH: trimConfig.crop_h ?? null,
+        cropX: trimConfig.crop_x ?? null,
+        cropY: trimConfig.crop_y ?? null,
+        cropFilter: trimConfig.crop_filter || null,
       }).catch(console.error);
 
       const currentDeps = await checkDepsAndGpu(trimConfig.codec_choice);

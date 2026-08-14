@@ -85,6 +85,15 @@ export interface TrimPreset {
   end_sec: number;
   fast_copy: boolean;
   updated_at: number;
+  aspect_ratio?: AspectRatioOption;
+  crop_offset_x?: number;
+  crop_offset_y?: number;
+  crop_scale?: number;
+  crop_w?: number;
+  crop_h?: number;
+  crop_x?: number;
+  crop_y?: number;
+  crop_filter?: string;
 }
 
 export type AspectRatioOption = 'ORIGINAL' | '16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9';

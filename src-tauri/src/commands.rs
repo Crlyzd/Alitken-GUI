@@ -135,6 +135,8 @@ pub async fn probe_video_batch<R: tauri::Runtime>(
     app: AppHandle<R>,
     ffprobe_path: String,
     file_paths: Vec<String>,
+    progress_offset: Option<usize>,
+    total_batch_count: Option<usize>,
 ) -> Vec<Option<MediaMetadata>> {
     let probe_path = if ffprobe_path.is_empty() {
         dependencies::check_dependencies().ffprobe_path
@@ -142,10 +144,13 @@ pub async fn probe_video_batch<R: tauri::Runtime>(
         ffprobe_path
     };
 
-    let total = file_paths.len();
-    if total == 0 {
+    let count = file_paths.len();
+    if count == 0 {
         return vec![];
     }
+
+    let offset = progress_offset.unwrap_or(0);
+    let total = total_batch_count.unwrap_or(count);
 
     let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
     let probe_path_arc = std::sync::Arc::new(probe_path);
@@ -163,7 +168,8 @@ pub async fn probe_video_batch<R: tauri::Runtime>(
             let _permit = sem.acquire().await;
             let result = ffmpeg::probe_file(&p_path, &file_path).await.ok();
 
-            let loaded = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            let finished = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            let loaded = offset + finished;
             let current_file = std::path::Path::new(&file_path)
                 .file_name()
                 .map(|s| s.to_string_lossy().to_string())
@@ -182,7 +188,7 @@ pub async fn probe_video_batch<R: tauri::Runtime>(
         });
     }
 
-    let mut results = vec![None; total];
+    let mut results = vec![None; count];
     while let Some(res) = set.join_next().await {
         if let Ok((index, meta)) = res {
             results[index] = meta;
@@ -193,33 +199,110 @@ pub async fn probe_video_batch<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub fn probe_image_batch(file_paths: Vec<String>) -> Vec<MediaMetadata> {
-    file_paths
-        .into_iter()
-        .map(|file_path| {
-            let path = std::path::Path::new(&file_path);
-            let file_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default();
-            let size = std::fs::metadata(&file_path)
-                .map(|m| m.len() as f64)
-                .unwrap_or(0.0);
-            let (width, height) = utils::get_image_dimensions(&file_path);
-            MediaMetadata {
-                file_name,
+pub async fn probe_image_batch<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    file_paths: Vec<String>,
+    progress_offset: Option<usize>,
+    total_batch_count: Option<usize>,
+) -> Vec<MediaMetadata> {
+    let count = file_paths.len();
+    if count == 0 {
+        return vec![];
+    }
+
+    let offset = progress_offset.unwrap_or(0);
+    let total = total_batch_count.unwrap_or(count);
+
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(16));
+    let loaded_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut set = tokio::task::JoinSet::new();
+
+    for (index, file_path) in file_paths.into_iter().enumerate() {
+        let sem = semaphore.clone();
+        let app_handle = app.clone();
+        let counter = loaded_counter.clone();
+
+        set.spawn(async move {
+            let _permit = sem.acquire().await;
+            let path_for_io = file_path.clone();
+
+            let meta = tokio::task::spawn_blocking(move || {
+                let path = std::path::Path::new(&path_for_io);
+                let file_name = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let size = std::fs::metadata(&path_for_io)
+                    .map(|m| m.len() as f64)
+                    .unwrap_or(0.0);
+                let (width, height) = utils::get_image_dimensions(&path_for_io);
+                MediaMetadata {
+                    file_name,
+                    file_path: path_for_io,
+                    duration_sec: 0.0,
+                    total_frames: 0.0,
+                    codec_name: "image".to_string(),
+                    audio_codec: String::new(),
+                    width,
+                    height,
+                    file_size_mb: size / (1024.0 * 1024.0),
+                    is_video: false,
+                }
+            })
+            .await
+            .unwrap_or_else(|_| MediaMetadata {
+                file_name: std::path::Path::new(&file_path)
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default(),
                 file_path: file_path.clone(),
                 duration_sec: 0.0,
                 total_frames: 0.0,
                 codec_name: "image".to_string(),
                 audio_codec: String::new(),
-                width,
-                height,
-                file_size_mb: size / (1024.0 * 1024.0),
+                width: 0,
+                height: 0,
+                file_size_mb: 0.0,
                 is_video: false,
-            }
-        })
-        .collect()
+            });
+
+            let finished = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            let loaded = offset + finished;
+            let current_file = meta.file_name.clone();
+
+            let _ = app_handle.emit(
+                "file-probe-progress",
+                ProbeBatchProgress {
+                    loaded,
+                    total,
+                    current_file,
+                },
+            );
+
+            (index, meta)
+        });
+    }
+
+    let dummy_meta = MediaMetadata {
+        file_name: String::new(),
+        file_path: String::new(),
+        duration_sec: 0.0,
+        total_frames: 0.0,
+        codec_name: "image".to_string(),
+        audio_codec: String::new(),
+        width: 0,
+        height: 0,
+        file_size_mb: 0.0,
+        is_video: false,
+    };
+    let mut results = vec![dummy_meta; count];
+    while let Some(res) = set.join_next().await {
+        if let Ok((index, meta)) = res {
+            results[index] = meta;
+        }
+    }
+
+    results
 }
 
 #[tauri::command]

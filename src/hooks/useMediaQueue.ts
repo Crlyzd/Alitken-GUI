@@ -158,6 +158,8 @@ export function useMediaQueue(
           const batchMeta: any[] = await invoke('probe_video_batch', {
             ffprobePath: '',
             filePaths: videoPaths,
+            progressOffset: 0,
+            totalBatchCount: totalCount,
           });
 
           for (let i = 0; i < videoPaths.length; i++) {
@@ -212,7 +214,11 @@ export function useMediaQueue(
 
       if (imagePaths.length > 0) {
         try {
-          const batchMeta: any[] = await invoke('probe_image_batch', { filePaths: imagePaths });
+          const batchMeta: any[] = await invoke('probe_image_batch', {
+            filePaths: imagePaths,
+            progressOffset: videoPaths.length,
+            totalBatchCount: totalCount,
+          });
           for (const meta of batchMeta) {
             newItems.push({
               name: meta.file_name,

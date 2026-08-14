@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Zap, AlertTriangle, Link2, Loader2, CheckCircle, Clock } from 'lucide-react';
+import { Zap, AlertTriangle, Link2, Loader2, CheckCircle, Clock, Info } from 'lucide-react';
 import { ConfigState } from '../ConfigPanel';
 import { StreamCompatibilityResult } from '../../types/media';
 import { FileItem } from '../Dropzone';
@@ -117,15 +117,15 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
             background: 'rgba(168, 85, 247, 0.1)',
             border: '1px solid rgba(168, 85, 247, 0.25)',
             borderRadius: '8px',
-            padding: '7px 10px',
+            padding: '8px 10px',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '8px',
           }}
         >
-          <AlertTriangle size={14} color="#c084fc" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.3' }}>
-            Lossless Concat does not support crops. Uncheck to combine with GPU re-encoding.
+          <Info size={15} color="#c084fc" style={{ flexShrink: 0, marginTop: '1px' }} />
+          <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.35' }}>
+            Cropped clips detected. Lossless copy preserves original frame sizes without re-encoding. To combine and apply your crops, please uncheck <strong>Lossless Fast Concat</strong> above.
           </span>
         </div>
       )}
@@ -167,12 +167,18 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           statusIcon = <Loader2 size={12} className="spin" style={{ flexShrink: 0, color: 'var(--accent-cyan)' }} />;
           statusText = 'Checking stream compatibility...';
         } else if (streamCompatibility?.is_compatible) {
-          statusColor = 'var(--accent-emerald)';
-          statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
-          statusText = 'Streams Compatible (Lossless Ready)';
+          if (hasCropInFastConcat) {
+            statusColor = '#c084fc';
+            statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc', marginTop: '2px' }} />;
+            statusText = 'Streams Matched • Re-encode for crops';
+          } else {
+            statusColor = 'var(--accent-emerald)';
+            statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
+            statusText = 'Streams Compatible (Lossless Ready)';
+          }
         } else if (isStreamIncompatible) {
           statusColor = 'var(--accent-rose)';
-          statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)' }} />;
+          statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)', marginTop: '2px' }} />;
           statusText = 'Streams Incompatible';
         }
 
@@ -185,10 +191,9 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
               fontSize: '11px',
               fontWeight: 500,
               color: statusColor,
-              height: '20px',
-              lineHeight: '20px',
+              minHeight: '20px',
+              lineHeight: '1.35',
               boxSizing: 'border-box',
-              whiteSpace: 'nowrap',
               userSelect: 'none',
             }}
           >

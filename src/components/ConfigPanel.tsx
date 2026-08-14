@@ -112,6 +112,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     !!streamCompatibility &&
     !streamCompatibility.is_compatible;
 
+  const isCropFastConcatConflict =
+    !isTrimmerMode &&
+    config.videoAction === 'COMBINE' &&
+    config.combineFastCopy &&
+    croppedFilesCount > 0;
+
   const handleBrowseFolder = async () => {
     try {
       const selected = await open({
@@ -409,6 +415,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 const isActionDisabled =
                   disabled ||
                   isCombineMismatch ||
+                  isCropFastConcatConflict ||
                   (!isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2) ||
                   (!isTrimmerMode && config.videoAction === 'EXTRACT_FRAMES' && fileCount === 0);
 
@@ -418,7 +425,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     onClick={isTrimmerMode ? onStartTrim || onStart : onStart}
                     disabled={isActionDisabled}
                     title={
-                      !isTrimmerMode && isCombineMismatch
+                      !isTrimmerMode && isCropFastConcatConflict
+                        ? 'Lossless stream copy cannot apply crops. Uncheck "Lossless Fast Concat" above to combine with re-encoding.'
+                        : !isTrimmerMode && isCombineMismatch
                         ? 'Lossless Copy is enabled but streams differ. Uncheck Lossless Copy to transcode and combine.'
                         : !isTrimmerMode && config.videoAction === 'COMBINE' && fileCount < 2
                         ? 'Add at least 2 videos to combine'

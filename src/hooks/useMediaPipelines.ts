@@ -62,6 +62,25 @@ export function useMediaPipelines(
       return;
     }
 
+    const hasCroppedFiles = files.some(
+      (f) =>
+        f.isCropApplied ||
+        (f.crop_w !== undefined && f.crop_h !== undefined) ||
+        (f.aspectRatio && f.aspectRatio !== 'ORIGINAL')
+    );
+
+    if (
+      currentMediaType === 'video' &&
+      videoConfig.videoAction === 'COMBINE' &&
+      videoConfig.combineFastCopy &&
+      hasCroppedFiles
+    ) {
+      setValidationError(
+        'Lossless stream copy cannot apply crops. Please uncheck "Lossless Fast Concat" to combine cropped videos with re-encoding.'
+      );
+      return;
+    }
+
     // Branch 1: COMBINE QUEUE VIDEOS
     if (videoConfig.videoAction === 'COMBINE') {
       if (files.length < 2) {

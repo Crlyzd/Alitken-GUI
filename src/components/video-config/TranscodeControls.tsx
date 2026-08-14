@@ -27,7 +27,14 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
   PRESET_BITRATES,
   croppedFilesCount = 0,
 }) => {
-  const isEffectivelyBypassed = isFastCopyActive && croppedFilesCount === 0;
+  const isCombineMode = config.videoAction === 'COMBINE';
+  const isSplitMode = config.videoAction === 'SPLIT';
+
+  // In Combine mode, if combineFastCopy is active, all transcode options are bypassed/dimmed.
+  // In Split mode, uncropped clips are bypassed while cropped clips use transcode settings.
+  const isEffectivelyBypassed = isCombineMode
+    ? !!config.combineFastCopy
+    : (isFastCopyActive && croppedFilesCount === 0);
 
   return (
     <>
@@ -48,12 +55,14 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
               color: 'var(--text-muted)',
               letterSpacing: '0.8px',
               textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             Target Codec
           </span>
           {isFastCopyActive && (
-            croppedFilesCount > 0 ? (
+            isSplitMode && croppedFilesCount > 0 ? (
               <span
                 style={{
                   fontSize: '10px',
@@ -63,6 +72,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
                   padding: '2px 6px',
                   borderRadius: '4px',
                   border: '1px solid rgba(168, 85, 247, 0.3)',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 ⚡ Active for {croppedFilesCount} Cropped Clip{croppedFilesCount > 1 ? 's' : ''}
@@ -73,9 +83,10 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
                   fontSize: '10px',
                   color: 'var(--accent-cyan)',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Bypassed (-c copy)
+                {isCombineMode ? 'Bypassed (Lossless)' : 'Bypassed (-c copy)'}
               </span>
             )
           )}

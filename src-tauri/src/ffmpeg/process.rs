@@ -310,6 +310,134 @@ pub async fn execute_ffmpeg_combine_process<R: tauri::Runtime>(
     }
 }
 
+pub async fn execute_ffmpeg_combine_segment_process<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    ffmpeg_path: &str,
+    args: Vec<String>,
+    file_name: &str,
+    clip_index: usize,
+    total_clips: usize,
+    clip_duration_sec: f64,
+    elapsed_before_sec: f64,
+    total_duration_sec: f64,
+) -> Result<(), String> {
+    log_info(&format!(
+        "Spawning FFmpeg combine segment [{}/{}]: {} {}",
+        clip_index, total_clips, ffmpeg_path, args.join(" ")
+    ));
+
+    let mut child = create_tokio_hidden_cmd(ffmpeg_path)
+        .args(&args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            let err_msg = format!("Failed to spawn FFmpeg segment process: {}", e);
+            log_error(&err_msg);
+            err_msg
+        })?;
+
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+    let mut reader = BufReader::new(stdout).lines();
+
+    let stderr_lines = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+    let stderr_lines_clone = stderr_lines.clone();
+
+    let stderr_handle = tokio::spawn(async move {
+        let mut err_reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = err_reader.next_line().await {
+            let mut lines = stderr_lines_clone.lock().await;
+            if lines.len() >= 50 {
+                lines.remove(0);
+            }
+            lines.push(line);
+        }
+    });
+
+    while let Ok(Some(line)) = reader.next_line().await {
+        if crate::utils::check_cancel_flag() {
+            let _ = child.kill().await;
+            let _ = stderr_handle.await;
+            return Err("Processing aborted by user.".to_string());
+        }
+
+        let trimmed = line.trim();
+        if trimmed.starts_with("out_time_ms=") {
+            let ms_str = trimmed.trim_start_matches("out_time_ms=");
+            if let Ok(cur_ms) = ms_str.parse::<f64>() {
+                if total_duration_sec > 0.0 {
+                    let cur_sec = (cur_ms / 1_000_000.0).min(clip_duration_sec);
+                    let overall_sec = elapsed_before_sec + cur_sec;
+                    let mut pct = (overall_sec / total_duration_sec) * 100.0;
+                    if pct > 100.0 {
+                        pct = 100.0;
+                    }
+
+                    let status_msg = format!(
+                        "Normalizing segment {} of {}: {}...",
+                        clip_index, total_clips, file_name
+                    );
+
+                    let _ = app.emit(
+                        "ffmpeg-progress",
+                        FfmpegProgressPayload {
+                            current_file: file_name.to_string(),
+                            file_index: clip_index,
+                            total_files: total_clips,
+                            percent: pct,
+                            current_part: 1,
+                            total_parts: 1,
+                            status: status_msg,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    let _ = stderr_handle.await;
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| {
+            let err_msg = format!("FFmpeg wait failed: {}", e);
+            log_error(&err_msg);
+            err_msg
+        })?;
+
+    if status.success() {
+        log_info(&format!("Successfully processed segment [{}/{}] {}", clip_index, total_clips, file_name));
+        Ok(())
+    } else {
+        let captured_err = {
+            let lines = stderr_lines.lock().await;
+            lines.join("\n")
+        };
+        let err_summary = if captured_err.trim().is_empty() {
+            format!("FFmpeg exited with code {:?}", status.code())
+        } else {
+            captured_err
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .rev()
+                .take(6)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        log_error(&format!(
+            "FFmpeg segment [{}/{}] failed for {}: {}\nFull Stderr: {}",
+            clip_index, total_clips, file_name, err_summary, captured_err
+        ));
+        Err(format!("FFmpeg segment processing failed: {}", err_summary))
+    }
+}
+
 pub fn is_ffmpeg_native_image_format(path_str: &str) -> bool {
     let path = Path::new(path_str);
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {

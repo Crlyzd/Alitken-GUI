@@ -61,34 +61,21 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
           >
             Target Codec
           </span>
-          {isFastCopyActive && (
-            isSplitMode && croppedFilesCount > 0 ? (
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: '#c084fc',
-                  fontWeight: 600,
-                  background: 'rgba(168, 85, 247, 0.15)',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(168, 85, 247, 0.3)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                ⚡ Active for {croppedFilesCount} Cropped Clip{croppedFilesCount > 1 ? 's' : ''}
-              </span>
-            ) : (
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--accent-cyan)',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {isCombineMode ? 'Bypassed (Lossless)' : 'Bypassed (-c copy)'}
-              </span>
-            )
+          {isFastCopyActive && isSplitMode && croppedFilesCount > 0 && (
+            <span
+              style={{
+                fontSize: '10px',
+                color: '#c084fc',
+                fontWeight: 600,
+                background: 'rgba(168, 85, 247, 0.15)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ⚡ Active for {croppedFilesCount} Cropped Clip{croppedFilesCount > 1 ? 's' : ''}
+            </span>
           )}
         </div>
 

@@ -73,7 +73,7 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
         }}
         title={
           isStreamIncompatible
-            ? 'Lossless Copy is disabled because input streams differ (codecs or resolutions mismatch).'
+            ? 'Lossless Merge is disabled because input streams differ (codecs or resolutions mismatch).'
             : undefined
         }
       >
@@ -87,12 +87,12 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           />
           <div>
             <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
-              Lossless Fast Concat
+              Lossless Merge
             </div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
               {isStreamIncompatible
-                ? 'Unavailable for mismatched streams (-c copy requires identical streams)'
-                : 'Instant stream copy with 0% quality loss (-c copy)'}
+                ? 'Unavailable for mismatched streams (requires matching formats)'
+                : 'Instant stream merge with 0% quality loss (no re-encoding)'}
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
         >
           <Info size={15} color="#c084fc" style={{ flexShrink: 0, marginTop: '1px' }} />
           <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.35' }}>
-            Cropped clips detected. Lossless copy preserves original frame sizes without re-encoding. To combine and apply your crops, please uncheck <strong>Lossless Fast Concat</strong> above.
+            Cropped clips detected. Lossless merge preserves original frame sizes without re-encoding. To combine and apply your crops, please uncheck <strong>Lossless Merge</strong> above.
           </span>
         </div>
       )}
@@ -167,18 +167,26 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           statusIcon = <Loader2 size={12} className="spin" style={{ flexShrink: 0, color: 'var(--accent-cyan)' }} />;
           statusText = 'Checking stream compatibility...';
         } else if (streamCompatibility?.is_compatible) {
-          if (hasCropInFastConcat) {
-            statusColor = '#c084fc';
-            statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc', marginTop: '2px' }} />;
-            statusText = 'Streams Matched • Re-encode for crops';
+          if (croppedFilesCount > 0) {
+            if (config.combineFastCopy) {
+              statusColor = '#c084fc';
+              statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc' }} />;
+              statusText = 'Streams Matched • Uncheck Lossless to apply crops';
+            } else {
+              statusColor = '#c084fc';
+              statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc' }} />;
+              statusText = `Streams Matched • Transcoding ${croppedFilesCount} cropped clip${croppedFilesCount > 1 ? 's' : ''}`;
+            }
           } else {
             statusColor = 'var(--accent-emerald)';
             statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
-            statusText = 'Streams Compatible (Lossless Ready)';
+            statusText = config.combineFastCopy
+              ? 'Streams Compatible (Lossless Ready)'
+              : 'Streams Compatible (Transcode Active)';
           }
         } else if (isStreamIncompatible) {
           statusColor = 'var(--accent-rose)';
-          statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)', marginTop: '2px' }} />;
+          statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)' }} />;
           statusText = 'Streams Incompatible';
         }
 

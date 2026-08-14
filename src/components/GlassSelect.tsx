@@ -25,6 +25,7 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value) || options[0];
 
@@ -33,6 +34,21 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
       setIsOpen(false);
     }
   }, [disabled]);
+
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      const timer = setTimeout(() => {
+        if (menuRef.current) {
+          menuRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          });
+        }
+      }, 40);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,6 +129,7 @@ export const GlassSelect: React.FC<GlassSelectProps> = ({
       {/* FROSTED GLASS DROPDOWN POPOVER */}
       {isOpen && (
         <div
+          ref={menuRef}
           style={{
             position: 'absolute',
             ...(placement === 'top'

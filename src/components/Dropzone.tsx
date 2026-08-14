@@ -446,7 +446,24 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       >
         {files.map((file, idx) => {
           const isImg = getFileKind(file.path) === 'image';
-          const hasTrim = file.trimStartSec !== undefined && file.trimEndSec !== undefined;
+          const trimmedDuration =
+            file.trimStartSec !== undefined && file.trimEndSec !== undefined
+              ? Math.max(0, file.trimEndSec - file.trimStartSec)
+              : (file.durationSec ?? 0);
+
+          const hasTrim =
+            !isImg &&
+            file.trimStartSec !== undefined &&
+            file.trimEndSec !== undefined &&
+            trimmedDuration > 0 &&
+            (file.trimStartSec > 0.05 ||
+              (file.durationSec !== undefined && file.trimEndSec < file.durationSec - 0.05));
+
+          const hasCrop =
+            Boolean(file.isCropApplied) ||
+            (file.crop_w !== undefined && file.crop_h !== undefined) ||
+            Boolean(file.aspectRatio && file.aspectRatio !== 'ORIGINAL');
+
           const isBeingDragged = draggedIndex === idx;
 
           let translateY = 0;
@@ -595,7 +612,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         <Film size={11} /> {file.resolution}
                       </span>
                     )}
-                    {!isImg && file.durationSec && (
+                    {!isImg && file.durationSec !== undefined && file.durationSec > 0 && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <Clock size={11} /> {formatDuration(file.durationSec)}
                       </span>
@@ -619,6 +636,50 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         {file.codec}
                       </span>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side Column: Top Badges Shelf + Bottom Action Buttons */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  flexShrink: 0,
+                }}
+              >
+                {/* Top Shelf: Edit Badges (Missing, Trimmed, Crop) */}
+                {(file.isMissing || hasTrim || hasCrop) && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexWrap: 'nowrap',
+                    }}
+                  >
+                    {file.isMissing && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3.5px',
+                          background: 'rgba(244, 63, 94, 0.18)',
+                          border: '1px solid rgba(244, 63, 94, 0.4)',
+                          color: '#fb7185',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <AlertCircle size={10} /> Missing
+                      </span>
+                    )}
                     {hasTrim && (
                       <span
                         style={{
@@ -631,13 +692,15 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                           padding: '1px 6px',
                           borderRadius: '4px',
                           fontWeight: 600,
-                          fontSize: '10.5px',
+                          fontSize: '10px',
+                          whiteSpace: 'nowrap',
                         }}
+                        title={`Trimmed selection: ${formatDuration(trimmedDuration)}`}
                       >
-                        <Scissors size={10} /> Trimmed: {formatDuration((file.trimEndSec ?? 0) - (file.trimStartSec ?? 0))}
+                        <Scissors size={10} /> {formatDuration(trimmedDuration)}
                       </span>
                     )}
-                    {(file.isCropApplied || (file.crop_w !== undefined && file.crop_h !== undefined) || (file.aspectRatio && file.aspectRatio !== 'ORIGINAL')) && (
+                    {hasCrop && (
                       <span
                         style={{
                           display: 'inline-flex',
@@ -649,160 +712,140 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                           padding: '1px 6px',
                           borderRadius: '4px',
                           fontWeight: 600,
-                          fontSize: '10.5px',
+                          fontSize: '10px',
+                          whiteSpace: 'nowrap',
                         }}
+                        title="Crop applied"
                       >
-                        <Crop size={10} /> Crop: {file.aspectRatio && file.aspectRatio !== 'ORIGINAL' ? file.aspectRatio : 'Applied'}
+                        <Crop size={10} /> {file.aspectRatio && file.aspectRatio !== 'ORIGINAL' ? file.aspectRatio : 'Crop'}
                       </span>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Right Side Action Cluster */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  flexShrink: 0,
-                }}
-              >
-                {file.isMissing && (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3.5px',
-                      background: 'rgba(244, 63, 94, 0.18)',
-                      border: '1px solid rgba(244, 63, 94, 0.4)',
-                      color: '#fb7185',
-                      padding: '2px 8px',
-                      borderRadius: '5px',
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      whiteSpace: 'nowrap',
-                      marginRight: '4px',
-                    }}
-                  >
-                    <AlertCircle size={10} /> File Missing
-                  </span>
                 )}
 
-                {/* Open File Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFileWithDefaultApp(file.path);
-                  }}
-                  disabled={file.isMissing}
-                  title="Open File (Default Viewer)"
+                {/* Bottom Shelf: Action Buttons */}
+                <div
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    opacity: file.isMissing ? 0.3 : 0.7,
-                    cursor: file.isMissing ? 'not-allowed' : 'pointer',
-                    padding: '6px',
-                    borderRadius: '6px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.15s ease',
+                    gap: '2px',
                   }}
-                  onMouseEnter={(e) => {
-                    if (!file.isMissing) {
-                      e.currentTarget.style.color = 'var(--accent-cyan)';
+                >
+                  {/* Open File Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFileWithDefaultApp(file.path);
+                    }}
+                    disabled={file.isMissing}
+                    title="Open File (Default Viewer)"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      opacity: file.isMissing ? 0.3 : 0.7,
+                      cursor: file.isMissing ? 'not-allowed' : 'pointer',
+                      padding: '4px 5px',
+                      borderRadius: '5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!file.isMissing) {
+                        e.currentTarget.style.color = 'var(--accent-cyan)';
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!file.isMissing) {
+                        e.currentTarget.style.color = 'var(--text-dim)';
+                        e.currentTarget.style.opacity = '0.7';
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                  >
+                    <ExternalLink size={14} />
+                  </button>
+
+                  {/* Open Containing Folder Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      showFileInFolder(file.path);
+                    }}
+                    disabled={file.isMissing}
+                    title="Open Containing Folder"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      opacity: file.isMissing ? 0.3 : 0.7,
+                      cursor: file.isMissing ? 'not-allowed' : 'pointer',
+                      padding: '4px 5px',
+                      borderRadius: '5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!file.isMissing) {
+                        e.currentTarget.style.color = 'var(--accent-cyan)';
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!file.isMissing) {
+                        e.currentTarget.style.color = 'var(--text-dim)';
+                        e.currentTarget.style.opacity = '0.7';
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                  </button>
+
+                  {/* Remove File Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFile(idx);
+                    }}
+                    title="Remove from Queue"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      opacity: 0.7,
+                      cursor: 'pointer',
+                      padding: '4px 5px',
+                      borderRadius: '5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--accent-rose)';
                       e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!file.isMissing) {
+                      e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
                       e.currentTarget.style.color = 'var(--text-dim)';
                       e.currentTarget.style.opacity = '0.7';
                       e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
-                >
-                  <ExternalLink size={15} />
-                </button>
-
-                {/* Open Containing Folder Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    showFileInFolder(file.path);
-                  }}
-                  disabled={file.isMissing}
-                  title="Open Containing Folder"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    opacity: file.isMissing ? 0.3 : 0.7,
-                    cursor: file.isMissing ? 'not-allowed' : 'pointer',
-                    padding: '6px',
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!file.isMissing) {
-                      e.currentTarget.style.color = 'var(--accent-cyan)';
-                      e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!file.isMissing) {
-                      e.currentTarget.style.color = 'var(--text-dim)';
-                      e.currentTarget.style.opacity = '0.7';
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
-                >
-                  <FolderOpen size={15} />
-                </button>
-
-                {/* Remove File Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveFile(idx);
-                  }}
-                  title="Remove from Queue"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    opacity: 0.7,
-                    cursor: 'pointer',
-                    padding: '6px',
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--accent-rose)';
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--text-dim)';
-                    e.currentTarget.style.opacity = '0.7';
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <Trash2 size={15} />
-                </button>
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           );

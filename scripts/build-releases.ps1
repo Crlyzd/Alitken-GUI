@@ -38,14 +38,13 @@ if (-not (Test-Path $OutputDistFolder)) {
     New-Item -ItemType Directory -Path $OutputDistFolder -Force | Out-Null
 }
 
-# Check whether ARM64 C/C++ cross-compiler tools are available
-function Test-Arm64ToolchainAvailable {
+# Check whether ARM64 C/C++ cross-compiler tools and Rust target are available
+function Test-RustArm64TargetAvailable {
     $rustTargets = rustup target list --installed 2>$null
-    if ($rustTargets -notcontains "aarch64-pc-windows-msvc") {
-        return $false
-    }
+    return ($rustTargets -contains "aarch64-pc-windows-msvc")
+}
 
-    # Check for Visual Studio Hostx64/arm64 or Hostx86/arm64 cl.exe
+function Test-VsArm64ClAvailable {
     $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path $vsWhere) {
         $vsPath = & $vsWhere -latest -products * -property installationPath 2>$null
@@ -57,6 +56,34 @@ function Test-Arm64ToolchainAvailable {
         }
     }
     return $false
+}
+
+function Test-Arm64ToolchainAvailable {
+    $hasVsArmCl = Test-VsArm64ClAvailable
+    $hasRustTarget = Test-RustArm64TargetAvailable
+
+    if (-not $hasVsArmCl) {
+        Write-Host ""
+        Write-Host "[ADVISORY] Visual Studio ARM64 C++ Build Tools (cl.exe) not detected on this machine." -ForegroundColor Yellow
+        Write-Host "           Skipping ARM64 targets. To enable ARM64, install 'MSVC v143 ARM64 build tools' in VS Installer." -ForegroundColor Gray
+        return $false
+    }
+
+    if (-not $hasRustTarget) {
+        Write-Host ""
+        Write-Host "[ADVISORY] Rust ARM64 target (aarch64-pc-windows-msvc) is not installed." -ForegroundColor Yellow
+        Write-Host "           Attempting to install 'aarch64-pc-windows-msvc' via rustup..." -ForegroundColor Cyan
+        & rustup target add aarch64-pc-windows-msvc
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "           Successfully added Rust ARM64 target!" -ForegroundColor Green
+            return $true
+        } else {
+            Write-Host "           Failed to auto-install Rust ARM64 target. Run 'rustup target add aarch64-pc-windows-msvc' manually." -ForegroundColor Red
+            return $false
+        }
+    }
+
+    return $true
 }
 
 try {
@@ -129,11 +156,6 @@ try {
     }
 
     $isArm64Supported = -not $SkipArm64 -and (Test-Arm64ToolchainAvailable)
-    if (-not $isArm64Supported -and -not $SkipArm64 -and ($Scope -eq "all" -or $Scope -eq "arm64")) {
-        Write-Host ""
-        Write-Host "[ADVISORY] Visual Studio ARM64 C++ Build Tools (cl.exe) not detected on this machine." -ForegroundColor Yellow
-        Write-Host "           Skipping ARM64 targets. To enable ARM64, install 'MSVC v143 ARM64 build tools' in VS Installer." -ForegroundColor Gray
-    }
 
     # 1. GitHub Release (x86_64)
     if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "github") {

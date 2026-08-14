@@ -429,21 +429,21 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
 
         let output_file_name = format!("{}.{}", raw_stem, ext);
 
-        // Target bounding box dimensions (even numbers)
+        // Target bounding box dimensions (even numbers, mod-4 aligned for NVENC/hardware codecs)
         let (target_w, target_h) = if config.target_height != "ORIGINAL" {
             let h = config.target_height.parse::<u32>().unwrap_or(720).clamp(144, 8192);
             let w = match h {
                 1080 => 1920,
                 720 => 1280,
-                480 => 854,
+                480 => 852,
                 2160 => 3840,
-                _ => (h * 16 / 9 / 2) * 2,
+                _ => ((h * 16 / 9) / 4) * 4,
             };
-            ((w / 2) * 2, (h / 2) * 2)
+            (((w / 4) * 4).max(4), ((h / 2) * 2).max(2))
         } else {
-            let w = (first_width.unwrap_or(1920) / 2) * 2;
+            let w = (first_width.unwrap_or(1920) / 4) * 4;
             let h = (first_height.unwrap_or(1080) / 2) * 2;
-            (w.max(2), h.max(2))
+            (w.max(4), h.max(2))
         };
 
         // Check if stream compatibility allows Fast Concat Pre-Pass
@@ -516,7 +516,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 transcode_args.push(master_concat_path.to_string_lossy().to_string());
 
                 let vf = format!(
-                    "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p,setsar=1",
+                    "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:trunc((ow-iw)/4)*2:trunc((oh-ih)/4)*2:black,format=yuv420p,setsar=1",
                     target_w, target_h, target_w, target_h
                 );
                 transcode_args.push("-vf".to_string());
@@ -624,7 +624,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 vf_parts.push(format!("crop={}:{}:{}:{}", cw, ch, cx, cy));
             }
             vf_parts.push(format!(
-                "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p,setsar=1",
+                "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:trunc((ow-iw)/4)*2:trunc((oh-ih)/4)*2:black,format=yuv420p,setsar=1",
                 target_w, target_h, target_w, target_h
             ));
             let vf = vf_parts.join(",");

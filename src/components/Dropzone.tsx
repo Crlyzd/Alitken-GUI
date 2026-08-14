@@ -41,6 +41,7 @@ export interface FileItem {
   trimStartSec?: number;
   trimEndSec?: number;
   trimFastCopy?: boolean;
+  filmstrip?: string[];
 }
 
 interface DropzoneProps {
@@ -254,7 +255,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   };
 
   const formatDuration = (sec?: number) => {
-    if (!sec || sec <= 0) return 'N/A';
+    if (sec === undefined || sec === null || isNaN(sec) || sec < 0) return 'N/A';
+    if (sec === 0) return '0m 0s';
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}m ${s}s`;
@@ -616,7 +618,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                           fontSize: '10.5px',
                         }}
                       >
-                        <Scissors size={10} /> Trimmed: {formatDuration(file.trimStartSec!)} - {formatDuration(file.trimEndSec!)}
+                        <Scissors size={10} /> Trimmed: {formatDuration((file.trimEndSec ?? 0) - (file.trimStartSec ?? 0))}
                       </span>
                     )}
                   </div>

@@ -11,6 +11,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageConfig, StreamCompatibilityResult } from '../types/media';
 import { ImageConfigTab } from './ImageConfigTab';
+import { FileItem } from './Dropzone';
 import {
   VideoActionRail,
   CombineControls,
@@ -46,6 +47,7 @@ interface ConfigPanelProps {
   onStartImage: () => void;
   disabled: boolean;
   fileCount: number;
+  files?: FileItem[];
   onOpenDestination?: () => void;
   isTrimmerMode?: boolean;
   isCollapsed?: boolean;
@@ -71,6 +73,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onStartImage,
   disabled,
   fileCount,
+  files,
   onOpenDestination,
   isTrimmerMode = false,
   isCollapsed = false,
@@ -291,6 +294,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   streamCompatibility={streamCompatibility}
                   isCheckingCompatibility={isCheckingCompatibility}
                   fileCount={fileCount}
+                  files={files}
                 />
               )}
 

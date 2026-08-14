@@ -272,7 +272,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
               position: 'absolute',
               inset: 0,
               display: 'flex',
-              opacity: 0.45,
+              opacity: 0.85,
               pointerEvents: 'none',
             }}
           >
@@ -285,7 +285,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
                   flex: 1,
                   height: '100%',
                   objectFit: 'cover',
-                  filter: 'brightness(0.8) contrast(1.1)',
+                  filter: 'brightness(1.0) contrast(1.05)',
                 }}
               />
             ))}
@@ -299,8 +299,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             left: 0,
             width: `${startPercent}%`,
             height: '100%',
-            background: 'rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'brightness(0.6)',
+            background: 'rgba(0, 0, 0, 0.32)',
+            backdropFilter: 'brightness(0.82)',
             borderTopLeftRadius: '9px',
             borderBottomLeftRadius: '9px',
           }}
@@ -315,10 +315,10 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             left: `${startPercent}%`,
             width: `${Math.max(0, endPercent - startPercent)}%`,
             height: '100%',
-            background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%)',
+            background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.28) 0%, rgba(99, 102, 241, 0.28) 100%)',
             borderTop: '2px solid var(--accent-cyan)',
             borderBottom: '2px solid var(--accent-cyan)',
-            boxShadow: '0 0 16px rgba(6, 182, 212, 0.2)',
+            boxShadow: '0 0 16px rgba(6, 182, 212, 0.35)',
             cursor: dragging === 'range' ? 'grabbing' : 'grab',
             zIndex: 5,
           }}
@@ -331,8 +331,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             left: `${endPercent}%`,
             right: 0,
             height: '100%',
-            background: 'rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'brightness(0.6)',
+            background: 'rgba(0, 0, 0, 0.32)',
+            backdropFilter: 'brightness(0.82)',
             borderTopRightRadius: '9px',
             borderBottomRightRadius: '9px',
           }}

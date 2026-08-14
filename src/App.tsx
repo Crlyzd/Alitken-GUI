@@ -373,6 +373,7 @@ export function App() {
             onStartImage={handleStartImageProcessing}
             disabled={files.length === 0 || progress.isProcessing}
             fileCount={files.length}
+            files={files}
             onOpenDestination={handleOpenDestination}
             streamCompatibility={streamCompatibility}
             isCheckingCompatibility={isCheckingCompatibility}

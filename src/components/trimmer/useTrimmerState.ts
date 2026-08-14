@@ -17,6 +17,9 @@ interface UseTrimmerStateParams {
   onStartTrim: (trimConfig: TrimConfig) => void;
 }
 
+// In-memory session cache for extracted seeker filmstrips (file.path -> base64 image array)
+const filmstripCache = new Map<string, string[]>();
+
 export function useTrimmerState({
   file,
   videoConfig,
@@ -33,7 +36,14 @@ export function useTrimmerState({
   const [isNativeSupported, setIsNativeSupported] = useState<boolean>(true);
 
   // WMF Dual-Thumbnail State
-  const [filmstrip, setFilmstrip] = useState<string[]>([]);
+  const initialFilmstrip = useMemo(() => {
+    if (file.filmstrip && file.filmstrip.length > 0) {
+      return file.filmstrip;
+    }
+    return filmstripCache.get(file.path) || [];
+  }, [file.path, file.filmstrip]);
+
+  const [filmstrip, setFilmstrip] = useState<string[]>(initialFilmstrip);
   const [hoverThumbnailSrc, setHoverThumbnailSrc] = useState<string | null>(null);
   const [isWmfSupported, setIsWmfSupported] = useState<boolean>(true);
 
@@ -90,7 +100,14 @@ export function useTrimmerState({
     setIsLoadingPreview(true);
     setIsNativeSupported(true);
     setFallbackFrameSrc(null);
-    setFilmstrip([]);
+
+    // Check if cached filmstrip exists
+    const cached = file.filmstrip && file.filmstrip.length > 0 ? file.filmstrip : filmstripCache.get(file.path);
+    if (cached && cached.length > 0) {
+      setFilmstrip(cached);
+    } else {
+      setFilmstrip([]);
+    }
 
     // Fetch WMF support and filmstrip immediately on mount using the source file.path
     // WMF native COM API is zero-lag (<20ms) and populates seek bar thumbnails instantly
@@ -104,11 +121,16 @@ export function useTrimmerState({
         if (!isCancelled) setIsWmfSupported(false);
       });
 
-    invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 16 })
-      .then((strip) => {
-        if (!isCancelled && strip.length > 0) setFilmstrip(strip);
-      })
-      .catch(() => {});
+    if (!cached || cached.length === 0) {
+      invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 16 })
+        .then((strip) => {
+          if (!isCancelled && strip.length > 0) {
+            filmstripCache.set(file.path, strip);
+            setFilmstrip(strip);
+          }
+        })
+        .catch(() => {});
+    }
 
     // Launch prepare_video_preview in parallel for web player preview stream
     invoke<string>('prepare_video_preview', { filePath: file.path })
@@ -119,13 +141,16 @@ export function useTrimmerState({
           setIsLoadingPreview(false);
 
           // Secondary fallback if filmstrip was not populated yet for non-standard formats
-          invoke<string[]>('get_wmf_filmstrip', { filePath: resolvedPath, count: 16 })
-            .then((strip) => {
-              if (!isCancelled && strip.length > 0) {
-                setFilmstrip((prev) => (prev.length === 0 ? strip : prev));
-              }
-            })
-            .catch(() => {});
+          if (!filmstripCache.has(file.path) && (!file.filmstrip || file.filmstrip.length === 0)) {
+            invoke<string[]>('get_wmf_filmstrip', { filePath: resolvedPath, count: 16 })
+              .then((strip) => {
+                if (!isCancelled && strip.length > 0) {
+                  filmstripCache.set(file.path, strip);
+                  setFilmstrip((prev) => (prev.length === 0 ? strip : prev));
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch((err) => {
@@ -464,8 +489,9 @@ export function useTrimmerState({
       trimStartSec: startSec,
       trimEndSec: endSec,
       trimFastCopy: fastCopy,
+      filmstrip: filmstrip.length > 0 ? filmstrip : file.filmstrip,
     });
-  }, [file, startSec, endSec, fastCopy, onBack]);
+  }, [file, startSec, endSec, fastCopy, filmstrip, onBack]);
 
   const getCropParams = useCallback(() => {
     if (aspectRatio === 'ORIGINAL' || !videoRef.current) return null;

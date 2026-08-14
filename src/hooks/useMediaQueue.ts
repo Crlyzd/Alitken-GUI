@@ -5,6 +5,7 @@ import { FileLoadingState } from '../components/FileLoadingOverlay';
 import { TrimConfig, TrimPreset } from '../types/media';
 import { getFileKind, validateSingleMediaBatch } from '../utils/mediaType';
 import { normalizePath, canonicalPathKey } from '../utils/pathUtils';
+import { updateImportFolderFromFilePath } from '../utils/folderHistory';
 import { ProgressState } from '../components/ProgressModal';
 
 export interface StorageModalState {
@@ -112,6 +113,10 @@ export function useMediaQueue(
     if (!validation.isValid) {
       setValidationError(validation.errorMessage || 'Invalid file batch selection.');
       return;
+    }
+
+    if (paths.length > 0) {
+      updateImportFolderFromFilePath(paths[0]);
     }
 
     const newPathsToProcess: string[] = [];

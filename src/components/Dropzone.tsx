@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 import { showFileInFolder, openFileWithDefaultApp } from '../utils/folderUtils';
+import { getLastImportFolder, updateImportFolderFromFilePath } from '../utils/folderHistory';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
 
 export type SortOption =
@@ -234,6 +235,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
     try {
       const selected = await open({
         multiple: true,
+        defaultPath: getLastImportFolder() || undefined,
         filters: [
           {
             name: 'Supported Media',
@@ -247,6 +249,9 @@ export const Dropzone: React.FC<DropzoneProps> = ({
 
       if (selected) {
         const paths = Array.isArray(selected) ? selected : [selected];
+        if (paths.length > 0) {
+          updateImportFolderFromFilePath(paths[0]);
+        }
         onAddFiles(paths);
       }
     } catch (err) {

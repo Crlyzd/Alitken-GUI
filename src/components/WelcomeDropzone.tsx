@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { UploadCloud, Film, Image as ImageIcon, Sparkles, Scissors } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
+import { getLastImportFolder, updateImportFolderFromFilePath } from '../utils/folderHistory';
 
 interface WelcomeDropzoneProps {
   onAddFiles: (paths: string[]) => void;
@@ -27,6 +28,7 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
     try {
       const selected = await open({
         multiple: true,
+        defaultPath: getLastImportFolder() || undefined,
         filters: [
           {
             name: 'All Media Files (Video & Image)',
@@ -48,6 +50,9 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
 
       if (selected) {
         const paths = Array.isArray(selected) ? selected : [selected];
+        if (paths.length > 0) {
+          updateImportFolderFromFilePath(paths[0]);
+        }
         onAddFiles(paths);
       }
     } catch (err) {
@@ -60,6 +65,7 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
     try {
       const selected = await open({
         multiple: false,
+        defaultPath: getLastImportFolder() || undefined,
         filters: [
           {
             name: 'Video Files',
@@ -69,6 +75,7 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
       });
 
       if (selected && typeof selected === 'string' && onOpenTrimmerFile) {
+        updateImportFolderFromFilePath(selected);
         onOpenTrimmerFile(selected);
       }
     } catch (err) {

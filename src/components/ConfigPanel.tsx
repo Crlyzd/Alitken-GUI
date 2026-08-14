@@ -10,6 +10,7 @@ import {
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageConfig, StreamCompatibilityResult } from '../types/media';
+import { getLastExportFolder, setLastExportFolder } from '../utils/folderHistory';
 import { ImageConfigTab } from './ImageConfigTab';
 import { FileItem } from './Dropzone';
 import {
@@ -109,9 +110,10 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
       const selected = await open({
         directory: true,
         multiple: false,
-        defaultPath: config.outputDir || undefined,
+        defaultPath: config.outputDir || getLastExportFolder() || undefined,
       });
       if (selected && typeof selected === 'string') {
+        setLastExportFolder(selected);
         onChange({ outputDir: selected });
       }
     } catch (err) {

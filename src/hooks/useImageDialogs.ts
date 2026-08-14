@@ -1,5 +1,11 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { ImageConfig } from '../types/media';
+import {
+  getLastExportFolder,
+  setLastExportFolder,
+  getLastImportFolder,
+  updateImportFolderFromFilePath,
+} from '../utils/folderHistory';
 
 interface UseImageDialogsOptions {
   config: ImageConfig;
@@ -23,8 +29,10 @@ export function useImageDialogs({
       const selected = await open({
         directory: true,
         multiple: false,
+        defaultPath: config.outputDir || getLastExportFolder() || undefined,
       });
       if (selected && typeof selected === 'string') {
+        setLastExportFolder(selected);
         onChange({ ...config, outputDir: selected });
       }
     } catch (err) {
@@ -40,9 +48,11 @@ export function useImageDialogs({
     try {
       const selected = await open({
         multiple: false,
+        defaultPath: getLastImportFolder() || undefined,
         filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'flac'] }],
       });
       if (selected && typeof selected === 'string') {
+        updateImportFolderFromFilePath(selected);
         onChange({ ...config, audioPath: selected });
       }
     } catch (err) {

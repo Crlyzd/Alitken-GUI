@@ -69,9 +69,12 @@ export function useTrimmerState({
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   // Aspect Ratio & Crop Positioning State
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('ORIGINAL');
-  const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
-  const [isCropApplied, setIsCropApplied] = useState<boolean>(false);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(file.aspectRatio || 'ORIGINAL');
+  const [cropOffset, setCropOffset] = useState<{ x: number; y: number }>(file.cropOffset || { x: 0.5, y: 0.5 });
+  const [cropScale, setCropScale] = useState<number>(file.cropScale || 1.0);
+  const [isCropApplied, setIsCropApplied] = useState<boolean>(
+    file.isCropApplied ?? (file.aspectRatio ? file.aspectRatio !== 'ORIGINAL' : false)
+  );
 
   const applyCrop = useCallback(() => {
     setIsCropApplied(true);
@@ -80,6 +83,7 @@ export function useTrimmerState({
   const cancelCrop = useCallback(() => {
     setAspectRatio('ORIGINAL');
     setCropOffset({ x: 0.5, y: 0.5 });
+    setCropScale(1.0);
     setIsCropApplied(false);
   }, []);
 
@@ -251,7 +255,7 @@ export function useTrimmerState({
             .then((f) => setHoverThumbnailSrc(f))
             .catch(() => {});
         }
-      }, 30);
+      }, 120);
     },
     [file.path, isWmfSupported]
   );
@@ -483,22 +487,29 @@ export function useTrimmerState({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlayPause, setInAtCurrent, setOutAtCurrent, nudgeTime]);
 
-  const handleSaveAndBack = useCallback(() => {
-    onBack({
-      ...file,
-      trimStartSec: startSec,
-      trimEndSec: endSec,
-      trimFastCopy: fastCopy,
-      filmstrip: filmstrip.length > 0 ? filmstrip : file.filmstrip,
-    });
-  }, [file, startSec, endSec, fastCopy, filmstrip, onBack]);
-
   const getCropParams = useCallback(() => {
-    if (aspectRatio === 'ORIGINAL' || !videoRef.current) return null;
-    const v = videoRef.current;
-    const vw = v.videoWidth;
-    const vh = v.videoHeight;
-    if (!vw || !vh) return null;
+    if (aspectRatio === 'ORIGINAL') return null;
+    let vw = videoRef.current?.videoWidth;
+    let vh = videoRef.current?.videoHeight;
+    if ((!vw || !vh) && file.resolution) {
+      const parts = file.resolution.replace('×', 'x').split('x').map((n) => parseInt(n, 10));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        vw = parts[0];
+        vh = parts[1];
+      }
+    }
+    if (!vw || !vh) {
+      if (file.crop_w && file.crop_h) {
+        return {
+          crop_w: file.crop_w,
+          crop_h: file.crop_h,
+          crop_x: file.crop_x ?? 0,
+          crop_y: file.crop_y ?? 0,
+          crop_filter: file.crop_filter,
+        };
+      }
+      return null;
+    }
 
     let targetRatio = 16 / 9;
     if (aspectRatio === '16:9') targetRatio = 16 / 9;
@@ -509,30 +520,103 @@ export function useTrimmerState({
     else if (aspectRatio === '21:9') targetRatio = 21 / 9;
 
     const sourceRatio = vw / vh;
-    let cropW = vw;
-    let cropH = vh;
+    const canvasAspect = targetRatio;
 
-    if (targetRatio < sourceRatio) {
-      cropH = vh;
-      cropW = Math.round(vh * targetRatio);
+    // Calculate canvas size in source resolution space
+    let canvasW = vw;
+    let canvasH = vh;
+    if (sourceRatio >= canvasAspect) {
+      canvasH = vh;
+      canvasW = Math.round(vh * canvasAspect);
     } else {
-      cropW = vw;
-      cropH = Math.round(vw / targetRatio);
+      canvasW = vw;
+      canvasH = Math.round(vw / canvasAspect);
     }
 
-    const maxX = Math.max(0, vw - cropW);
-    const maxY = Math.max(0, vh - cropH);
+    // Base inner video dimensions inside canvas before scale
+    const isVideoWider = sourceRatio >= canvasAspect;
+    let baseVW = isVideoWider ? canvasW : Math.round(canvasH * sourceRatio);
+    let baseVH = isVideoWider ? Math.round(canvasW / sourceRatio) : canvasH;
 
-    const cropX = Math.round(cropOffset.x * maxX);
-    const cropY = Math.round(cropOffset.y * maxY);
+    const scale = cropScale || 1.0;
+    let scaledVW = Math.round(baseVW * scale);
+    let scaledVH = Math.round(baseVH * scale);
+
+    scaledVW = Math.max(2, scaledVW);
+    scaledVH = Math.max(2, scaledVH);
+
+    // Delta X/Y from cropOffset relative to center
+    const deltaX = (cropOffset.x - 0.5) * baseVW;
+    const deltaY = (cropOffset.y - 0.5) * baseVH;
+
+    // Top-Left corner position of video inside canvas
+    let px = Math.round((canvasW - scaledVW) / 2 + deltaX);
+    let py = Math.round((canvasH - scaledVH) / 2 + deltaY);
+
+    // Ensure even dimensions for FFmpeg libx264 compatibility
+    canvasW = canvasW - (canvasW % 2);
+    canvasH = canvasH - (canvasH % 2);
+    scaledVW = scaledVW - (scaledVW % 2);
+    scaledVH = scaledVH - (scaledVH % 2);
+
+    let cropW = scaledVW;
+    let cropH = scaledVH;
+    let cropX = 0;
+    let cropY = 0;
+
+    if (px < 0) {
+      cropX = Math.abs(px);
+      cropW = Math.min(scaledVW - cropX, canvasW);
+      px = 0;
+    }
+    if (py < 0) {
+      cropY = Math.abs(py);
+      cropH = Math.min(scaledVH - cropY, canvasH);
+      py = 0;
+    }
+
+    cropW = Math.max(2, cropW - (cropW % 2));
+    cropH = Math.max(2, cropH - (cropH % 2));
+    cropX = Math.max(0, cropX - (cropX % 2));
+    cropY = Math.max(0, cropY - (cropY % 2));
+    px = Math.max(0, px - (px % 2));
+    py = Math.max(0, py - (py % 2));
+
+    // Construct filter string: scale -> (crop if overflow) -> pad
+    let filter = `scale=${scaledVW}:${scaledVH}`;
+    if (cropX > 0 || cropY > 0 || cropW < scaledVW || cropH < scaledVH) {
+      filter += `,crop=${cropW}:${cropH}:${cropX}:${cropY}`;
+    }
+    filter += `,pad=${canvasW}:${canvasH}:${px}:${py}:black`;
 
     return {
-      crop_w: Math.max(2, cropW - (cropW % 2)),
-      crop_h: Math.max(2, cropH - (cropH % 2)),
-      crop_x: Math.max(0, cropX - (cropX % 2)),
-      crop_y: Math.max(0, cropY - (cropY % 2)),
+      crop_w: canvasW,
+      crop_h: canvasH,
+      crop_x: px,
+      crop_y: py,
+      crop_filter: filter,
     };
-  }, [aspectRatio, cropOffset]);
+  }, [aspectRatio, cropOffset, cropScale, file.resolution, file.crop_w, file.crop_h, file.crop_filter]);
+
+  const handleSaveAndBack = useCallback(() => {
+    const crop = (isCropApplied || aspectRatio !== 'ORIGINAL') ? getCropParams() : null;
+    onBack({
+      ...file,
+      trimStartSec: startSec,
+      trimEndSec: endSec,
+      trimFastCopy: crop ? false : fastCopy,
+      filmstrip: filmstrip.length > 0 ? filmstrip : file.filmstrip,
+      aspectRatio,
+      cropOffset,
+      cropScale,
+      isCropApplied: !!crop,
+      crop_x: crop?.crop_x,
+      crop_y: crop?.crop_y,
+      crop_w: crop?.crop_w,
+      crop_h: crop?.crop_h,
+      crop_filter: crop?.crop_filter,
+    });
+  }, [file, startSec, endSec, fastCopy, filmstrip, aspectRatio, cropOffset, cropScale, isCropApplied, getCropParams, onBack]);
 
   const handleExport = useCallback(() => {
     const crop = getCropParams();
@@ -552,6 +636,7 @@ export function useTrimmerState({
       crop_h: crop?.crop_h,
       crop_x: crop?.crop_x,
       crop_y: crop?.crop_y,
+      crop_filter: crop?.crop_filter,
     };
     onStartTrim(trimConfig);
   }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, getCropParams, onStartTrim]);
@@ -589,6 +674,8 @@ export function useTrimmerState({
     setAspectRatio,
     cropOffset,
     setCropOffset,
+    cropScale,
+    setCropScale,
     isCropApplied,
     setIsCropApplied,
     applyCrop,

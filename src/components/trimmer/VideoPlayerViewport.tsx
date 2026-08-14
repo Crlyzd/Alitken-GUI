@@ -21,6 +21,8 @@ interface VideoPlayerViewportProps {
   onSelectAspectRatio: (ratio: AspectRatioOption) => void;
   cropOffset: { x: number; y: number };
   onCropOffsetChange: (offset: { x: number; y: number }) => void;
+  cropScale?: number;
+  onCropScaleChange?: (scale: number) => void;
   isCropApplied?: boolean;
   onApplyCrop?: () => void;
   onCancelCrop?: () => void;
@@ -52,12 +54,13 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   onSelectAspectRatio,
   cropOffset,
   onCropOffsetChange,
+  cropScale = 1.0,
+  onCropScaleChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
 
   const [videoAspect, setVideoAspect] = useState<number>(16 / 9);
-  const [videoScale, setVideoScale] = useState<number>(1.0);
 
   const [isDraggingMove, setIsDraggingMove] = useState(false);
   const [isDraggingResize, setIsDraggingResize] = useState<string | null>(null);
@@ -97,9 +100,9 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
     (newRatio: AspectRatioOption) => {
       onSelectAspectRatio(newRatio);
       onCropOffsetChange({ x: 0.5, y: 0.5 });
-      setVideoScale(1.0);
+      onCropScaleChange?.(1.0);
     },
-    [onSelectAspectRatio, onCropOffsetChange]
+    [onSelectAspectRatio, onCropOffsetChange, onCropScaleChange]
   );
 
   // Handle Drag Move Start (body of video layer)
@@ -114,10 +117,10 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         mouseY: e.clientY,
         startOffsetX: cropOffset.x,
         startOffsetY: cropOffset.y,
-        startScale: videoScale,
+        startScale: cropScale,
       };
     },
-    [aspectRatio, cropOffset, videoScale]
+    [aspectRatio, cropOffset, cropScale]
   );
 
   // Handle Corner Handle Resize Start
@@ -132,10 +135,10 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         mouseY: e.clientY,
         startOffsetX: cropOffset.x,
         startOffsetY: cropOffset.y,
-        startScale: videoScale,
+        startScale: cropScale,
       };
     },
-    [aspectRatio, cropOffset, videoScale]
+    [aspectRatio, cropOffset, cropScale]
   );
 
   // Continuous Drag & Resize Handler
@@ -279,7 +282,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         setIsSnappedTop(snapT);
         setIsSnappedBottom(snapB);
 
-        setVideoScale(targetScale);
+        onCropScaleChange?.(targetScale);
       }
     };
 
@@ -302,7 +305,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingMove, isDraggingResize, onCropOffsetChange]);
+  }, [isDraggingMove, isDraggingResize, onCropOffsetChange, onCropScaleChange]);
 
   const targetRatio = RATIO_NUMERICS[aspectRatio];
   const canvasAspect = targetRatio || videoAspect;
@@ -548,17 +551,30 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              textAlign: 'center',
               background: 'rgba(0, 0, 0, 0.75)',
               backdropFilter: 'blur(10px)',
               borderRadius: '0px',
               overflow: 'hidden',
               zIndex: 30,
-              gap: '10px',
+              gap: '12px',
+              padding: '0 16px',
+              boxSizing: 'border-box',
               color: '#ffffff',
             }}
           >
             <Loader2 size={32} className="spinning-loader" style={{ color: 'var(--accent-cyan)' }} />
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>Preparing 60 FPS Live Preview...</span>
+            <span
+              style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                textAlign: 'center',
+                lineHeight: 1.4,
+                maxWidth: '100%',
+              }}
+            >
+              Preparing 60 FPS Live Preview...
+            </span>
           </div>
         )}
 
@@ -568,7 +584,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
           onMouseDown={aspectRatio !== 'ORIGINAL' ? handleMoveStart : undefined}
           onDoubleClick={() => {
             onCropOffsetChange({ x: 0.5, y: 0.5 });
-            setVideoScale(1.0);
+            onCropScaleChange?.(1.0);
           }}
           style={{
             position: 'absolute',
@@ -584,7 +600,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
             justifyContent: 'center',
             transform:
               aspectRatio !== 'ORIGINAL'
-                ? `translate(${translateX}%, ${translateY}%) scale(${videoScale})`
+                ? `translate(${translateX}%, ${translateY}%) scale(${cropScale})`
                 : 'none',
             transition: isDraggingMove || isDraggingResize ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             cursor: aspectRatio !== 'ORIGINAL' ? (isDraggingMove ? 'grabbing' : 'grab') : 'pointer',
@@ -643,11 +659,15 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                padding: '0 16px',
+                boxSizing: 'border-box',
                 gap: '8px',
               }}
             >
               <Loader2 size={24} className="spinning-loader" />
-              <span>Extracting GPU Preview Frame...</span>
+              <span style={{ textAlign: 'center', lineHeight: 1.4 }}>Extracting GPU Preview Frame...</span>
             </div>
           )}
 

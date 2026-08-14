@@ -98,14 +98,24 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "output".to_string());
 
-        // Resolve saved trim boundaries (if present in config.video_items or trim_presets.json)
+        // Resolve saved trim boundaries & crop parameters (if present in config.video_items or trim_presets.json)
         let mut trim_start: Option<f64> = None;
         let mut trim_end: Option<f64> = None;
+        let mut crop_x: Option<u32> = None;
+        let mut crop_y: Option<u32> = None;
+        let mut crop_w: Option<u32> = None;
+        let mut crop_h: Option<u32> = None;
+        let mut crop_filter: Option<String> = None;
 
         if let Some(ref items) = config.video_items {
             if let Some(item) = items.iter().find(|i| i.path == *file_path).or_else(|| items.get(idx)) {
                 trim_start = item.trim_start_sec;
                 trim_end = item.trim_end_sec;
+                crop_x = item.crop_x;
+                crop_y = item.crop_y;
+                crop_w = item.crop_w;
+                crop_h = item.crop_h;
+                crop_filter = item.crop_filter.clone();
             }
         }
 
@@ -230,16 +240,27 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 }
                 args.extend(["-i".to_string(), file_path.to_string()]);
 
+                let mut vf_parts: Vec<String> = Vec::new();
+                if let Some(ref cf) = crop_filter {
+                    log_info(&format!("Applying canvas aspect ratio & crop filter: {}", cf));
+                    vf_parts.push(cf.clone());
+                } else if let (Some(cw), Some(ch), Some(cx), Some(cy)) = (crop_w, crop_h, crop_x, crop_y) {
+                    log_info(&format!("Applying aspect ratio video crop filter: {}x{}+{}+{}", cw, ch, cx, cy));
+                    vf_parts.push(format!("crop={}:{}:{}:{}", cw, ch, cx, cy));
+                }
                 if config.target_height != "ORIGINAL" {
                     let effective_height = if let Ok(h) = config.target_height.parse::<u32>() {
                         h.clamp(144, 8192).to_string()
                     } else {
                         config.target_height.clone()
                     };
-                    args.extend([
-                        "-vf".to_string(),
-                        format!("scale=-2:{},format=yuv420p", effective_height),
-                    ]);
+                    vf_parts.push(format!("scale=-2:{},format=yuv420p", effective_height));
+                } else if !vf_parts.is_empty() {
+                    vf_parts.push("format=yuv420p".to_string());
+                }
+
+                if !vf_parts.is_empty() {
+                    args.extend(["-vf".to_string(), vf_parts.join(",")]);
                 }
 
                 args.extend(["-c:v".to_string(), gpu_caps.encoder.clone()]);
@@ -320,16 +341,27 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
         args.extend(["-i".to_string(), file_path.to_string()]);
 
+        let mut vf_parts: Vec<String> = Vec::new();
+        if let Some(ref cf) = crop_filter {
+            log_info(&format!("Applying canvas aspect ratio & crop filter: {}", cf));
+            vf_parts.push(cf.clone());
+        } else if let (Some(cw), Some(ch), Some(cx), Some(cy)) = (crop_w, crop_h, crop_x, crop_y) {
+            log_info(&format!("Applying aspect ratio video crop filter: {}x{}+{}+{}", cw, ch, cx, cy));
+            vf_parts.push(format!("crop={}:{}:{}:{}", cw, ch, cx, cy));
+        }
         if config.target_height != "ORIGINAL" {
             let effective_height = if let Ok(h) = config.target_height.parse::<u32>() {
                 h.clamp(144, 8192).to_string()
             } else {
                 config.target_height.clone()
             };
-            args.extend([
-                "-vf".to_string(),
-                format!("scale=-2:{},format=yuv420p", effective_height),
-            ]);
+            vf_parts.push(format!("scale=-2:{},format=yuv420p", effective_height));
+        } else if !vf_parts.is_empty() {
+            vf_parts.push("format=yuv420p".to_string());
+        }
+
+        if !vf_parts.is_empty() {
+            args.extend(["-vf".to_string(), vf_parts.join(",")]);
         }
 
         args.extend(["-c:v".to_string(), gpu_caps.encoder.clone()]);

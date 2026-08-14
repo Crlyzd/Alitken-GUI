@@ -19,6 +19,11 @@ pub struct VideoInputItem {
     pub path: String,
     pub trim_start_sec: Option<f64>,
     pub trim_end_sec: Option<f64>,
+    pub crop_x: Option<u32>,
+    pub crop_y: Option<u32>,
+    pub crop_w: Option<u32>,
+    pub crop_h: Option<u32>,
+    pub crop_filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +97,7 @@ pub struct TrimConfig {
     pub crop_y: Option<u32>,
     pub crop_w: Option<u32>,
     pub crop_h: Option<u32>,
+    pub crop_filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

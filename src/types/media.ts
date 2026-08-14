@@ -105,6 +105,7 @@ export interface TrimConfig {
   crop_y?: number;
   crop_w?: number;
   crop_h?: number;
+  crop_filter?: string;
 }
 
 export interface CacheInfo {

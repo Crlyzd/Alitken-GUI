@@ -143,7 +143,10 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
 
         let mut vf_filters: Vec<String> = Vec::new();
 
-        if let (Some(w), Some(h), Some(x), Some(y)) = (config.crop_w, config.crop_h, config.crop_x, config.crop_y) {
+        if let Some(ref cf) = config.crop_filter {
+            log_info(&format!("Applying canvas aspect ratio & crop filter: {}", cf));
+            vf_filters.push(cf.clone());
+        } else if let (Some(w), Some(h), Some(x), Some(y)) = (config.crop_w, config.crop_h, config.crop_x, config.crop_y) {
             log_info(&format!("Applying aspect ratio video crop filter: {}x{}+{}+{}", w, h, x, y));
             vf_filters.push(format!("crop={}:{}:{}:{}", w, h, x, y));
         }

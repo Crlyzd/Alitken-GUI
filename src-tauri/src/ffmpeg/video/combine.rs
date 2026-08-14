@@ -195,12 +195,18 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         }
     }
 
-    // Structure to hold per-file probed metadata along with resolved trim bounds
+    // Structure to hold per-file probed metadata along with resolved trim/crop bounds
     struct CombineClipInfo {
         meta: MediaMetadata,
         start_sec: f64,
         end_sec: f64,
         has_trim: bool,
+        crop_x: Option<u32>,
+        crop_y: Option<u32>,
+        crop_w: Option<u32>,
+        crop_h: Option<u32>,
+        crop_filter: Option<String>,
+        has_crop: bool,
     }
 
     let mut clip_infos: Vec<CombineClipInfo> = Vec::new();
@@ -219,14 +225,24 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             has_av1_input = true;
         }
 
-        // Resolve saved trim boundaries (from config.video_items or trim_presets.json)
+        // Resolve saved trim boundaries & crop params (from config.video_items or trim_presets.json)
         let mut trim_start: Option<f64> = None;
         let mut trim_end: Option<f64> = None;
+        let mut crop_x: Option<u32> = None;
+        let mut crop_y: Option<u32> = None;
+        let mut crop_w: Option<u32> = None;
+        let mut crop_h: Option<u32> = None;
+        let mut crop_filter: Option<String> = None;
 
         if let Some(ref items) = config.video_items {
             if let Some(item) = items.iter().find(|i| i.path == *file_path).or_else(|| items.get(idx)) {
                 trim_start = item.trim_start_sec;
                 trim_end = item.trim_end_sec;
+                crop_x = item.crop_x;
+                crop_y = item.crop_y;
+                crop_w = item.crop_w;
+                crop_h = item.crop_h;
+                crop_filter = item.crop_filter.clone();
             }
         }
 
@@ -249,6 +265,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         };
 
         let has_trim = start_sec > 0.001 || (end_sec > start_sec && end_sec < meta.duration_sec - 0.05);
+        let has_crop = (crop_w.is_some() && crop_h.is_some()) || crop_filter.is_some();
         let effective_duration = if has_trim {
             (end_sec - start_sec).max(0.001)
         } else {
@@ -273,7 +290,18 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             start_sec,
             end_sec,
             has_trim,
+            crop_x,
+            crop_y,
+            crop_w,
+            crop_h,
+            crop_filter,
+            has_crop,
         });
+    }
+
+    let any_clip_has_crop = clip_infos.iter().any(|c| c.has_crop);
+    if is_fast_copy && any_clip_has_crop {
+        return Err("Lossless stream copy cannot be used when video cropping is applied to clips. Please switch off Lossless Copy to combine cropped videos.".to_string());
     }
 
     // Resolve destination output path
@@ -414,7 +442,14 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         };
 
         // Check if stream compatibility allows Fast Concat Pre-Pass
-        let compatibility = check_stream_compatibility(ffprobe_path, &config.video_files).await?;
+        let compatibility = if any_clip_has_crop {
+            StreamCompatibilityResult {
+                is_compatible: false,
+                reason: "Video crop filters require per-segment re-encoding".to_string(),
+            }
+        } else {
+            check_stream_compatibility(ffprobe_path, &config.video_files).await?
+        };
         if compatibility.is_compatible {
             log_info("Streams compatible: Using Fast Concat Pre-Pass + Single-Input GPU Transcode pipeline");
             let master_concat_path = staging_dir.join("master_concat.mp4");
@@ -569,11 +604,20 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 args.push("anullsrc=r=48000:cl=stereo".to_string());
             }
 
-            // Video scaling & letterboxing/pillarboxing with SAR reset
-            let vf = format!(
+            // Video scaling & letterboxing/pillarboxing with SAR reset (including clip crop filter if applied)
+            let mut vf_parts: Vec<String> = Vec::new();
+            if let Some(ref cf) = info.crop_filter {
+                log_info(&format!("Applying canvas aspect ratio & crop filter for combine: {}", cf));
+                vf_parts.push(cf.clone());
+            } else if let (Some(cw), Some(ch), Some(cx), Some(cy)) = (info.crop_w, info.crop_h, info.crop_x, info.crop_y) {
+                log_info(&format!("Applying aspect ratio video crop filter for combine: {}x{}+{}+{}", cw, ch, cx, cy));
+                vf_parts.push(format!("crop={}:{}:{}:{}", cw, ch, cx, cy));
+            }
+            vf_parts.push(format!(
                 "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p,setsar=1",
                 target_w, target_h, target_w, target_h
-            );
+            ));
+            let vf = vf_parts.join(",");
             args.push("-vf".to_string());
             args.push(vf);
 

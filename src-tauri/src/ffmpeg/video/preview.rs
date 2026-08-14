@@ -1,7 +1,8 @@
 use crate::ffmpeg::probe::probe_file;
 use crate::utils::{log_error, log_info};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::{oneshot, Notify};
 
@@ -35,27 +36,97 @@ impl<'a> Drop for SingleFlightGuard<'a> {
     }
 }
 
-fn get_active_cancellations() -> &'static Mutex<HashMap<String, oneshot::Sender<()>>> {
-    static CANCELLATIONS: OnceLock<Mutex<HashMap<String, oneshot::Sender<()>>>> = OnceLock::new();
-    CANCELLATIONS.get_or_init(|| Mutex::new(HashMap::new()))
+fn get_cancelled_previews() -> &'static Mutex<HashSet<String>> {
+    static CANCELLED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    CANCELLED.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+pub fn is_preview_cancelled(file_path: &str) -> bool {
+    if let Ok(map) = get_cancelled_previews().lock() {
+        map.contains(file_path)
+    } else {
+        false
+    }
+}
+
+pub fn mark_preview_cancelled(file_path: &str) {
+    if let Ok(mut map) = get_cancelled_previews().lock() {
+        map.insert(file_path.to_string());
+    }
+}
+
+pub fn clear_preview_cancelled(file_path: &str) {
+    if let Ok(mut map) = get_cancelled_previews().lock() {
+        map.remove(file_path);
+    }
+}
+
+static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_session_id() -> u64 {
+    NEXT_SESSION_ID.fetch_add(1, Ordering::SeqCst)
+}
+
+struct ActivePreviewSession {
+    session_id: u64,
+    _file_path: String,
+    cancel_tx: Option<oneshot::Sender<()>>,
+    child_pid: Option<u32>,
+}
+
+fn get_preview_sessions() -> &'static Mutex<HashMap<String, ActivePreviewSession>> {
+    static SESSIONS: OnceLock<Mutex<HashMap<String, ActivePreviewSession>>> = OnceLock::new();
+    SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+pub fn kill_process_tree(pid: u32) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .creation_flags(crate::utils::CREATE_NO_WINDOW)
+            .output();
+    }
+}
+
+pub fn cancel_and_kill_session_for_file(file_path: &str) {
+    mark_preview_cancelled(file_path);
+
+    let session = {
+        let mut map = get_preview_sessions().lock().unwrap();
+        map.remove(file_path)
+    };
+
+    if let Some(mut sess) = session {
+        log_info(&format!(
+            "Terminating active preview session #{} process tree for '{}'",
+            sess.session_id, file_path
+        ));
+        if let Some(tx) = sess.cancel_tx.take() {
+            let _ = tx.send(());
+        }
+        if let Some(pid) = sess.child_pid {
+            kill_process_tree(pid);
+        }
+    }
 }
 
 pub async fn cancel_preview_video(file_path: &str) {
-    let sender = {
-        let mut map = get_active_cancellations().lock().unwrap();
-        map.remove(file_path)
-    };
-    if let Some(tx) = sender {
-        let _ = tx.send(());
-    }
+    cancel_and_kill_session_for_file(file_path);
 }
 
 async fn run_preview_command(
     ffmpeg_path: &str,
     args: &[&str],
     file_path: &str,
+    session_id: u64,
     temp_preview: &Path,
 ) -> Result<bool, String> {
+    if is_preview_cancelled(file_path) {
+        return Err("Preview generation cancelled".to_string());
+    }
+
     let mut child = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
         .args(args)
         .stdout(std::process::Stdio::null())
@@ -63,11 +134,20 @@ async fn run_preview_command(
         .spawn()
         .map_err(|e| format!("Failed to spawn FFmpeg: {}", e))?;
 
+    let child_id = child.id();
     let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
 
     {
-        let mut map = get_active_cancellations().lock().unwrap();
-        map.insert(file_path.to_string(), cancel_tx);
+        let mut map = get_preview_sessions().lock().unwrap();
+        map.insert(
+            file_path.to_string(),
+            ActivePreviewSession {
+                session_id,
+                _file_path: file_path.to_string(),
+                cancel_tx: Some(cancel_tx),
+                child_pid: child_id,
+            },
+        );
     }
 
     let res = tokio::select! {
@@ -75,16 +155,23 @@ async fn run_preview_command(
             Ok(status.map(|s| s.success()).unwrap_or(false))
         }
         _ = &mut cancel_rx => {
-            log_info(&format!("Killing active preview process for '{}'", file_path));
+            log_info(&format!("Killing active preview session #{} process for '{}'", session_id, file_path));
+            if let Some(pid) = child_id {
+                kill_process_tree(pid);
+            }
             let _ = child.kill().await;
             Err("Preview generation cancelled".to_string())
         }
     };
 
-    // Remove from active cancellations
+    // Remove session if this task is still the active session for file_path
     {
-        let mut map = get_active_cancellations().lock().unwrap();
-        map.remove(file_path);
+        let mut map = get_preview_sessions().lock().unwrap();
+        if let Some(sess) = map.get(file_path) {
+            if sess.session_id == session_id {
+                map.remove(file_path);
+            }
+        }
     }
 
     match res {
@@ -116,6 +203,10 @@ pub async fn prepare_preview_video(
     if !Path::new(file_path).exists() {
         return Err(format!("Input video file not found: '{}'", file_path));
     }
+
+    cancel_and_kill_session_for_file(file_path);
+    clear_preview_cancelled(file_path);
+    let session_id = next_session_id();
 
     let input_path = Path::new(file_path);
     let ext = input_path
@@ -180,6 +271,10 @@ pub async fn prepare_preview_video(
     // Register active single-flight guard for the primary task
     let _guard = SingleFlightGuard { file_path };
 
+    if is_preview_cancelled(file_path) {
+        return Err("Preview generation cancelled".to_string());
+    }
+
     // Tier 2a: Instant double stream copy (video copy + audio copy)
     // Only attempt if audio codec is native to web browsers (AAC, MP3, Opus, FLAC).
     // Non-web audio (DTS, AC3, TrueHD) inside MP4 will fail browser playback (silent audio).
@@ -207,6 +302,7 @@ pub async fn prepare_preview_video(
                 temp_str,
             ],
             file_path,
+            session_id,
             &temp_preview,
         ).await;
 
@@ -226,6 +322,10 @@ pub async fn prepare_preview_video(
             "Preview skipping Tier 2a due to non-web audio codec '{}'. Defaulting to Tier 2b AAC transcode.",
             audio_codec
         ));
+    }
+
+    if is_preview_cancelled(file_path) {
+        return Err("Preview generation cancelled".to_string());
     }
 
     log_info(&format!("Preview Tier 2b (Video copy + AAC audio remux): {} -> {:?}", file_path, temp_preview));
@@ -258,6 +358,7 @@ pub async fn prepare_preview_video(
             temp_str,
         ],
         file_path,
+        session_id,
         &temp_preview,
     ).await;
 
@@ -271,6 +372,10 @@ pub async fn prepare_preview_video(
             return Err(e);
         }
         _ => {} // Fall through to Tier 3
+    }
+
+    if is_preview_cancelled(file_path) {
+        return Err("Preview generation cancelled".to_string());
     }
 
     // Tier 3: GPU Hardware proxy transcode (for 10-bit / raw / ProRes / uncopyable streams)
@@ -307,6 +412,7 @@ pub async fn prepare_preview_video(
             temp_str,
         ],
         file_path,
+        session_id,
         &temp_preview,
     ).await;
 
@@ -328,5 +434,6 @@ pub async fn prepare_preview_video(
 }
 
 pub fn unregister_preview_video(file_path: &str) {
+    cancel_and_kill_session_for_file(file_path);
     crate::utils::unregister_active_preview(file_path);
 }

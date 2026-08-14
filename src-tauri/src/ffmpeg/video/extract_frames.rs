@@ -3,6 +3,7 @@ use crate::ffmpeg::probe::probe_file;
 use crate::ffmpeg::types::ExtractFramesConfig;
 use crate::utils::{log_info, resolve_unique_frames_dir};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 fn base64_encode(data: &[u8]) -> String {
     const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -30,6 +31,23 @@ fn base64_encode(data: &[u8]) -> String {
     result
 }
 
+static ACTIVE_FRAME_PID: OnceLock<Mutex<Option<u32>>> = OnceLock::new();
+
+fn get_active_frame_pid() -> &'static Mutex<Option<u32>> {
+    ACTIVE_FRAME_PID.get_or_init(|| Mutex::new(None))
+}
+
+fn cancel_and_kill_previous_frame_extraction() {
+    let pid_to_kill = {
+        let mut lock = get_active_frame_pid().lock().unwrap();
+        lock.take()
+    };
+
+    if let Some(pid) = pid_to_kill {
+        crate::ffmpeg::video::preview::kill_process_tree(pid);
+    }
+}
+
 /// Extracts a single JPEG preview frame at timestamp_sec using GPU hardware acceleration and fast demuxer seeking.
 /// Returns a base64 Data URL string: data:image/jpeg;base64,...
 pub async fn extract_frame_base64_hwaccel(
@@ -41,11 +59,16 @@ pub async fn extract_frame_base64_hwaccel(
         return Err(format!("Video file not found: '{}'", file_path));
     }
 
+    // Cancel and kill any in-flight frame extraction process tree before starting a new one
+    cancel_and_kill_previous_frame_extraction();
+
     let time_str = format!("{:.3}", timestamp_sec.max(0.0));
-    // Fast demuxer seeking: -ss BEFORE -i seeks instantly to keyframe in <20ms
-    let output = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
+
+    let child = crate::utils::create_tokio_hidden_cmd(ffmpeg_path)
         .args([
             "-hide_banner",
+            "-hwaccel",
+            "auto",
             "-ss",
             &time_str,
             "-i",
@@ -60,9 +83,31 @@ pub async fn extract_frame_base64_hwaccel(
             "image2",
             "pipe:1",
         ])
-        .output()
-        .await
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|e| format!("FFmpeg frame extraction failed to spawn: {}", e))?;
+
+    let pid = child.id();
+    if let Some(p) = pid {
+        if let Ok(mut lock) = get_active_frame_pid().lock() {
+            *lock = Some(p);
+        }
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("FFmpeg frame extraction error: {}", e))?;
+
+    // Clear active PID tracking if this process finished
+    if let Some(p) = pid {
+        if let Ok(mut lock) = get_active_frame_pid().lock() {
+            if *lock == Some(p) {
+                *lock = None;
+            }
+        }
+    }
 
     if !output.status.success() || output.stdout.is_empty() {
         let stderr = String::from_utf8_lossy(&output.stderr);

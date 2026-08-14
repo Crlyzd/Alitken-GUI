@@ -14,11 +14,13 @@ import {
   GripVertical,
   FolderOpen,
   ExternalLink,
+  Crop,
 } from 'lucide-react';
 import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
 import { showFileInFolder, openFileWithDefaultApp } from '../utils/folderUtils';
 import { getLastImportFolder, updateImportFolderFromFilePath } from '../utils/folderHistory';
 import { GlassSelect, GlassSelectOption } from './GlassSelect';
+import { AspectRatioOption } from '../types/media';
 
 export type SortOption =
   | 'DEFAULT'
@@ -43,6 +45,15 @@ export interface FileItem {
   trimEndSec?: number;
   trimFastCopy?: boolean;
   filmstrip?: string[];
+  aspectRatio?: AspectRatioOption;
+  cropOffset?: { x: number; y: number };
+  cropScale?: number;
+  isCropApplied?: boolean;
+  crop_x?: number;
+  crop_y?: number;
+  crop_w?: number;
+  crop_h?: number;
+  crop_filter?: string;
 }
 
 interface DropzoneProps {
@@ -624,6 +635,24 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         }}
                       >
                         <Scissors size={10} /> Trimmed: {formatDuration((file.trimEndSec ?? 0) - (file.trimStartSec ?? 0))}
+                      </span>
+                    )}
+                    {(file.isCropApplied || (file.crop_w !== undefined && file.crop_h !== undefined)) && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          background: 'rgba(168, 85, 247, 0.15)',
+                          border: '1px solid rgba(168, 85, 247, 0.35)',
+                          color: '#c084fc',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          fontSize: '10.5px',
+                        }}
+                      >
+                        <Crop size={10} /> Crop: {file.aspectRatio && file.aspectRatio !== 'ORIGINAL' ? file.aspectRatio : 'Applied'}
                       </span>
                     )}
                   </div>

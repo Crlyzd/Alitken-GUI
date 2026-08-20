@@ -665,23 +665,51 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         },
     );
 
-    // Extract magick.exe using Windows native tar command
-    let extract_status = crate::utils::create_hidden_cmd("tar")
-        .args(&[
-            "-xf",
-            archive_path.to_str().unwrap_or_default(),
-            "-C",
-            target_dir.to_str().unwrap_or_default(),
-            "magick.exe",
-        ])
-        .status();
+    // Extract magick.exe: Tier 1: In-process pure-Rust 7z extraction
+    let mut extracted = false;
+    let in_process_res = sevenz_rust::decompress_file_with_extract_fn(
+        &archive_path,
+        &target_dir,
+        |entry, reader, dest| {
+            let entry_name = entry.name().to_lowercase();
+            if entry_name.ends_with("magick.exe") {
+                let out_file_path = dest.join("magick.exe");
+                let mut out_file = std::fs::File::create(&out_file_path)
+                    .map_err(|e| sevenz_rust::Error::io(e))?;
+                std::io::copy(reader, &mut out_file)
+                    .map_err(|e| sevenz_rust::Error::io(e))?;
+                Ok(true)
+            } else {
+                Ok(true)
+            }
+        },
+    );
 
-    if let Err(e) = extract_status {
-        let _ = fs::remove_file(&archive_path);
-        return Err(format!("Failed to execute extraction process: {}", e));
+    if in_process_res.is_ok() && target_dir.join("magick.exe").exists() {
+        extracted = true;
+    } else {
+        // Tier 2 Fallback: Windows native tar command
+        if let Ok(tar_status) = crate::utils::create_hidden_cmd("tar")
+            .args(&[
+                "-xf",
+                archive_path.to_str().unwrap_or_default(),
+                "-C",
+                target_dir.to_str().unwrap_or_default(),
+                "magick.exe",
+            ])
+            .status()
+        {
+            if tar_status.success() && target_dir.join("magick.exe").exists() {
+                extracted = true;
+            }
+        }
     }
 
     let _ = fs::remove_file(&archive_path);
+
+    if !extracted {
+        return Err("Failed to extract magick.exe from archive. Please ensure disk write permissions or manually extract ImageMagick portable to bin/.".to_string());
+    }
 
     invalidate_dependency_cache();
     Ok(check_dependencies())

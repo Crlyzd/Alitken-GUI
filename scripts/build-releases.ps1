@@ -1,13 +1,13 @@
 # Alitken Multi-Target Release Build Script
 # Builds Release Binaries for GitHub and Microsoft Store:
-#   1. GitHub Release (x86_64)   - Self-Updater Enabled
+#   1. GitHub Release (64)       - Self-Updater Enabled
 #   2. GitHub Release (ARM64)    - Self-Updater Enabled (Optional / Auto-Skipped if toolchain missing)
-#   3. MS Store Build (x86_64)   - Store Update Managed
+#   3. MS Store Build (64)       - Store Update Managed
 #   4. MS Store Build (ARM64)    - Store Update Managed (Optional / Auto-Skipped if toolchain missing)
 
 [CmdletBinding()]
 param (
-    [ValidateSet("all", "x64", "arm64", "github", "store")]
+    [ValidateSet("all", "x64", "64", "arm64", "github", "store")]
     [string]$Scope = "all",
     [switch]$SkipArm64 = $false,
     [switch]$NoPause = $false
@@ -157,9 +157,9 @@ try {
 
     $isArm64Supported = -not $SkipArm64 -and (Test-Arm64ToolchainAvailable)
 
-    # 1. GitHub Release (x86_64)
-    if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "github") {
-        Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_x64"
+    # 1. GitHub Release (64)
+    if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "github") {
+        Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_64"
     }
 
     # 2. GitHub Release (ARM64)
@@ -167,9 +167,9 @@ try {
         Invoke-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_ARM64"
     }
 
-    # 3. MS Store Build (x86_64)
-    if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "store") {
-        Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (x64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_x64" -Features "store-build"
+    # 3. MS Store Build (64)
+    if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "store") {
+        Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_64" -Features "store-build"
     }
 
     # 4. MS Store Build (ARM64)

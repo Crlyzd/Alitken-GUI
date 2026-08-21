@@ -117,7 +117,7 @@ try {
                 Copy-Item -Path $ExePath -Destination $ParentExePath -Force
 
                 # Copy to releases folder with descriptive name
-                $PortableName = "Alitken_v${AppVersion}_${BuildProfile}_x64-Portable.exe"
+                $PortableName = "Alitken_v${AppVersion}_${BuildProfile}_64-Portable.exe"
                 Copy-Item -Path $ExePath -Destination (Join-Path $ReleasesDir $PortableName) -Force
             } catch {
                 Write-Host "WARNING: Could not copy executable to parent/releases folder: $_" -ForegroundColor Yellow
@@ -127,7 +127,7 @@ try {
         # Copy installer setup binary if present (sort by LastWriteTime descending to grab latest)
         $InstallerExe = Get-ChildItem -Path $NsisDir -Filter "*.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($InstallerExe) {
-            $SetupName = "Alitken_v${AppVersion}_${BuildProfile}_x64-Setup.exe"
+            $SetupName = "Alitken_v${AppVersion}_${BuildProfile}_64-Setup.exe"
             Copy-Item -Path $InstallerExe.FullName -Destination (Join-Path $ReleasesDir $SetupName) -Force
         }
 

@@ -40,6 +40,9 @@ pub struct ConversionConfig {
     pub target_bitrate: String, // "ORIGINAL" or kbps e.g. "5000"
     pub codec_choice: String,   // "1"=H264, "2"=HEVC, "3"=AV1
     pub custom_output_dir: Option<String>,
+    pub audio_path: Option<String>,
+    pub audio_fade_in: Option<bool>,
+    pub audio_fade_out: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,6 +101,9 @@ pub struct TrimConfig {
     pub crop_w: Option<u32>,
     pub crop_h: Option<u32>,
     pub crop_filter: Option<String>,
+    pub audio_path: Option<String>,
+    pub audio_fade_in: Option<bool>,
+    pub audio_fade_out: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

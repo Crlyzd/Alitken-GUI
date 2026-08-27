@@ -53,6 +53,9 @@ export function App() {
     targetBitrate: 'ORIGINAL',
     codecChoice: '1',
     outputDir: null,
+    audioPath: null,
+    audioFadeIn: false,
+    audioFadeOut: false,
   });
 
   const [imageConfig, setImageConfig] = useState<ImageConfig>({

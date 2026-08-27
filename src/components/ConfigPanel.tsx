@@ -10,7 +10,12 @@ import {
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageConfig, StreamCompatibilityResult } from '../types/media';
-import { getLastExportFolder, setLastExportFolder } from '../utils/folderHistory';
+import {
+  getLastExportFolder,
+  setLastExportFolder,
+  getLastImportFolder,
+  updateImportFolderFromFilePath,
+} from '../utils/folderHistory';
 import { ImageConfigTab } from './ImageConfigTab';
 import { FileItem } from './Dropzone';
 import {
@@ -36,6 +41,9 @@ export interface ConfigState {
   targetBitrate: string;
   codecChoice: string; // "1"=H264, "2"=HEVC, "3"=AV1
   outputDir: string | null;
+  audioPath: string | null;
+  audioFadeIn: boolean;
+  audioFadeOut: boolean;
 }
 
 interface ConfigPanelProps {
@@ -132,6 +140,26 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     } catch (err) {
       console.error('Failed to open directory dialog:', err);
     }
+  };
+
+  const handleBrowseAudio = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        defaultPath: config.audioPath || getLastImportFolder() || undefined,
+        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg', 'opus', 'wma'] }],
+      });
+      if (selected && typeof selected === 'string') {
+        updateImportFolderFromFilePath(selected);
+        onChange({ audioPath: selected });
+      }
+    } catch (err) {
+      console.error('Failed to open audio file dialog:', err);
+    }
+  };
+
+  const handleClearAudio = () => {
+    onChange({ audioPath: null, audioFadeIn: false, audioFadeOut: false });
   };
 
   const handleOpenFolder = async () => {
@@ -346,6 +374,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   PRESET_HEIGHTS={PRESET_HEIGHTS}
                   PRESET_BITRATES={PRESET_BITRATES}
                   croppedFilesCount={croppedFilesCount}
+                  onBrowseAudio={handleBrowseAudio}
+                  onClearAudio={handleClearAudio}
                 />
               )}
 

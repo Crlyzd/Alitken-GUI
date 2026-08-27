@@ -146,7 +146,11 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
         let has_trim = start_sec > 0.001 || (end_sec > start_sec && end_sec < meta.duration_sec - 0.05);
         let has_crop = (crop_w.is_some() && crop_h.is_some()) || crop_filter.is_some();
-        let effective_split_fast_copy = config.split_fast_copy && !has_crop;
+        let has_custom_audio = config
+            .audio_path
+            .as_ref()
+            .map_or(false, |p| !p.is_empty() && Path::new(p).exists());
+        let effective_split_fast_copy = config.split_fast_copy && !has_crop && !has_custom_audio;
 
         let effective_duration = if has_trim {
             (end_sec - start_sec).max(0.1)
@@ -252,6 +256,11 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                     ]);
                 }
                 args.extend(["-i".to_string(), file_path.to_string()]);
+                if let Some(ref audio_path) = config.audio_path {
+                    if !audio_path.is_empty() && Path::new(audio_path).exists() {
+                        args.extend(["-i".to_string(), audio_path.clone()]);
+                    }
+                }
 
                 let mut vf_parts: Vec<String> = Vec::new();
                 if let Some(ref cf) = crop_filter {
@@ -283,13 +292,15 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
                 append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
+                append_audio_pipeline_args(
+                    &mut args,
+                    config.audio_path.as_deref(),
+                    config.audio_fade_in.unwrap_or(false),
+                    config.audio_fade_out.unwrap_or(false),
+                    effective_duration,
+                );
+
                 args.extend([
-                    "-map".to_string(),
-                    "0:v:0".to_string(),
-                    "-map".to_string(),
-                    "0:a?".to_string(),
-                    "-c:a".to_string(),
-                    "copy".to_string(),
                     "-dn".to_string(),
                     "-fps_mode".to_string(),
                     "cfr".to_string(),
@@ -354,6 +365,11 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
         }
 
         args.extend(["-i".to_string(), file_path.to_string()]);
+        if let Some(ref audio_path) = config.audio_path {
+            if !audio_path.is_empty() && Path::new(audio_path).exists() {
+                args.extend(["-i".to_string(), audio_path.clone()]);
+            }
+        }
 
         let mut vf_parts: Vec<String> = Vec::new();
         if let Some(ref cf) = crop_filter {
@@ -385,13 +401,15 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
 
         append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
+        append_audio_pipeline_args(
+            &mut args,
+            config.audio_path.as_deref(),
+            config.audio_fade_in.unwrap_or(false),
+            config.audio_fade_out.unwrap_or(false),
+            effective_duration,
+        );
+
         args.extend([
-            "-map".to_string(),
-            "0:v:0".to_string(),
-            "-map".to_string(),
-            "0:a?".to_string(),
-            "-c:a".to_string(),
-            "copy".to_string(),
             "-dn".to_string(),
             "-fps_mode".to_string(),
             "cfr".to_string(),
@@ -453,3 +471,54 @@ pub fn append_bitrate_flags(args: &mut Vec<String>, target_bitrate: &str, encode
         ]);
     }
 }
+
+pub fn append_audio_pipeline_args(
+    args: &mut Vec<String>,
+    custom_audio_path: Option<&str>,
+    fade_in: bool,
+    fade_out: bool,
+    effective_duration: f64,
+) {
+    if let Some(audio_path) = custom_audio_path {
+        if !audio_path.is_empty() && Path::new(audio_path).exists() {
+            args.extend([
+                "-map".to_string(),
+                "0:v:0".to_string(),
+                "-map".to_string(),
+                "1:a:0".to_string(),
+            ]);
+
+            let mut af_filters = Vec::new();
+            if fade_in {
+                af_filters.push("afade=t=in:ss=0:d=1.5".to_string());
+            }
+            if fade_out && effective_duration > 1.5 {
+                let st = (effective_duration - 1.5).max(0.0);
+                af_filters.push(format!("afade=t=out:st={:.3}:d=1.5", st));
+            }
+            if !af_filters.is_empty() {
+                args.extend(["-af".to_string(), af_filters.join(",")]);
+            }
+
+            args.extend([
+                "-c:a".to_string(),
+                "aac".to_string(),
+                "-b:a".to_string(),
+                "192k".to_string(),
+                "-shortest".to_string(),
+            ]);
+            return;
+        }
+    }
+
+    // Default: map original audio if present and copy stream
+    args.extend([
+        "-map".to_string(),
+        "0:v:0".to_string(),
+        "-map".to_string(),
+        "0:a?".to_string(),
+        "-c:a".to_string(),
+        "copy".to_string(),
+    ]);
+}
+

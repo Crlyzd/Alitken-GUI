@@ -136,7 +136,7 @@ export const StorageValidationModal: React.FC<StorageValidationModalProps> = ({
             color: codeText,
           }}
         >
-          %LOCALAPPDATA%\Alitken\temp\
+          %LOCALAPPDATA%\curlyzed\alitken\temp\
         </code>
         .
         <br />

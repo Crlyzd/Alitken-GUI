@@ -18,6 +18,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
+            // Migrate any legacy %LOCALAPPDATA%\Alitken folder to shared %LOCALAPPDATA%\curlyzed
+            utils::migrate_legacy_alitken_folder();
             // Clean up lingering ALITKEN.exe.old from previous 1-click update
             updater::cleanup_old_version();
             // Clean up temporary preview files from previous sessions

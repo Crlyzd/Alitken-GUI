@@ -38,32 +38,123 @@ pub fn create_tokio_hidden_cmd(program: &str) -> tokio::process::Command {
     cmd
 }
 
-/// Resolves the dedicated log directory in %LOCALAPPDATA%\Alitken\logs
-pub fn get_log_dir() -> PathBuf {
+/// Resolves the root directory for shared curlyzed tools in %LOCALAPPDATA%\curlyzed
+pub fn get_curlyzed_root_dir() -> PathBuf {
     if let Some(local_dir) = dirs::data_local_dir() {
-        let log_dir = local_dir.join("Alitken").join("logs");
-        let _ = fs::create_dir_all(&log_dir);
-        return log_dir;
+        let root = local_dir.join("curlyzed");
+        let _ = fs::create_dir_all(&root);
+        return root;
     }
-    let fallback = PathBuf::from("logs");
+    let fallback = PathBuf::from("curlyzed");
     let _ = fs::create_dir_all(&fallback);
     fallback
+}
+
+/// Resolves the dedicated, isolated directory for Alitken app data in %LOCALAPPDATA%\curlyzed\alitken
+pub fn get_app_data_root_dir() -> PathBuf {
+    let app_root = get_curlyzed_root_dir().join("alitken");
+    let _ = fs::create_dir_all(&app_root);
+    app_root
+}
+
+/// Migrates legacy %LOCALAPPDATA%\Alitken directory to %LOCALAPPDATA%\curlyzed structure
+pub fn migrate_legacy_alitken_folder() {
+    if let Some(local_dir) = dirs::data_local_dir() {
+        let legacy_root = local_dir.join("Alitken");
+        if !legacy_root.exists() {
+            return;
+        }
+
+        let new_root = get_curlyzed_root_dir();
+        let new_bin_dir = new_root.join("bin");
+        let new_app_root = get_app_data_root_dir();
+
+        let _ = fs::create_dir_all(&new_bin_dir);
+        let _ = fs::create_dir_all(&new_app_root);
+
+        // 1. Migrate binaries (Alitken\bin\* -> curlyzed\bin\*)
+        let legacy_bin = legacy_root.join("bin");
+        if legacy_bin.exists() {
+            if let Ok(entries) = fs::read_dir(&legacy_bin) {
+                for entry in entries.flatten() {
+                    let src = entry.path();
+                    if let Some(file_name) = src.file_name() {
+                        let dest = new_bin_dir.join(file_name);
+                        if !dest.exists() {
+                            let _ = fs::rename(&src, &dest).or_else(|_| fs::copy(&src, &dest).map(|_| ()));
+                        }
+                    }
+                }
+            }
+            let _ = fs::remove_dir_all(&legacy_bin);
+        }
+
+        // 2. Migrate logs (Alitken\logs\* -> curlyzed\alitken\logs\*)
+        let legacy_logs = legacy_root.join("logs");
+        if legacy_logs.exists() {
+            let new_logs = new_app_root.join("logs");
+            let _ = fs::create_dir_all(&new_logs);
+            if let Ok(entries) = fs::read_dir(&legacy_logs) {
+                for entry in entries.flatten() {
+                    let src = entry.path();
+                    if let Some(file_name) = src.file_name() {
+                        let dest = new_logs.join(file_name);
+                        if !dest.exists() {
+                            let _ = fs::rename(&src, &dest).or_else(|_| fs::copy(&src, &dest).map(|_| ()));
+                        }
+                    }
+                }
+            }
+            let _ = fs::remove_dir_all(&legacy_logs);
+        }
+
+        // 3. Migrate presets & settings (Alitken\presets\* -> curlyzed\alitken\presets\*)
+        let legacy_presets = legacy_root.join("presets");
+        if legacy_presets.exists() {
+            let new_presets = new_app_root.join("presets");
+            let _ = fs::create_dir_all(&new_presets);
+            if let Ok(entries) = fs::read_dir(&legacy_presets) {
+                for entry in entries.flatten() {
+                    let src = entry.path();
+                    if let Some(file_name) = src.file_name() {
+                        let dest = new_presets.join(file_name);
+                        if !dest.exists() {
+                            let _ = fs::rename(&src, &dest).or_else(|_| fs::copy(&src, &dest).map(|_| ()));
+                        }
+                    }
+                }
+            }
+            let _ = fs::remove_dir_all(&legacy_presets);
+        }
+
+        // 4. Remove any stale legacy temp
+        let legacy_temp = legacy_root.join("temp");
+        if legacy_temp.exists() {
+            let _ = fs::remove_dir_all(&legacy_temp);
+        }
+
+        // 5. Try removing legacy root if empty
+        let _ = fs::remove_dir(&legacy_root);
+        log_info("Migrated legacy %LOCALAPPDATA%\\Alitken to %LOCALAPPDATA%\\curlyzed");
+    }
+}
+
+/// Resolves the dedicated log directory in %LOCALAPPDATA%\curlyzed\alitken\logs
+pub fn get_log_dir() -> PathBuf {
+    let log_dir = get_app_data_root_dir().join("logs");
+    let _ = fs::create_dir_all(&log_dir);
+    log_dir
 }
 
 pub fn get_log_file_path() -> PathBuf {
     get_log_dir().join("alitken.log")
 }
 
-/// Resolves the dedicated presets directory in %LOCALAPPDATA%\Alitken\presets
+/// Resolves the dedicated presets directory in %LOCALAPPDATA%\curlyzed\alitken\presets
 pub fn get_presets_dir() -> PathBuf {
-    if let Some(local_dir) = dirs::data_local_dir() {
-        let presets_dir = local_dir.join("Alitken").join("presets");
-        let _ = fs::create_dir_all(&presets_dir);
-        return presets_dir;
-    }
-    let fallback = PathBuf::from("presets");
-    let _ = fs::create_dir_all(&fallback);
-    fallback
+    let presets_dir = get_app_data_root_dir().join("presets");
+    let _ = fs::create_dir_all(&presets_dir);
+    presets_dir
 }
 
 pub fn get_trim_presets_path() -> PathBuf {
@@ -207,7 +298,7 @@ pub fn get_cache_info() -> CacheInfo {
     }
 }
 
-/// Resolves the dedicated temporary cache directory in %LOCALAPPDATA%\Alitken\temp or custom folder
+/// Resolves the dedicated temporary cache directory in %LOCALAPPDATA%\curlyzed\alitken\temp or custom folder
 pub fn get_temp_dir() -> PathBuf {
     let settings = load_app_settings();
     if let Some(custom_dir) = settings.custom_temp_dir {
@@ -219,14 +310,9 @@ pub fn get_temp_dir() -> PathBuf {
         }
     }
 
-    if let Some(local_dir) = dirs::data_local_dir() {
-        let temp_dir = local_dir.join("Alitken").join("temp");
-        let _ = fs::create_dir_all(&temp_dir);
-        return temp_dir;
-    }
-    let fallback = PathBuf::from("temp");
-    let _ = fs::create_dir_all(&fallback);
-    fallback
+    let temp_dir = get_app_data_root_dir().join("temp");
+    let _ = fs::create_dir_all(&temp_dir);
+    temp_dir
 }
 
 /// Purges all temporary preview files in the temp directory, skipping protected/active files

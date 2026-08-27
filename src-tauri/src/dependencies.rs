@@ -55,12 +55,9 @@ pub struct DownloadProgressPayload {
 }
 
 pub fn get_appdata_bin_dir() -> PathBuf {
-    if let Some(data_dir) = dirs::data_local_dir() {
-        let app_bin = data_dir.join("Alitken").join("bin");
-        let _ = fs::create_dir_all(&app_bin);
-        return app_bin;
-    }
-    PathBuf::from("bin")
+    let app_bin = crate::utils::get_curlyzed_root_dir().join("bin");
+    let _ = fs::create_dir_all(&app_bin);
+    app_bin
 }
 
 pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
@@ -754,12 +751,21 @@ pub async fn download_all_dependencies<R: tauri::Runtime>(
     Ok(check_dependencies())
 }
 
-/// Uninstalls all binaries, logs, and completely removes %LOCALAPPDATA%/Alitken folder itself
+/// Uninstalls all binaries, logs, and completely removes %LOCALAPPDATA%/curlyzed/alitken folder and binaries
 pub fn uninstall_appdata() -> Result<DependencyStatus, String> {
     if let Some(local_dir) = dirs::data_local_dir() {
-        let app_root = local_dir.join("Alitken");
+        let curlyzed_root = local_dir.join("curlyzed");
+        let app_root = curlyzed_root.join("alitken");
         if app_root.exists() {
             let _ = fs::remove_dir_all(&app_root);
+        }
+        let bin_root = curlyzed_root.join("bin");
+        if bin_root.exists() {
+            let _ = fs::remove_dir_all(&bin_root);
+        }
+        let legacy_root = local_dir.join("Alitken");
+        if legacy_root.exists() {
+            let _ = fs::remove_dir_all(&legacy_root);
         }
     }
     invalidate_dependency_cache();

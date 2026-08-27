@@ -640,8 +640,8 @@ pub fn set_always_on_top(window: tauri::Window, always_on_top: bool) -> Result<(
 }
 
 
-/// Expands the fixed startup window (560×440, non-resizable) into the full
-/// working state (980×700, resizable, min 840×580). Called from the frontend
+/// Expands the fixed startup window (500×500, non-resizable) into the full
+/// working state (1060×720, resizable, min 1040×700). Called from the frontend
 /// exactly once — when the first file batch is loaded via handleAddFiles.
 /// Window expands in-place; position is NOT changed so the user's placement
 /// is respected.
@@ -661,11 +661,10 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     Ok(())
 }
 
-/// Collapses the working window (980×700, resizable, min 840×580) back to the
-/// fixed startup state (560×440, non-resizable). Called from the frontend when
-/// the file queue is cleared (via "Clear All" or last-file removal).
+/// Collapses the working window back to the fixed 1:1 startup state (500×500, non-resizable).
+/// Called from the frontend when the file queue is cleared (via "Clear All" or last-file removal).
 /// Ordering is critical: disable resize → clear min-size → apply startup size,
-/// otherwise Tauri clamps the new size to the existing 840×580 floor.
+/// otherwise Tauri clamps the new size to the existing floor.
 #[tauri::command]
 pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
@@ -675,9 +674,9 @@ pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
     window
         .set_min_size(None::<LogicalSize<u32>>)
         .map_err(|e| e.to_string())?;
-    // 3. Restore fixed startup dimensions.
+    // 3. Restore fixed 1:1 startup dimensions (500x500).
     window
-        .set_size(LogicalSize::new(560u32, 440u32))
+        .set_size(LogicalSize::new(500u32, 500u32))
         .map_err(|e| e.to_string())?;
     Ok(())
 }

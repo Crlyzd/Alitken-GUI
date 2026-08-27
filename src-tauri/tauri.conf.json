@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "ALITKEN v0.7.1",
-        "width": 560,
-        "height": 440,
+        "width": 500,
+        "height": 500,
         "resizable": false,
         "decorations": false,
         "transparent": true,

@@ -73,7 +73,7 @@ export function useNativeDragDrop(
         setIsDragOver(true);
         const pos = event.payload.position;
         if (pos && typeof pos.y === 'number') {
-          const windowHeight = window.innerHeight || 440;
+          const windowHeight = window.innerHeight || 500;
           if (pos.y > windowHeight * 0.72) {
             setDragTargetZone('trimmer');
             welcomeZoneRef.current = 'trimmer';

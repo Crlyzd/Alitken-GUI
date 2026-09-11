@@ -15,9 +15,6 @@ target/
 /target/
 src-tauri/target/
 src-tauri/Cargo.lock
-*.exe
-# !releases/*.exe
-# !releases/**/*.exe
 
 # Portable local dependencies
 bin/
@@ -31,9 +28,6 @@ Thumbs.db
 
 # Agent Customizations (Local only)
 .agents/
-
-# Releases
-# releases/
 
 # Temporary test files & auxiliary build targets
 src-tauri/test_*

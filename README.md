@@ -1,16 +1,47 @@
-# ⚡ Alitken Media Converter
+<div align="center">
 
-> **The fast, beautiful, zero-bullshit Windows media converter & video trimmer.**  
-> *Convert videos, snip clips in milliseconds, crop for TikTok/Reels, combine clips with custom music, and extract photos — without annoying paywalls, watermarks, or complicated settings.*
+  # ⚡ ALITKEN
 
-[![Windows 10/11](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=flat&logo=windows)](https://github.com/Crlyzd/Alitken-GUI/releases)
-[![Release v0.8.1](https://img.shields.io/badge/Release-v0.8.1-blue?style=flat)](https://github.com/Crlyzd/Alitken-GUI/releases)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-green.svg)](file:///d:/ALitken/Alitken-GUI/LICENSE)
-[![Portable](https://img.shields.io/badge/Setup-100%25%20Portable-orange?style=flat)](#-zero-install-no-clutter)
+  ### High-Performance Media Converter, Video Trimmer & Social Clip Studio for Windows 11
+  
+  *A sleek, borderless, GPU-accelerated desktop utility built with Rust and Tauri v2.*  
+  *Lossless cuts in milliseconds • 1-click TikTok/Reels framing • Custom soundtrack muxing • Zero paywalls, zero bloat.*
+
+  <br />
+
+  <p align="center">
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest">
+      <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit%20%26%20ARM64)-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform" />
+    </a>
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest">
+      <img src="https://img.shields.io/badge/Release-v0.8.1-6366f1?style=for-the-badge&logo=tag&logoColor=white" alt="Release" />
+    </a>
+    <a href="file:///d:/ALitken/Alitken-GUI/LICENSE">
+      <img src="https://img.shields.io/badge/License-GPL--3.0-22c55e?style=for-the-badge" alt="License" />
+    </a>
+    <a href="#-the-manifesto-a-rant">
+      <img src="https://img.shields.io/badge/Why%20Alitken-The%20Rant-f59e0b?style=for-the-badge" alt="The Rant" />
+    </a>
+  </p>
+
+  <p align="center">
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><b>Download Latest Portable Exe</b></a> •
+    <a href="#-feature-matrix-alitken-vs-the-rest"><b>Comparison Matrix</b></a> •
+    <a href="#-core-capabilities"><b>Features</b></a> •
+    <a href="#-quick-start"><b>Quick Start</b></a> •
+    <a href="#-under-the-hood-for-geeks"><b>Tech Specs</b></a> •
+    <a href="#-support--donations"><b>Support</b></a>
+  </p>
+
+  <br />
+
+  <img width="1928" height="1084" alt="Alitken Transcode Queue" src="https://github.com/user-attachments/assets/da1d85a4-2f0c-416d-8b5c-377da83e7fc1" />
+
+</div>
 
 ---
 
-### 💬 Why I Built This (A Rant)
+### 💬 The Manifesto: Why I Built This (A Rant)
 
 > **TL;DR:** I am so sick and tired of media converters on Windows. Seriously, why is this entire category of software such an absolute unmitigated disaster zone?
 >
@@ -30,94 +61,129 @@
 
 ---
 
-## ✨ What You Can Do With Alitken
+## 📊 Feature Matrix: Alitken vs. The Rest
 
-### ✂️ Cut Videos Instantly (Literally 1 Second)
-Need to trim out a 10-second highlight from a 2-hour gameplay session or podcast?
-* **Instant Cut Mode**: Snips your video in the blink of an eye without re-rendering or losing any image quality.
-* **Smart Quality Protection**: If you change playback speed or apply a crop, Alitken automatically switches to high-quality re-encoding with a clear explanation—no cryptic errors.
-
-### 📱 Crop for TikTok, YouTube Shorts & Instagram Reels
-Stop guessing crop dimensions!
-* **1-Click Presets**: Pick **9:16 (Shorts/TikTok/Reels)**, **1:1 (Square)**, **16:9 (Landscape)**, or freeform crop.
-* **Smooth Visual Handles**: Drag corners freely with natural 1:1 mouse tracking and magnetic snapping to borders.
-* **Instant Preview**: See exactly what your final crop looks like in real time.
-
-### 🎵 Combine Multiple Clips & Add Your Own Music
-Put clips together without opening a heavy, complicated video editor:
-* **Drag to Reorder**: Drop in multiple clips and arrange them in the order you want.
-* **Add Background Song / Music**: Attach any MP3 or audio track directly over your combined video.
-* **Smooth Fades**: Dial in customizable **Fade In** and **Fade Out** audio transitions in seconds.
-
-### ⚡ Blazing Fast GPU Conversion
-Convert iPhone `.mov` files, screen recordings, or huge downloads into web-friendly `.mp4`, `.mkv`, or `.webm`.
-* **Automatic Graphics Card Detection**: Detects your NVIDIA, AMD, or Intel graphics card automatically to convert videos at maximum speed while keeping your PC cool.
-* **Pure Audio Quality**: Copies your original audio tracks directly without degrading quality.
-
-### 🛡️ Crashproof Queue (No Broken Downloads)
-Ever had a batch converter crash midway because one file was empty or half-downloaded?
-* **Broken File Detection**: Alitken instantly spots corrupted or 0-byte files, highlights them with an alert badge, and stops errors before they happen.
-* **1-Click Cleanup**: Hit **"Clear Invalid"** to sweep away broken or missing files from your queue in one tap.
-
-### 📸 Extract Perfect High-Res Photos
-Want a crystal-clear screenshot or thumbnail from a video?
-* Extract full-quality **PNG**, **JPG**, or **WebP** photos at custom intervals (every frame, every second, or keyframes only).
+| Feature | 👴 Traditional "Boomer" Tools | 💸 SEO Paywall Converters | 🌐 Online Web Converters | ⚡ **Alitken** |
+| :--- | :---: | :---: | :---: | :---: |
+| **Pricing & Watermarks** | Free | $49/yr + Center Watermark | Free with 720p / 100MB cap | **100% Free & Clean** |
+| **Installation Footprint** | Clunky MSI installer | 500 MB+ Background Services | Popups & tracking cookies | **~5 MB Portable Single-File Exe** |
+| **Video Cutting Speed** | Re-encodes slowly | Re-encodes slowly | Cloud queue upload delay | **Instant Lossless (`< 1 sec`)** |
+| **UI Design & Ergonomics** | Nested 90s tabs & dialogs | Aggressive upgrade ads | Malware-laden banner ads | **Sleek Mica / Acrylic Glass UI** |
+| **Mobile Crop (Shorts/TikTok)** | Manual pixel math | Locked behind subscription | Unsupported | **1-Click 9:16 / 1:1 Presets** |
+| **Custom Audio & Fade** | Complex multi-pass setup | Paid feature | Unsupported | **Built-in Song Track + Fades** |
+| **Hardware Acceleration** | Requires manual setup | Watermarked on free tier | Server-side throttled | **Auto NVIDIA / AMD / Intel** |
+| **Queue Error Resilience** | Crashes on bad files | Silent failure | Upload timeout | **Pre-flight 0B / Corrupt Filter** |
 
 ---
 
-## 📸 Screenshots
+## 🌟 Core Capabilities
 
-<img width="1928" height="1084" alt="Alitken Transcode Queue" src="https://github.com/user-attachments/assets/da1d85a4-2f0c-416d-8b5c-377da83e7fc1" />
-<img width="1933" height="1087" alt="Alitken Video Trimmer and Crop Viewport" src="https://github.com/user-attachments/assets/88bdbbc6-c4f8-476d-b467-ce3a82184a57" />
-<img width="2320" height="1305" alt="Alitken Custom Config Panel" src="https://github.com/user-attachments/assets/93c61b25-9c86-4f9e-bd3b-4886c0bbaf25" />
-<img width="1880" height="1057" alt="Alitken Frame Burst Extractor" src="https://github.com/user-attachments/assets/3257cdaa-228e-4a31-8547-fbdf9bfc5229" />
+### ✂️ Instant Lossless Trimmer & Smart Transcode Guard
+* **Sub-Second Cutting**: Snip highlights from multi-hour screen recordings or movies instantly without touching video packets or dropping visual quality.
+* **Smart Auto-Protection**: If you tweak playback speed or apply a crop, Alitken automatically enables high-quality encoding and informs you via a glass banner—eliminating cryptic FFmpeg failures.
 
----
+### 📱 1-Click Social Media Framing (Shorts, Reels, TikTok)
+* **Visual Aspect Presets**: Switch instantly between **9:16 (Shorts / TikTok)**, **1:1 (Square)**, **4:5 (Portrait)**, **16:9 (Landscape)**, or **Freeform**.
+* **Fluid Corner Handles**: Drag handles with normalized 1:1 cursor response and polar vector math that prevents handle locking.
+* **Magnetic Edge Snapping**: Snaps precisely to video edges and center axes for pixel-perfect framing.
 
-## 🚀 How to Use (3 Easy Steps)
+### 🎵 Clip Combiner & Soundtrack Muxer
+* **Multi-Clip Concatenation**: Merge disparate video clips into one continuous high-definition output.
+* **Audio Track Replacement**: Overlay background songs, music, or voiceovers onto merged videos.
+* **Studio Audio Fades**: Smooth configurable **Fade In** and **Fade Out** curves applied cleanly via AAC 192k encoding.
 
-1. **Drop Your Files**: Drag videos, audio, or pictures straight into the Alitken window (or right-click files in Windows Explorer and choose **Send to → Alitken**).
-2. **Pick Your Action**:
-   * **Convert**: Choose your target format (MP4, MKV, WebM, MP3, etc.).
-   * **Trim / Crop**: Set your start/end markers or crop to 9:16 for mobile.
-   * **Combine**: Merge your clips and pick an optional background song.
-   * **Extract Frames**: Export picture bursts from any video.
-3. **Hit Start**: Watch the progress bar fly. Your finished files will be waiting in your output folder!
+### ⚡ Automatic GPU Acceleration (NVENC • AMF • QuickSync)
+* **Zero Config Setup**: Automatically queries and leverages your graphics card hardware encoder (**NVIDIA NVENC**, **AMD AMF**, or **Intel QSV**).
+* **Cool CPU Temps**: Offloads demanding video encoding tasks from your processor to your GPU for near-instant exports.
+* **High-Fidelity Audio Preservation**: Passthrough original high-res audio streams (`copy`) whenever codec formats permit.
 
----
+### 🛡️ Crashproof Queue & Corrupted File Guardrails
+* **Instant 0-Byte Detection**: Identifies corrupt, unreadable, or empty media files before starting any conversion pass.
+* **1-Click "Clear Invalid"**: Purge missing or broken files with a single click to ensure seamless, unattended batch processing.
 
-## 📦 Zero Install, No Clutter
-
-* **100% Portable**: No installer wizards, no random registry entries, no background services. Download `Alitken_64-Portable.exe`, put it anywhere, and double-click to run.
-* **Auto-Updates**: Check for new releases and update with 1 click directly inside the **About** window.
-* **Windows Context Menu**: Optional right-click shortcut in Windows Explorer for instant conversion.
-
----
-
-## 🤓 Under the Hood (For Geeks & Creators)
-
-For those curious about the engineering under the glass UI:
-* **Core Architecture**: Native Windows desktop application built with **Tauri v2** and **Rust** (Tokio async runtime) for minimal footprint (~5 MB binary).
-* **Media Engines**: Custom subprocess pipeline wrapping modern **FFmpeg**, **FFprobe**, and **ImageMagick** with deterministic PID cleanup.
-* **Hardware Acceleration**: Automatic runtime detection for **NVIDIA NVENC**, **AMD AMF**, **Intel QuickSync (QSV)**, with seamless fallback to multi-threaded CPU encoders (`libx264`, `libx265`, `libaom-av1`).
-* **AV1 Decoding**: Integrated VideoLAN **`libdav1d`** engine delivering 700+ FPS decoding on high-framerate 4K clips without stuttering.
-* **Memory Management**: Automatic Windows working-set compaction (`EmptyWorkingSet`) and strict WebView2 V8 heap bounds (capped at 128 MB) to prevent RAM bloat during long queue sessions.
-* **Lossless Muxing Engine**: Smart stream-copy packet passthrough (`-c copy`) for both single-clip trims and multi-video concatenation whenever stream parameters match.
+### 📸 High-Speed Frame Burst Extraction
+* Export high-res **PNG**, **JPG**, or **WebP** image sequences from any video format.
+* Choose between *Every Frame*, *1 Frame/sec*, *0.5 Frames/sec*, or *Keyframes Only*.
+* Integrated disk-space verification prevents accidental drive saturation.
 
 ---
 
-## 💻 Supported Formats & System Requirements
+## 🖼️ Application Showcase
 
-* **OS**: Windows 10 or Windows 11 (64-bit x86_64 & ARM64)
-* **Video**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.ts`, `.flv`, `.m2ts`
-* **Audio**: `.mp3`, `.aac`, `.wav`, `.flac`, `.ogg`, `.m4a`
-* **Images**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`
+<div align="center">
+
+| Transcode Queue & Batch Conversion | Precision Video Trimmer & WYSIWYG Crop |
+| :---: | :---: |
+| <img width="900" alt="Queue" src="https://github.com/user-attachments/assets/da1d85a4-2f0c-416d-8b5c-377da83e7fc1" /> | <img width="900" alt="Trimmer" src="https://github.com/user-attachments/assets/88bdbbc6-c4f8-476d-b467-ce3a82184a57" /> |
+
+| Fine-Grained Transcode & Audio Controls | High-Speed Frame Burst Extraction |
+| :---: | :---: |
+| <img width="900" alt="Settings" src="https://github.com/user-attachments/assets/93c61b25-9c86-4f9e-bd3b-4886c0bbaf25" /> | <img width="900" alt="Burst Extractor" src="https://github.com/user-attachments/assets/3257cdaa-228e-4a31-8547-fbdf9bfc5229" /> |
+
+</div>
 
 ---
 
-## ❤️ Support & Community
+## 🚀 Quick Start
 
-Alitken is 100% free and open-source, built with love by **Kaleksanan Bagus**. If Alitken saved you from subscription paywalls, watermarks, or jet-engine CPU fans, consider buying me a coffee!
+1. **Download**: Grab `Alitken_64-Portable.exe` from the [Latest Releases](https://github.com/Crlyzd/Alitken-GUI/releases/latest).
+2. **Drop Your Media**: Drag video, audio, or image files directly into the window (or right-click any file in Windows Explorer and select **Send to → Alitken**).
+3. **Choose Mode**:
+   * **Transcode**: Pick output format (`.mp4`, `.mkv`, `.webm`, `.mp3`) and encoder.
+   * **Split / Trim**: Mark start/end cuts or crop to 9:16 for mobile.
+   * **Combine**: Merge ordered clips and attach a soundtrack.
+   * **Extract Frames**: Select sampling interval and image format.
+4. **Convert**: Click **Start Conversion**. Watch real-time encoding FPS and live progress!
 
-* ☕ **Saweria (Indonesia)**: [saweria.co/curlyzed](https://saweria.co/curlyzed)
-* 💳 **PayPal (Global)**: [paypal.me/BagusMassani](https://paypal.me/BagusMassani)
+---
+
+## 🤓 Under the Hood (For Geeks)
+
+```
++-------------------------------------------------------------------------+
+|                       ALITKEN ARCHITECTURE                              |
++-------------------------------------------------------------------------+
+|  Frontend UI          React 18 • TypeScript • Tailwind/CSS Glass Tokens |
+|  Desktop Runtime      Tauri v2 • Windows DWM Mica/Acrylic Windowing     |
+|  Native Core          Rust (2021 Edition) • Tokio Asynchronous Runtime  |
+|  Subprocess Engines   FFmpeg (GPLv3) • FFprobe • ImageMagick 7          |
+|  Hardware Decoders    VideoLAN libdav1d AV1 Engine (700+ FPS Decoding)  |
+|  Hardware Encoders    NVIDIA NVENC • AMD AMF • Intel QuickSync (QSV)    |
+|  Memory Optimization  Windows Working-Set Compaction • V8 Heap Limiting |
++-------------------------------------------------------------------------+
+```
+
+* **Zero-Leak Memory Profile**: Working-set memory compaction (`EmptyWorkingSet`) executes automatically post-launch and following heavy batch pipelines, holding RAM footprints tight.
+* **Blink/V8 Guardrails**: Strict 128 MB V8 heap boundaries and explicit HTML5 video DOM unmount cleanup eliminate media player memory leaks.
+* **Subprocess Safety**: All background child process trees (FFmpeg/Magick) are attached to cancellation tokens for clean, zero-zombie shutdown on exit or cancel.
+
+---
+
+## 💻 System Requirements & Supported Media
+
+* **Operating System**: Windows 10 or Windows 11 (64-bit x86_64 or ARM64)
+* **Video Formats**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.ts`, `.flv`, `.m2ts`
+* **Audio Formats**: `.mp3`, `.aac`, `.wav`, `.flac`, `.ogg`, `.m4a`
+* **Image Formats**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`
+
+---
+
+## ❤️ Support & Donations
+
+Alitken is completely free, open source, and built with love by **Kaleksanan Bagus**. If this tool saved you from subscription scams, watermarked videos, or jet-engine CPU fans, consider buying me a coffee:
+
+<p align="center">
+  <a href="https://saweria.co/curlyzed">
+    <img src="https://img.shields.io/badge/Saweria%20(Indonesia)-Support%20Creator-ff4757?style=for-the-badge&logo=coffee" alt="Saweria Donate" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://paypal.me/BagusMassani">
+    <img src="https://img.shields.io/badge/PayPal%20(Global)-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Donate" />
+  </a>
+</p>
+
+---
+
+<div align="center">
+  <sub>Licensed under <a href="file:///d:/ALitken/Alitken-GUI/LICENSE">GNU General Public License v3.0</a>. Built for creators, gamers, and humans.</sub>
+</div>

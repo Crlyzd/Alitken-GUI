@@ -218,6 +218,7 @@ export function useMediaPipelines(
             completed: true,
             status: 'Frame extraction completed successfully! Check the _frames/ subfolders.',
           }));
+          invoke('trim_memory').catch(() => {});
         } catch (err: any) {
           setProgress((prev) => ({
             ...prev,
@@ -294,6 +295,7 @@ export function useMediaPipelines(
         completed: true,
         status: 'All video files processed successfully!',
       }));
+      invoke('trim_memory').catch(() => {});
     } catch (err: any) {
       setProgress((prev) => ({
         ...prev,
@@ -407,6 +409,7 @@ export function useMediaPipelines(
         completed: true,
         status: 'Image processing task completed successfully!',
       }));
+      invoke('trim_memory').catch(() => {});
     } catch (err: any) {
       setProgress((prev) => ({
         ...prev,
@@ -433,6 +436,7 @@ export function useMediaPipelines(
         completed: false,
         error: 'Processing aborted by user.',
       }));
+      invoke('trim_memory').catch(() => {});
     } catch (err: any) {
       console.error('Failed to abort processing:', err);
     }

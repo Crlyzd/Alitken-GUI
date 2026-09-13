@@ -24,6 +24,13 @@ pub fn run() {
             updater::cleanup_old_version();
             // Clean up temporary preview files from previous sessions
             utils::cleanup_temp_dir();
+
+            // Background memory compaction 4 seconds after launch to reclaim one-time init allocations
+            tauri::async_runtime::spawn(async {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                utils::trim_working_set();
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -75,7 +82,8 @@ pub fn run() {
             start_combine_video_pipeline,
             check_stream_compatibility,
             start_extract_frames_pipeline,
-            validate_extraction_storage
+            validate_extraction_storage,
+            trim_memory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

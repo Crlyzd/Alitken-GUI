@@ -1,7 +1,7 @@
 {
   "name": "alitken-gui",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "version:sync": "node scripts/sync-version.cjs",
-    "version": "node scripts/sync-version.cjs && git add -A",
+    "version": "node scripts/sync-version.cjs && git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml index.html",
     "bump": "powershell -ExecutionPolicy Bypass -File ./bump-version.ps1"
   },
   "dependencies": {

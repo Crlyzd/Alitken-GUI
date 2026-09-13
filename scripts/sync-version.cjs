@@ -5,6 +5,7 @@ const rootDir = path.resolve(__dirname, '..');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const tauriConfPath = path.join(rootDir, 'src-tauri', 'tauri.conf.json');
 const cargoTomlPath = path.join(rootDir, 'src-tauri', 'Cargo.toml');
+const indexHtmlPath = path.join(rootDir, 'index.html');
 
 if (!fs.existsSync(packageJsonPath)) {
   console.error('Error: package.json not found at:', packageJsonPath);
@@ -33,6 +34,14 @@ if (fs.existsSync(cargoTomlPath)) {
   content = content.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
   fs.writeFileSync(cargoTomlPath, content);
   console.log(`  ✓ Updated src-tauri/Cargo.toml → v${version}`);
+}
+
+// 3. Update index.html (keeps WebView2 window title in Task Manager accurate)
+if (fs.existsSync(indexHtmlPath)) {
+  let html = fs.readFileSync(indexHtmlPath, 'utf8');
+  html = html.replace(/<title>ALITKEN[^<]*<\/title>/i, `<title>ALITKEN v${version}</title>`);
+  fs.writeFileSync(indexHtmlPath, html);
+  console.log(`  ✓ Updated index.html → v${version}`);
 }
 
 console.log(`\n🎉 Single Source of Truth version sync complete! All targets updated to v${version}.\n`);

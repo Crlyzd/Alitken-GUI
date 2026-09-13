@@ -17,8 +17,21 @@ interface UseTrimmerStateParams {
   onStartTrim: (trimConfig: TrimConfig) => void;
 }
 
-// In-memory session cache for extracted seeker filmstrips (file.path -> base64 image array)
+// Bounded session cache for extracted seeker filmstrips (maximum 3 files to prevent RAM accumulation)
+const MAX_FILMSTRIP_CACHE_ENTRIES = 3;
 const filmstripCache = new Map<string, string[]>();
+
+function cacheFilmstrip(filePath: string, strip: string[]) {
+  if (filmstripCache.has(filePath)) {
+    filmstripCache.delete(filePath);
+  } else if (filmstripCache.size >= MAX_FILMSTRIP_CACHE_ENTRIES) {
+    const oldestKey = filmstripCache.keys().next().value;
+    if (oldestKey) {
+      filmstripCache.delete(oldestKey);
+    }
+  }
+  filmstripCache.set(filePath, strip);
+}
 
 export function useTrimmerState({
   file,
@@ -129,7 +142,7 @@ export function useTrimmerState({
       invoke<string[]>('get_wmf_filmstrip', { filePath: file.path, count: 16 })
         .then((strip) => {
           if (!isCancelled && strip.length > 0) {
-            filmstripCache.set(file.path, strip);
+            cacheFilmstrip(file.path, strip);
             setFilmstrip(strip);
           }
         })
@@ -149,7 +162,7 @@ export function useTrimmerState({
             invoke<string[]>('get_wmf_filmstrip', { filePath: resolvedPath, count: 16 })
               .then((strip) => {
                 if (!isCancelled && strip.length > 0) {
-                  filmstripCache.set(file.path, strip);
+                  cacheFilmstrip(file.path, strip);
                   setFilmstrip((prev) => (prev.length === 0 ? strip : prev));
                 }
               })
@@ -171,6 +184,8 @@ export function useTrimmerState({
       invoke('unregister_preview_video', { filePath: file.path }).catch(() => {});
       if (rafSeekRef.current) cancelAnimationFrame(rafSeekRef.current);
       if (hoverThrottleRef.current) clearTimeout(hoverThrottleRef.current);
+      // Compact memory on trimmer unmount
+      invoke('trim_memory').catch(() => {});
     };
   }, [file.path]);
 

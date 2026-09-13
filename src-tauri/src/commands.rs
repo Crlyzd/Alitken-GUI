@@ -617,7 +617,9 @@ pub fn open_file(file_path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn minimize_window(window: tauri::Window) -> Result<(), String> {
-    window.minimize().map_err(|e| e.to_string())
+    let res = window.minimize().map_err(|e| e.to_string());
+    utils::trim_working_set();
+    res
 }
 
 #[tauri::command]
@@ -678,6 +680,8 @@ pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
     window
         .set_size(LogicalSize::new(500u32, 500u32))
         .map_err(|e| e.to_string())?;
+    // 4. Reclaim memory after returning to idle startup state.
+    utils::trim_working_set();
     Ok(())
 }
 
@@ -863,5 +867,11 @@ pub fn validate_extraction_storage(
         required_space_bytes: required_space,
     }
 }
+
+#[tauri::command]
+pub fn trim_memory() {
+    utils::trim_working_set();
+}
+
 
 

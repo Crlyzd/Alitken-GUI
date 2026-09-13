@@ -3,7 +3,8 @@
 param (
     [switch]$Dev = $false,
     [switch]$StoreDev = $false,
-    [ValidateSet("Standard", "Small", "Store", "MSStore")]
+    [switch]$Fast = $false,
+    [ValidateSet("Standard", "Small", "Store", "MSStore", "Fast")]
     [string]$BuildProfile = "",
     [switch]$NoPause = $false
 )
@@ -27,6 +28,9 @@ $AppVersion = if (Test-Path $PackageJsonPath) {
 }
 
 # Normalize parameters
+if ($Fast) {
+    $BuildProfile = "Fast"
+}
 if ($StoreDev) {
     $Dev = $true
 }
@@ -76,13 +80,15 @@ if (-not $Dev -and [string]::IsNullOrEmpty($BuildProfile)) {
     Write-Host "  [3] GitHub Development Mode  (Live Reload, full dev update UI)" -ForegroundColor Magenta
     Write-Host "  [4] MS Store Dev Mode        (Live Reload, preview MS Store UI)" -ForegroundColor DarkCyan
     Write-Host "  [5] Small Release            (Full LLVM LTO ~2-4m build)" -ForegroundColor Green
+    Write-Host "  [6] Ultra-Fast Compile       (Fastest build: 256 codegen units, zero LTO)" -ForegroundColor White
     Write-Host ""
-    $choice = Read-Host "Enter choice [1-5] (Default: 1)"
+    $choice = Read-Host "Enter choice [1-6] (Default: 1)"
     switch ($choice) {
         "2" { $BuildProfile = "Store" }
         "3" { $Dev = $true }
         "4" { $Dev = $true; $StoreDev = $true }
         "5" { $BuildProfile = "Small" }
+        "6" { $BuildProfile = "Fast" }
         default { $BuildProfile = "Standard" }
     }
 }
@@ -103,7 +109,17 @@ try {
             throw "Tauri development server exited with code $LASTEXITCODE"
         }
     } else {
-        if ($BuildProfile -eq "Small") {
+        if ($BuildProfile -eq "Fast") {
+            Write-Host "[2/3] Compiling Tauri Desktop Executable (Ultra-Fast Compilation Profile)..." -ForegroundColor White
+            Write-Host "NOTE: Compiling with zero LTO, 256 parallel codegen units, and opt-level 1 for maximum build speed." -ForegroundColor DarkGray
+
+            $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = "1"
+            $env:CARGO_PROFILE_RELEASE_LTO = "off"
+            $env:CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "256"
+            $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
+            $env:CARGO_PROFILE_RELEASE_STRIP = "false"
+            npm run tauri build
+        } elseif ($BuildProfile -eq "Small") {
             Write-Host "[2/3] Compiling Tauri Desktop Executable (Ultra-Small LTO Profile)..." -ForegroundColor Green
             Write-Host "NOTE: Full LLVM Link-Time Optimization enabled. Build will take 2-4 minutes." -ForegroundColor DarkYellow
 

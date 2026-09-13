@@ -603,3 +603,71 @@ pub fn get_disk_free_space(_path: &Path) -> Result<u64, String> {
     Ok(u64::MAX)
 }
 
+/// Trims the working set of the current process and its child processes (WebView2 tree) on Windows.
+/// Safely releases unreferenced physical memory pages back to the OS standby pool without breaking any app state.
+#[cfg(target_os = "windows")]
+pub fn trim_working_set() {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        GetCurrentProcess, OpenProcess, SetProcessWorkingSetSize, PROCESS_QUERY_INFORMATION,
+        PROCESS_SET_QUOTA,
+    };
+
+    unsafe {
+        // 1. Trim host process working set
+        let current_process = GetCurrentProcess();
+        SetProcessWorkingSetSize(current_process, usize::MAX, usize::MAX);
+
+        // 2. Discover children and grandchildren (WebView2 process tree)
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot != INVALID_HANDLE_VALUE {
+            let mut entry: PROCESSENTRY32 = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+
+            let current_pid = std::process::id();
+            let mut all_processes: Vec<(u32, u32)> = Vec::new(); // (pid, parent_pid)
+
+            if Process32First(snapshot, &mut entry) != 0 {
+                loop {
+                    all_processes.push((entry.th32ProcessID, entry.th32ParentProcessID));
+                    if Process32Next(snapshot, &mut entry) == 0 {
+                        break;
+                    }
+                }
+            }
+            CloseHandle(snapshot);
+
+            // Find all PIDs in our descendant tree
+            let mut target_pids = std::collections::HashSet::new();
+            let mut search_parents = vec![current_pid];
+
+            while !search_parents.is_empty() {
+                let mut next_parents = Vec::new();
+                for (pid, parent_pid) in &all_processes {
+                    if search_parents.contains(parent_pid) && !target_pids.contains(pid) {
+                        target_pids.insert(*pid);
+                        next_parents.push(*pid);
+                    }
+                }
+                search_parents = next_parents;
+            }
+
+            // 3. Trim each child process working set
+            for pid in target_pids {
+                let handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_QUERY_INFORMATION, 0, pid);
+                if handle != 0 && handle != INVALID_HANDLE_VALUE {
+                    SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX);
+                    CloseHandle(handle);
+                }
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn trim_working_set() {}
+
+

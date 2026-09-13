@@ -131,6 +131,7 @@ Write-Host "Synchronized files:" -ForegroundColor Cyan
 Write-Host "  [+] package.json             -> v$newVersion" -ForegroundColor White
 Write-Host "  [+] src-tauri/tauri.conf.json -> v$newVersion" -ForegroundColor White
 Write-Host "  [+] src-tauri/Cargo.toml     -> v$newVersion" -ForegroundColor White
+Write-Host "  [+] index.html               -> v$newVersion" -ForegroundColor White
 Write-Host ""
 
 # 5. Pause for 1-click execution in Explorer

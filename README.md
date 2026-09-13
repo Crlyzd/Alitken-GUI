@@ -1,7 +1,12 @@
-# Alitken Media Converter
+# ⚡ Alitken Media Converter
 
-> **High-Performance Windows Media Converter, Video Splitter & Frame Extractor**  
-> *A sleek, lightning-fast, borderless desktop app built with Rust & Tauri v2 for all your video, audio, and image processing needs.*
+> **The fast, beautiful, zero-bullshit Windows media converter & video trimmer.**  
+> *Convert videos, snip clips in milliseconds, crop for TikTok/Reels, combine clips with custom music, and extract photos — without annoying paywalls, watermarks, or complicated settings.*
+
+[![Windows 10/11](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=flat&logo=windows)](https://github.com/Crlyzd/Alitken-GUI/releases)
+[![Release v0.8.1](https://img.shields.io/badge/Release-v0.8.1-blue?style=flat)](https://github.com/Crlyzd/Alitken-GUI/releases)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-green.svg)](file:///d:/ALitken/Alitken-GUI/LICENSE)
+[![Portable](https://img.shields.io/badge/Setup-100%25%20Portable-orange?style=flat)](#-zero-install-no-clutter)
 
 ---
 
@@ -25,102 +30,94 @@
 
 ---
 
-## 🌟 What is Alitken?
+## ✨ What You Can Do With Alitken
 
-**Alitken** is a modern, lightweight, and super-fast Windows application designed to make media conversion, video trimming, video merging, and frame extraction effortless for everyone—from casual users saving clips for Discord and social media to gamers and content creators handling high-res screen recordings.
+### ✂️ Cut Videos Instantly (Literally 1 Second)
+Need to trim out a 10-second highlight from a 2-hour gameplay session or podcast?
+* **Instant Cut Mode**: Snips your video in the blink of an eye without re-rendering or losing any image quality.
+* **Smart Quality Protection**: If you change playback speed or apply a crop, Alitken automatically switches to high-quality re-encoding with a clear explanation—no cryptic errors.
 
-No complicated settings or confusing technical jargon required: simply drag and drop your files, pick your mode and format, and let Alitken handle the rest at maximum speed!
+### 📱 Crop for TikTok, YouTube Shorts & Instagram Reels
+Stop guessing crop dimensions!
+* **1-Click Presets**: Pick **9:16 (Shorts/TikTok/Reels)**, **1:1 (Square)**, **16:9 (Landscape)**, or freeform crop.
+* **Smooth Visual Handles**: Drag corners freely with natural 1:1 mouse tracking and magnetic snapping to borders.
+* **Instant Preview**: See exactly what your final crop looks like in real time.
 
----
+### 🎵 Combine Multiple Clips & Add Your Own Music
+Put clips together without opening a heavy, complicated video editor:
+* **Drag to Reorder**: Drop in multiple clips and arrange them in the order you want.
+* **Add Background Song / Music**: Attach any MP3 or audio track directly over your combined video.
+* **Smooth Fades**: Dial in customizable **Fade In** and **Fade Out** audio transitions in seconds.
 
-## 🚀 Key Features
+### ⚡ Blazing Fast GPU Conversion
+Convert iPhone `.mov` files, screen recordings, or huge downloads into web-friendly `.mp4`, `.mkv`, or `.webm`.
+* **Automatic Graphics Card Detection**: Detects your NVIDIA, AMD, or Intel graphics card automatically to convert videos at maximum speed while keeping your PC cool.
+* **Pure Audio Quality**: Copies your original audio tracks directly without degrading quality.
 
-### ⚡ Automatic Hardware Acceleration
-Alitken automatically detects your graphics card—whether you have **NVIDIA** (NVENC), **AMD** (AMF), or **Intel** (QuickSync)—to encode videos at blazing-fast speeds while keeping your processor cool. If no GPU is available, it smoothly falls back to high-quality CPU encoding (`libx264`, `libx265`, `libaom-av1`).
+### 🛡️ Crashproof Queue (No Broken Downloads)
+Ever had a batch converter crash midway because one file was empty or half-downloaded?
+* **Broken File Detection**: Alitken instantly spots corrupted or 0-byte files, highlights them with an alert badge, and stops errors before they happen.
+* **1-Click Cleanup**: Hit **"Clear Invalid"** to sweep away broken or missing files from your queue in one tap.
 
-### ✂️ Instant Lossless Video Cutting & Trimming
-Need to snip out a clip from a long gameplay session or video recording? 
-* **Lossless Cut Mode (`-c copy`)**: Extract specific parts of your video in milliseconds without re-encoding or losing a single pixel of visual quality.
-* **Custom Re-encoding Mode**: Trim and convert simultaneously to any resolution, bitrate, or format.
-
-### 📐 1:1 WYSIWYG Crop & Canvas Trimmer
-Crop your video clips visually with an interactive on-canvas bounding box:
-* **Aspect Ratio Presets**: 16:9 (Landscape), 9:16 (Shorts / TikTok / Reels), 1:1 (Square), 4:3 (Standard), 4:5 (Portrait), 21:9 (Ultrawide), and Freeform.
-* **Smart Guides & Snapping**: Center magnet guide, container edge snapping (Alt), and axis locking (Shift/Ctrl).
-* **Preset Memory**: Automatically saves your custom crop configurations across sessions.
-
-### 🔗 Video Concatenation & Combine Engine
-Merge multiple clips into a single video seamlessly:
-* **Lossless Concat Demuxer (`-c copy`)**: Automatically detects matching streams (resolution, codec, framerate, audio layout) for instant, zero-loss merging.
-* **Smart Hybrid Transcode Fallback**: Gracefully re-encodes mismatched clips with hardware acceleration while safeguarding system RAM.
-
-### 🎞️ High-Speed Frame Burst Extraction
-Extract high-resolution image sequences from any video:
-* **Output Formats**: Save as **PNG**, **JPEG**, or **WebP** with custom quality sliders.
-* **Sampling Cadences**: Extract *Every Frame*, *1 Frame/sec*, *0.5 Frames/sec*, *Keyframes Only (I-Frames)*, or a *Custom Interval*.
-* **Built-in Safety Guard**: Disk space validation and large-batch safety prompts prevent accidental drive overflow.
-
-### 🎵 Zero Audio Quality Loss
-Keep your soundtrack pure! Alitken uses smart stream copying (`-c:a copy`) whenever possible, preserving the original audio fidelity without unneeded re-compression.
-
-### 🎮 Smooth AV1 Game Clip Decoding
-Recorded gaming highlights in AV1 format with ShadowPlay or OBS? Alitken integrates VideoLAN's high-speed `libdav1d` AV1 decoder engine to process high-framerate clips effortlessly at 700+ FPS without crashes or stutters.
-
-### 🖼️ Batch Image Processing
-More than just video! Alitken features an integrated image converter to batch convert, resize, adjust compression, and optimize image files (JPG, PNG, WebP, GIF, BMP, etc.) in one click.
-
-### 🎨 Modern Frosted Glass UI & Fluid Ergonomics
-Enjoy a sleek Windows 11-native desktop experience:
-* **Dynamic Glass Backdrop**: Borderless acrylic / mica frosted glass aesthetic with full Dark & Light mode support.
-* **Snappy Drag-and-Drop Queue**: Pointer-event drag-and-drop file rearranging with 60-120 FPS GPU displacement animations.
-* **Vertical Sidebar Rail**: Ergonomic 42px navigation rail to switch between *Transcode*, *Split*, *Combine*, and *Extract* workflows.
-* **Dual-Context Folder Memory**: Remembers your preferred import source and export destination directories independently.
-* **Windows Context Menu Integration**: Right-click any file in Windows Explorer and select **"Send to → Alitken"** for instant processing.
+### 📸 Extract Perfect High-Res Photos
+Want a crystal-clear screenshot or thumbnail from a video?
+* Extract full-quality **PNG**, **JPG**, or **WebP** photos at custom intervals (every frame, every second, or keyframes only).
 
 ---
 
-<img width="1928" height="1084" alt="Screenshot 2026-08-14 203956_edited" src="https://github.com/user-attachments/assets/da1d85a4-2f0c-416d-8b5c-377da83e7fc1" />
-<img width="1933" height="1087" alt="Screenshot 2026-08-14 235330_edited" src="https://github.com/user-attachments/assets/88bdbbc6-c4f8-476d-b467-ce3a82184a57" />
-<img width="2320" height="1305" alt="Screenshot 2026-08-14 235511_edited" src="https://github.com/user-attachments/assets/93c61b25-9c86-4f9e-bd3b-4886c0bbaf25" />
-<img width="1880" height="1057" alt="Screenshot 2026-08-14 235639_edited" src="https://github.com/user-attachments/assets/3257cdaa-228e-4a31-8547-fbdf9bfc5229" />
+## 📸 Screenshots
+
+<img width="1928" height="1084" alt="Alitken Transcode Queue" src="https://github.com/user-attachments/assets/da1d85a4-2f0c-416d-8b5c-377da83e7fc1" />
+<img width="1933" height="1087" alt="Alitken Video Trimmer and Crop Viewport" src="https://github.com/user-attachments/assets/88bdbbc6-c4f8-476d-b467-ce3a82184a57" />
+<img width="2320" height="1305" alt="Alitken Custom Config Panel" src="https://github.com/user-attachments/assets/93c61b25-9c86-4f9e-bd3b-4886c0bbaf25" />
+<img width="1880" height="1057" alt="Alitken Frame Burst Extractor" src="https://github.com/user-attachments/assets/3257cdaa-228e-4a31-8547-fbdf9bfc5229" />
 
 ---
 
-## 📖 Quick Start Guide
+## 🚀 How to Use (3 Easy Steps)
 
-1. **Add Your Media**: Drag and drop single files, multiple clips, or entire folders into the Alitken window (or right-click files in Windows Explorer and select *Send to → Alitken*).
-2. **Choose Action (Sidebar Rail)**:
-   * **Transcode**: Select your target video/audio format (MP4, MKV, WebM, MP3, etc.) and hardware encoder.
-   * **Split / Trim**: Set start/end timestamps or crop your video with aspect ratio presets.
-   * **Combine**: Reorder clips in the queue and merge them into a single continuous video.
-   * **Extract Frames**: Select sampling cadence and image format (PNG, JPG, WebP) to extract frame bursts.
-   * **Images**: Switch to the Image tab to batch resize, convert, and optimize photos.
-3. **Start Processing**: Click **Start Conversion**. Monitor real-time microsecond telemetry, encoding FPS, and estimated completion time (ETA).
-
----
-
-## 📋 System Requirements & Supported Formats
-
-* **Operating System**: Windows 10 / 11 (64-bit x86_64 & ARM64)
-* **Supported Hardware Encoders**: NVIDIA NVENC, AMD AMF, Intel QuickSync, CPU (`libx264`, `libx265`, `libaom-av1`)
-* **Video Formats**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.ts`, `.flv`, `.m2ts`
-* **Audio Formats**: `.mp3`, `.aac`, `.wav`, `.flac`, `.ogg`, `.m4a`
-* **Image Formats**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`
+1. **Drop Your Files**: Drag videos, audio, or pictures straight into the Alitken window (or right-click files in Windows Explorer and choose **Send to → Alitken**).
+2. **Pick Your Action**:
+   * **Convert**: Choose your target format (MP4, MKV, WebM, MP3, etc.).
+   * **Trim / Crop**: Set your start/end markers or crop to 9:16 for mobile.
+   * **Combine**: Merge your clips and pick an optional background song.
+   * **Extract Frames**: Export picture bursts from any video.
+3. **Hit Start**: Watch the progress bar fly. Your finished files will be waiting in your output folder!
 
 ---
 
-## 🛠️ Built For Performance (Tech Stack)
+## 📦 Zero Install, No Clutter
 
-* **Backend**: Rust + Tauri v2 (Tokio asynchronous runtime)
-* **Preview Engine**: Native Windows Media Foundation (WMF) COM APIs for zero-lag seekbar filmstrip generation
-* **Media Core**: Built-in FFmpeg & ImageMagick with VideoLAN `libdav1d` AV1 hardware-level decoding
-* **Frontend**: React + TypeScript + Vite with custom glassmorphism design system
+* **100% Portable**: No installer wizards, no random registry entries, no background services. Download `Alitken_64-Portable.exe`, put it anywhere, and double-click to run.
+* **Auto-Updates**: Check for new releases and update with 1 click directly inside the **About** window.
+* **Windows Context Menu**: Optional right-click shortcut in Windows Explorer for instant conversion.
 
 ---
 
-## ❤️ Support & Donate
+## 🤓 Under the Hood (For Geeks & Creators)
 
-Alitken is 100% free and developed with passion by **Kaleksanan Bagus**. If Alitken saved you time, saved your PC from bloatware, or made your video workflow smoother, consider buying me a coffee!
+For those curious about the engineering under the glass UI:
+* **Core Architecture**: Native Windows desktop application built with **Tauri v2** and **Rust** (Tokio async runtime) for minimal footprint (~5 MB binary).
+* **Media Engines**: Custom subprocess pipeline wrapping modern **FFmpeg**, **FFprobe**, and **ImageMagick** with deterministic PID cleanup.
+* **Hardware Acceleration**: Automatic runtime detection for **NVIDIA NVENC**, **AMD AMF**, **Intel QuickSync (QSV)**, with seamless fallback to multi-threaded CPU encoders (`libx264`, `libx265`, `libaom-av1`).
+* **AV1 Decoding**: Integrated VideoLAN **`libdav1d`** engine delivering 700+ FPS decoding on high-framerate 4K clips without stuttering.
+* **Memory Management**: Automatic Windows working-set compaction (`EmptyWorkingSet`) and strict WebView2 V8 heap bounds (capped at 128 MB) to prevent RAM bloat during long queue sessions.
+* **Lossless Muxing Engine**: Smart stream-copy packet passthrough (`-c copy`) for both single-clip trims and multi-video concatenation whenever stream parameters match.
+
+---
+
+## 💻 Supported Formats & System Requirements
+
+* **OS**: Windows 10 or Windows 11 (64-bit x86_64 & ARM64)
+* **Video**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.ts`, `.flv`, `.m2ts`
+* **Audio**: `.mp3`, `.aac`, `.wav`, `.flac`, `.ogg`, `.m4a`
+* **Images**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`
+
+---
+
+## ❤️ Support & Community
+
+Alitken is 100% free and open-source, built with love by **Kaleksanan Bagus**. If Alitken saved you from subscription paywalls, watermarks, or jet-engine CPU fans, consider buying me a coffee!
 
 * ☕ **Saweria (Indonesia)**: [saweria.co/curlyzed](https://saweria.co/curlyzed)
 * 💳 **PayPal (Global)**: [paypal.me/BagusMassani](https://paypal.me/BagusMassani)

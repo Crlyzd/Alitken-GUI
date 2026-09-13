@@ -35,11 +35,15 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
   const isCombineMode = config.videoAction === 'COMBINE';
   const isSplitMode = config.videoAction === 'SPLIT';
 
-  // In Combine mode, if combineFastCopy is active, all transcode options are bypassed/dimmed.
+  // In Combine mode, if combineFastCopy is active, video transcode options are bypassed/dimmed.
   // In Split mode, uncropped clips are bypassed while cropped clips use transcode settings.
   const isEffectivelyBypassed = isCombineMode
     ? !!config.combineFastCopy
     : (isFastCopyActive && croppedFilesCount === 0);
+
+  // Audio replacement is supported in Convert and Combine (both Lossless and Transcode).
+  // In Split mode, lossless fast copy does not re-encode audio.
+  const isAudioBypassed = isSplitMode && isFastCopyActive && croppedFilesCount === 0;
 
   return (
     <>
@@ -311,8 +315,8 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
       {/* AUDIO / SONG TRACK SECTION */}
       <div
         style={{
-          opacity: isEffectivelyBypassed ? 0.4 : 1,
-          pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
+          opacity: isAudioBypassed ? 0.4 : 1,
+          pointerEvents: isAudioBypassed ? 'none' : 'auto',
           transition: 'opacity 0.2s ease',
         }}
       >

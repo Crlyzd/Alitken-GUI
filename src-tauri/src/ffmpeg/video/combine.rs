@@ -168,6 +168,57 @@ pub async fn check_stream_compatibility(
     })
 }
 
+/// Helper to configure audio stream mapping, fade filters, and encoding for combined outputs.
+fn append_combine_audio_args(
+    args: &mut Vec<String>,
+    has_custom_audio: bool,
+    fade_in: bool,
+    fade_out: bool,
+    total_duration_sec: f64,
+    default_c_a_copy: bool,
+) {
+    if has_custom_audio {
+        args.extend([
+            "-map".to_string(),
+            "0:v:0".to_string(),
+            "-map".to_string(),
+            "1:a:0".to_string(),
+        ]);
+
+        let mut af_filters = Vec::new();
+        if fade_in {
+            af_filters.push("afade=t=in:ss=0:d=1.5".to_string());
+        }
+        if fade_out && total_duration_sec > 1.5 {
+            let st = (total_duration_sec - 1.5).max(0.0);
+            af_filters.push(format!("afade=t=out:st={:.3}:d=1.5", st));
+        }
+        if !af_filters.is_empty() {
+            args.extend(["-af".to_string(), af_filters.join(",")]);
+        }
+
+        args.extend([
+            "-c:a".to_string(),
+            "aac".to_string(),
+            "-b:a".to_string(),
+            "192k".to_string(),
+            "-shortest".to_string(),
+        ]);
+    } else {
+        args.extend([
+            "-map".to_string(),
+            "0:v:0".to_string(),
+            "-map".to_string(),
+            "0:a?".to_string(),
+            "-c:a".to_string(),
+            if default_c_a_copy { "copy".to_string() } else { "aac".to_string() },
+        ]);
+        if !default_c_a_copy {
+            args.extend(["-b:a".to_string(), "192k".to_string()]);
+        }
+    }
+}
+
 /// Concatenates all queued video files into a single output file using FFmpeg's concat demuxer (lossless) or re-encoding with filter_complex.
 pub async fn run_combine_pipeline<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -183,15 +234,21 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     crate::utils::reset_cancel_flag();
 
     let is_fast_copy = config.combine_fast_copy.unwrap_or(true);
+    let has_custom_audio = config
+        .audio_path
+        .as_ref()
+        .map_or(false, |p| !p.is_empty() && Path::new(p).exists());
 
     // If fast copy requested, verify stream compatibility first
     if is_fast_copy {
         let compatibility = check_stream_compatibility(ffprobe_path, &config.video_files).await?;
         if !compatibility.is_compatible {
-            return Err(format!(
-                "Lossless stream copy failed: {}",
-                compatibility.reason
-            ));
+            if !(has_custom_audio && compatibility.reason.starts_with("Audio")) {
+                return Err(format!(
+                    "Lossless stream copy failed: {}",
+                    compatibility.reason
+                ));
+            }
         }
     }
 
@@ -366,7 +423,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             }
         }
 
-        let args: Vec<String> = vec![
+        let mut args: Vec<String> = vec![
             "-hide_banner".to_string(),
             "-f".to_string(),
             "concat".to_string(),
@@ -374,12 +431,23 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             "0".to_string(),
             "-i".to_string(),
             concat_file_path.to_string_lossy().to_string(),
-            "-map".to_string(),
-            "0:v:0".to_string(),
-            "-map".to_string(),
-            "0:a?".to_string(),
-            "-c".to_string(),
-            "copy".to_string(),
+        ];
+
+        if has_custom_audio {
+            args.extend(["-i".to_string(), config.audio_path.clone().unwrap()]);
+            args.extend(["-c:v".to_string(), "copy".to_string()]);
+        }
+
+        append_combine_audio_args(
+            &mut args,
+            has_custom_audio,
+            config.audio_fade_in.unwrap_or(false),
+            config.audio_fade_out.unwrap_or(false),
+            total_duration_sec,
+            true,
+        );
+
+        args.extend([
             "-dn".to_string(),
             "-movflags".to_string(),
             "+faststart".to_string(),
@@ -387,7 +455,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             "pipe:1".to_string(),
             "-y".to_string(),
             output_str.clone(),
-        ];
+        ]);
 
         let output_file_name = format!("{}.{}", raw_stem, ext);
         let result = execute_ffmpeg_combine_process(
@@ -522,6 +590,10 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 transcode_args.push("-i".to_string());
                 transcode_args.push(master_concat_path.to_string_lossy().to_string());
 
+                if has_custom_audio {
+                    transcode_args.extend(["-i".to_string(), config.audio_path.clone().unwrap()]);
+                }
+
                 let vf = format!(
                     "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:trunc((ow-iw)/4)*2:trunc((oh-ih)/4)*2:black,format=yuv420p,setsar=1",
                     target_w, target_h, target_w, target_h
@@ -538,10 +610,14 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
 
                 append_bitrate_flags(&mut transcode_args, &config.target_bitrate, &gpu_caps.encoder);
 
-                transcode_args.push("-c:a".to_string());
-                transcode_args.push("aac".to_string());
-                transcode_args.push("-b:a".to_string());
-                transcode_args.push("192k".to_string());
+                append_combine_audio_args(
+                    &mut transcode_args,
+                    has_custom_audio,
+                    config.audio_fade_in.unwrap_or(false),
+                    config.audio_fade_out.unwrap_or(false),
+                    total_duration_sec,
+                    false,
+                );
 
                 transcode_args.push("-movflags".to_string());
                 transcode_args.push("+faststart".to_string());
@@ -717,7 +793,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             }
         }
 
-        let concat_args = vec![
+        let mut concat_args = vec![
             "-hide_banner".to_string(),
             "-f".to_string(),
             "concat".to_string(),
@@ -725,15 +801,30 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             "0".to_string(),
             "-i".to_string(),
             concat_txt_path.to_string_lossy().to_string(),
-            "-c".to_string(),
-            "copy".to_string(),
+        ];
+
+        if has_custom_audio {
+            concat_args.extend(["-i".to_string(), config.audio_path.clone().unwrap()]);
+            concat_args.extend(["-c:v".to_string(), "copy".to_string()]);
+        }
+
+        append_combine_audio_args(
+            &mut concat_args,
+            has_custom_audio,
+            config.audio_fade_in.unwrap_or(false),
+            config.audio_fade_out.unwrap_or(false),
+            total_duration_sec,
+            true,
+        );
+
+        concat_args.extend([
             "-movflags".to_string(),
             "+faststart".to_string(),
             "-progress".to_string(),
             "pipe:1".to_string(),
             "-y".to_string(),
             output_str.clone(),
-        ];
+        ]);
 
         let result = execute_ffmpeg_combine_process(
             app,

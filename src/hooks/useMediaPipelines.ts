@@ -130,6 +130,9 @@ export function useMediaPipelines(
             target_bitrate: videoConfig.targetBitrate || 'ORIGINAL',
             codec_choice: videoConfig.codecChoice,
             custom_output_dir: videoConfig.outputDir || null,
+            audio_path: videoConfig.audioPath || null,
+            audio_fade_in: videoConfig.audioFadeIn || false,
+            audio_fade_out: videoConfig.audioFadeOut || false,
           },
         });
 

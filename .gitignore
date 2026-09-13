@@ -28,6 +28,8 @@ Thumbs.db
 
 # Agent Customizations (Local only)
 .agents/
+AGENTS.md
+GEMINI.md
 
 # Temporary test files & auxiliary build targets
 src-tauri/test_*

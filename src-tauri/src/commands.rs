@@ -236,6 +236,14 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
                     .map(|m| m.len() as f64)
                     .unwrap_or(0.0);
                 let (width, height) = utils::get_image_dimensions(&path_for_io);
+                let is_corrupted = size == 0.0 || (width == 0 && height == 0);
+                let error_message = if size == 0.0 {
+                    Some("0 Bytes (Empty File)".to_string())
+                } else if width == 0 && height == 0 {
+                    Some("Corrupted or unreadable image".to_string())
+                } else {
+                    None
+                };
                 MediaMetadata {
                     file_name,
                     file_path: path_for_io,
@@ -247,23 +255,37 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
                     height,
                     file_size_mb: size / (1024.0 * 1024.0),
                     is_video: false,
+                    is_corrupted,
+                    error_message,
                 }
             })
             .await
-            .unwrap_or_else(|_| MediaMetadata {
-                file_name: std::path::Path::new(&file_path)
-                    .file_name()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_default(),
-                file_path: file_path.clone(),
-                duration_sec: 0.0,
-                total_frames: 0.0,
-                codec_name: "image".to_string(),
-                audio_codec: String::new(),
-                width: 0,
-                height: 0,
-                file_size_mb: 0.0,
-                is_video: false,
+            .unwrap_or_else(|_| {
+                let size = std::fs::metadata(&file_path)
+                    .map(|m| m.len() as f64)
+                    .unwrap_or(0.0);
+                let error_message = if size == 0.0 {
+                    Some("0 Bytes (Empty File)".to_string())
+                } else {
+                    Some("Corrupted or unreadable image".to_string())
+                };
+                MediaMetadata {
+                    file_name: std::path::Path::new(&file_path)
+                        .file_name()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_default(),
+                    file_path: file_path.clone(),
+                    duration_sec: 0.0,
+                    total_frames: 0.0,
+                    codec_name: "image".to_string(),
+                    audio_codec: String::new(),
+                    width: 0,
+                    height: 0,
+                    file_size_mb: 0.0,
+                    is_video: false,
+                    is_corrupted: true,
+                    error_message,
+                }
             });
 
             let finished = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -294,6 +316,8 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
         height: 0,
         file_size_mb: 0.0,
         is_video: false,
+        is_corrupted: false,
+        error_message: None,
     };
     let mut results = vec![dummy_meta; count];
     while let Some(res) = set.join_next().await {

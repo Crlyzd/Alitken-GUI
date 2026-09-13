@@ -12,6 +12,8 @@ pub struct MediaMetadata {
     pub height: u32,
     pub file_size_mb: f64,
     pub is_video: bool,
+    pub is_corrupted: bool,
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

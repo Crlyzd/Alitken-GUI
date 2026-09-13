@@ -36,6 +36,15 @@ pub async fn check_stream_compatibility(
         if !path.exists() {
             continue;
         }
+        if let Ok(m) = std::fs::metadata(&path) {
+            if m.len() == 0 {
+                let fname = path.file_name().unwrap_or_default().to_string_lossy();
+                return Ok(StreamCompatibilityResult {
+                    is_compatible: false,
+                    reason: format!("File '{}' is empty (0 Bytes) and cannot be combined.", fname),
+                });
+            }
+        }
 
         let output = crate::utils::create_tokio_hidden_cmd(ffprobe_path)
             .args(&[
@@ -232,6 +241,20 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     }
 
     crate::utils::reset_cancel_flag();
+
+    for file_path in &config.video_files {
+        let p = Path::new(file_path);
+        if !p.exists() {
+            let fname = p.file_name().unwrap_or_default().to_string_lossy();
+            return Err(format!("Input video file '{}' not found or was moved.", fname));
+        }
+        if let Ok(m) = std::fs::metadata(p) {
+            if m.len() == 0 {
+                let fname = p.file_name().unwrap_or_default().to_string_lossy();
+                return Err(format!("Input video file '{}' is empty (0 Bytes) and cannot be combined.", fname));
+            }
+        }
+    }
 
     let is_fast_copy = config.combine_fast_copy.unwrap_or(true);
     let has_custom_audio = config

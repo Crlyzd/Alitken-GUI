@@ -81,6 +81,15 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         file_name, codec_name, audio_codec, duration_sec, width, height
     ));
 
+    let is_corrupted = file_size == 0.0 || (width == 0 && height == 0 && duration_sec == 0.0);
+    let error_message = if file_size == 0.0 {
+        Some("0 Bytes (Empty File)".to_string())
+    } else if width == 0 && height == 0 && duration_sec == 0.0 {
+        Some("Corrupted or unreadable media".to_string())
+    } else {
+        None
+    };
+
     Ok(MediaMetadata {
         file_name,
         file_path: file_path.to_string(),
@@ -92,5 +101,7 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         height,
         file_size_mb: file_size / (1024.0 * 1024.0),
         is_video,
+        is_corrupted,
+        error_message,
     })
 }

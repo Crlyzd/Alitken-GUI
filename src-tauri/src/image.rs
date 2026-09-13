@@ -94,6 +94,14 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
             utils::log_error(&err_msg);
             return Err(err_msg);
         }
+        if let Ok(m) = std::fs::metadata(input_path_str) {
+            if m.len() == 0 {
+                let fname = Path::new(input_path_str).file_name().unwrap_or_default().to_string_lossy();
+                let err_msg = format!("Input image file '{}' is empty (0 Bytes) and cannot be converted.", fname);
+                utils::log_error(&err_msg);
+                return Err(err_msg);
+            }
+        }
     }
 
     // Handle PDF merge vs individual file conversion

@@ -54,6 +54,21 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         config.fps
     ));
 
+    // Pre-flight validation: Ensure all input files exist and are not 0 bytes
+    for file_path in &config.input_files {
+        let p = Path::new(file_path);
+        if !p.exists() {
+            let fname = p.file_name().unwrap_or_default().to_string_lossy();
+            return Err(format!("Input file '{}' does not exist or was moved.", fname));
+        }
+        if let Ok(meta) = std::fs::metadata(p) {
+            if meta.len() == 0 {
+                let fname = p.file_name().unwrap_or_default().to_string_lossy();
+                return Err(format!("File '{}' is empty (0 Bytes) and cannot be converted.", fname));
+            }
+        }
+    }
+
     let first_file = Path::new(&config.input_files[0]);
     let out_dir = if let Some(ref d) = config.output_dir {
         PathBuf::from(d)

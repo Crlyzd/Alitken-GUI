@@ -51,6 +51,14 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
             log_error(&err_msg);
             return Err(err_msg);
         }
+        if let Ok(m) = std::fs::metadata(file_path) {
+            if m.len() == 0 {
+                let fname = Path::new(file_path).file_name().unwrap_or_default().to_string_lossy();
+                let err_msg = format!("Input video file '{}' is empty (0 Bytes) and cannot be processed.", fname);
+                log_error(&err_msg);
+                return Err(err_msg);
+            }
+        }
     }
 
     for (idx, file_path) in config.video_files.iter().enumerate() {

@@ -179,6 +179,8 @@ export function useMediaQueue(
                 resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
                 codec: meta.codec_name,
                 mediaKind: 'video',
+                isCorrupted: meta.is_corrupted,
+                corruptReason: meta.error_message || undefined,
                 trimStartSec: trimPreset?.start_sec,
                 trimEndSec: trimPreset?.end_sec,
                 trimFastCopy: trimPreset?.fast_copy,
@@ -200,14 +202,28 @@ export function useMediaQueue(
               });
             } else {
               const name = p.split(/[\\/]/).pop() || p;
-              newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+              newItems.push({
+                name,
+                path: p,
+                sizeMb: 0,
+                mediaKind: 'video',
+                isCorrupted: true,
+                corruptReason: 'Corrupted or unreadable video',
+              });
             }
           }
         } catch (err) {
           console.error('Failed batch video probe, falling back:', err);
           for (const p of videoPaths) {
             const name = p.split(/[\\/]/).pop() || p;
-            newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'video' });
+            newItems.push({
+              name,
+              path: p,
+              sizeMb: 0,
+              mediaKind: 'video',
+              isCorrupted: true,
+              corruptReason: 'Failed to inspect video',
+            });
           }
         }
       }
@@ -226,12 +242,21 @@ export function useMediaQueue(
               sizeMb: meta.file_size_mb,
               mediaKind: 'image',
               resolution: meta.width > 0 && meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
+              isCorrupted: meta.is_corrupted,
+              corruptReason: meta.error_message || undefined,
             });
           }
         } catch (err) {
           for (const p of imagePaths) {
             const name = p.split(/[\\/]/).pop() || p;
-            newItems.push({ name, path: p, sizeMb: 0, mediaKind: 'image' });
+            newItems.push({
+              name,
+              path: p,
+              sizeMb: 0,
+              mediaKind: 'image',
+              isCorrupted: true,
+              corruptReason: 'Failed to inspect image',
+            });
           }
         }
       }
@@ -254,6 +279,7 @@ export function useMediaQueue(
   const handleClearFiles = useCallback(() => {
     pendingPathsRef.current.clear();
     setFiles([]);
+    setValidationError(null);
     invoke('collapse_to_startup_window').catch((err) =>
       console.error('Failed to collapse to startup window:', err)
     );
@@ -269,6 +295,12 @@ export function useMediaQueue(
 
   const handleOpenTrimmer = useCallback(
     async (file: FileItem) => {
+      if (file.isCorrupted) {
+        setValidationError(
+          file.corruptReason || 'This video file is empty (0 Bytes) or corrupted and cannot be trimmed.'
+        );
+        return;
+      }
       try {
         const sizeBytes = Math.round((file.sizeMb || 0) * 1024 * 1024);
         const res = await invoke<{
@@ -308,6 +340,13 @@ export function useMediaQueue(
           filePath,
         });
 
+        if (meta.is_corrupted) {
+          setValidationError(
+            meta.error_message || 'The selected video file is empty (0 Bytes) or corrupted and cannot be opened in the trimmer.'
+          );
+          return;
+        }
+
         let trimPreset: TrimPreset | null = null;
         try {
           trimPreset = await invoke<TrimPreset | null>('load_trim_preset', { filePath });
@@ -321,6 +360,8 @@ export function useMediaQueue(
           resolution: meta.height > 0 ? `${meta.width}x${meta.height}` : undefined,
           codec: meta.codec_name,
           mediaKind: 'video',
+          isCorrupted: meta.is_corrupted,
+          corruptReason: meta.error_message || undefined,
           trimStartSec: trimPreset?.start_sec,
           trimEndSec: trimPreset?.end_sec,
           trimFastCopy: trimPreset?.fast_copy,
@@ -400,6 +441,13 @@ export function useMediaQueue(
         cropFilter: trimConfig.crop_filter || null,
       }).catch(console.error);
 
+      if (trimmerFile?.isCorrupted) {
+        setValidationError(
+          trimmerFile.corruptReason || 'Cannot trim an empty (0 Bytes) or corrupted video.'
+        );
+        return;
+      }
+
       const currentDeps = await checkDepsAndGpu(trimConfig.codec_choice);
       if (!currentDeps.ffmpeg || !currentDeps.ffprobe) {
         setValidationError(
@@ -447,6 +495,7 @@ export function useMediaQueue(
   );
 
   const handleRemoveFile = useCallback((idx: number) => {
+    setValidationError(null);
     setFiles((prev) => {
       const fileToRemove = prev[idx];
       if (fileToRemove) {

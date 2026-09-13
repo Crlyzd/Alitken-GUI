@@ -41,6 +41,14 @@ export function useMediaPipelines(
       return;
     }
 
+    const corruptedFiles = files.filter((f) => f.isCorrupted);
+    if (corruptedFiles.length > 0) {
+      setValidationError(
+        'One or more files in the queue are empty (0 Bytes) or corrupted. Please remove invalid files or click "Clear Invalid" before starting.'
+      );
+      return;
+    }
+
     const currentDeps = await checkDepsAndGpu(videoConfig.codecChoice);
     if (!currentDeps.ffmpeg || !currentDeps.ffprobe) {
       setValidationError(
@@ -326,6 +334,14 @@ export function useMediaPipelines(
     if (!isAllAvailable) {
       setValidationError(
         'One or more files in the queue are missing or no longer accessible on disk. Please remove missing files before starting.'
+      );
+      return;
+    }
+
+    const corruptedFiles = files.filter((f) => f.isCorrupted);
+    if (corruptedFiles.length > 0) {
+      setValidationError(
+        'One or more files in the queue are empty (0 Bytes) or corrupted. Please remove invalid files or click "Clear Invalid" before starting.'
       );
       return;
     }

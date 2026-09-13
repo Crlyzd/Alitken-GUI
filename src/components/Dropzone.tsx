@@ -41,6 +41,8 @@ export interface FileItem {
   codec?: string;
   mediaKind?: 'video' | 'image';
   isMissing?: boolean;
+  isCorrupted?: boolean;
+  corruptReason?: string;
   trimStartSec?: number;
   trimEndSec?: number;
   trimFastCopy?: boolean;
@@ -381,10 +383,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({
               />
             </div>
 
-            {files.some((f) => f.isMissing) && (
+            {files.some((f) => f.isMissing || f.isCorrupted) && (
               <button
                 onClick={() => {
-                  const filtered = files.filter((f) => !f.isMissing);
+                  const filtered = files.filter((f) => !f.isMissing && !f.isCorrupted);
                   if (onReorderFiles) {
                     onReorderFiles(filtered);
                   }
@@ -405,8 +407,9 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                   alignItems: 'center',
                   gap: '4px',
                 }}
+                title="Remove missing, 0-byte, and corrupted files from queue"
               >
-                <Trash2 size={12} /> Clear Missing
+                <Trash2 size={12} /> Clear Invalid
               </button>
             )}
 
@@ -498,7 +501,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 gap: '8px',
                 border: isBeingDragged
                   ? '1.5px solid var(--accent-cyan)'
-                  : file.isMissing
+                  : file.isMissing || file.isCorrupted
                   ? '1px solid rgba(244, 63, 94, 0.45)'
                   : undefined,
                 boxShadow: isBeingDragged
@@ -506,13 +509,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                   : undefined,
                 background: isBeingDragged
                   ? 'rgba(6, 182, 212, 0.14)'
-                  : file.isMissing
+                  : file.isMissing || file.isCorrupted
                   ? 'rgba(244, 63, 94, 0.06)'
                   : undefined,
                 transform: `translateY(${translateY}px)`,
                 zIndex: isBeingDragged ? 50 : 1,
                 opacity: 1,
-                cursor: file.isMissing ? 'default' : isBeingDragged ? 'grabbing' : 'grab',
+                cursor: file.isMissing || file.isCorrupted ? 'default' : isBeingDragged ? 'grabbing' : 'grab',
                 transition: isBeingDragged || isJustDropped
                   ? 'none'
                   : 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
@@ -539,7 +542,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 </div>
 
                 {/* Video Trim Button */}
-                {!isImg && onOpenTrimmer && !file.isMissing && (
+                {!isImg && onOpenTrimmer && !file.isMissing && !file.isCorrupted && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -560,13 +563,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     width: '38px',
                     height: '38px',
                     borderRadius: '10px',
-                    background: file.isMissing
+                    background: file.isMissing || file.isCorrupted
                       ? 'rgba(244, 63, 94, 0.2)'
                       : isImg
                       ? 'rgba(168, 85, 247, 0.15)'
                       : 'rgba(6, 182, 212, 0.15)',
                     border: `1px solid ${
-                      file.isMissing
+                      file.isMissing || file.isCorrupted
                         ? 'rgba(244, 63, 94, 0.4)'
                         : isImg
                         ? 'rgba(168, 85, 247, 0.25)'
@@ -575,7 +578,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: file.isMissing ? '#fb7185' : isImg ? '#c084fc' : 'var(--accent-cyan)',
+                    color: file.isMissing || file.isCorrupted ? '#fb7185' : isImg ? '#c084fc' : 'var(--accent-cyan)',
                     flexShrink: 0,
                   }}
                 >
@@ -586,7 +589,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: file.isMissing ? '#fb7185' : 'var(--text-main)',
+                      color: file.isMissing || file.isCorrupted ? '#fb7185' : 'var(--text-main)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -617,11 +620,15 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         <Clock size={11} /> {formatDuration(file.durationSec)}
                       </span>
                     )}
-                    {file.sizeMb > 0 && (
+                    {file.sizeMb > 0 ? (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
                       </span>
-                    )}
+                    ) : file.isCorrupted ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#fb7185' }}>
+                        <HardDrive size={11} /> 0 B
+                      </span>
+                    ) : null}
                     {file.codec && (
                       <span
                         style={{
@@ -651,8 +658,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                   flexShrink: 0,
                 }}
               >
-                {/* Top Shelf: Edit Badges (Missing, Trimmed, Crop) */}
-                {(file.isMissing || hasTrim || hasCrop) && (
+                {/* Top Shelf: Edit Badges (Missing, Corrupted, Trimmed, Crop) */}
+                {(file.isMissing || file.isCorrupted || hasTrim || hasCrop) && (
                   <div
                     style={{
                       display: 'flex',
@@ -678,6 +685,26 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         }}
                       >
                         <AlertCircle size={10} /> Missing
+                      </span>
+                    )}
+                    {file.isCorrupted && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3.5px',
+                          background: 'rgba(244, 63, 94, 0.18)',
+                          border: '1px solid rgba(244, 63, 94, 0.4)',
+                          color: '#fb7185',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={file.corruptReason}
+                      >
+                        <AlertCircle size={10} /> {file.corruptReason || 'Invalid / 0 B'}
                       </span>
                     )}
                     {hasTrim && (
@@ -738,14 +765,14 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                       e.stopPropagation();
                       openFileWithDefaultApp(file.path);
                     }}
-                    disabled={file.isMissing}
+                    disabled={file.isMissing || file.isCorrupted}
                     title="Open File (Default Viewer)"
                     style={{
                       background: 'transparent',
                       border: 'none',
                       color: 'var(--text-dim)',
-                      opacity: file.isMissing ? 0.3 : 0.7,
-                      cursor: file.isMissing ? 'not-allowed' : 'pointer',
+                      opacity: file.isMissing || file.isCorrupted ? 0.3 : 0.7,
+                      cursor: file.isMissing || file.isCorrupted ? 'not-allowed' : 'pointer',
                       padding: '4px 5px',
                       borderRadius: '5px',
                       display: 'flex',
@@ -754,14 +781,14 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                       transition: 'all 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      if (!file.isMissing) {
+                      if (!file.isMissing && !file.isCorrupted) {
                         e.currentTarget.style.color = 'var(--accent-cyan)';
                         e.currentTarget.style.opacity = '1';
                         e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (!file.isMissing) {
+                      if (!file.isMissing && !file.isCorrupted) {
                         e.currentTarget.style.color = 'var(--text-dim)';
                         e.currentTarget.style.opacity = '0.7';
                         e.currentTarget.style.background = 'transparent';

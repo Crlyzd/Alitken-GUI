@@ -627,11 +627,15 @@ export function useTrimmerState({
 
   const handleSaveAndBack = useCallback(() => {
     const crop = (isCropApplied || aspectRatio !== 'ORIGINAL') ? getCropParams() : null;
+    const isSpeedChanged = Math.abs(playbackSpeed - 1.0) > 0.001;
+    const isCropActive = !!crop || (aspectRatio && aspectRatio !== 'ORIGINAL') || isCropApplied;
+    const effectiveFastCopy = (isCropActive || isSpeedChanged) ? false : fastCopy;
+
     onBack({
       ...file,
       trimStartSec: startSec,
       trimEndSec: endSec,
-      trimFastCopy: crop ? false : fastCopy,
+      trimFastCopy: effectiveFastCopy,
       filmstrip: filmstrip.length > 0 ? filmstrip : file.filmstrip,
       aspectRatio,
       cropOffset,
@@ -643,15 +647,19 @@ export function useTrimmerState({
       crop_h: crop?.crop_h,
       crop_filter: crop?.crop_filter,
     });
-  }, [file, startSec, endSec, fastCopy, filmstrip, aspectRatio, cropOffset, cropScale, isCropApplied, getCropParams, onBack]);
+  }, [file, startSec, endSec, fastCopy, filmstrip, aspectRatio, cropOffset, cropScale, isCropApplied, playbackSpeed, getCropParams, onBack]);
 
   const handleExport = useCallback(() => {
     const crop = getCropParams();
+    const isSpeedChanged = Math.abs(playbackSpeed - 1.0) > 0.001;
+    const isCropActive = !!crop || (aspectRatio && aspectRatio !== 'ORIGINAL') || isCropApplied;
+    const effectiveFastCopy = (isCropActive || isSpeedChanged) ? false : fastCopy;
+
     const trimConfig: TrimConfig = {
       input_file: file.path,
       start_sec: startSec,
       end_sec: endSec,
-      fast_copy: crop ? false : fastCopy,
+      fast_copy: effectiveFastCopy,
       codec_choice: videoConfig.codecChoice,
       target_height: videoConfig.targetHeight,
       target_bitrate: videoConfig.targetBitrate,
@@ -666,7 +674,7 @@ export function useTrimmerState({
       crop_filter: crop?.crop_filter,
     };
     onStartTrim(trimConfig);
-  }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, getCropParams, onStartTrim]);
+  }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, isCropApplied, aspectRatio, getCropParams, onStartTrim]);
 
   const activeMediaSrc = previewPath
     ? convertFileSrc(previewPath)

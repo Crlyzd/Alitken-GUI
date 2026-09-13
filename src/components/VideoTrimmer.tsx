@@ -166,34 +166,50 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
         </div>
 
         {/* Right Viewport (Collapsible Export ConfigPanel) */}
-        <div
-          style={{
-            width: trimmer.isPanelCollapsed ? '44px' : '360px',
-            minWidth: trimmer.isPanelCollapsed ? '44px' : '320px',
-            maxWidth: trimmer.isPanelCollapsed ? '44px' : '400px',
-            transition: 'width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease',
-            height: '100%',
-            flexShrink: 0,
-          }}
-        >
-          <ConfigPanel
-            mediaType="video"
-            config={videoConfig}
-            onChange={onVideoConfigChange}
-            onStart={trimmer.handleExport}
-            imageConfig={imageConfig}
-            onImageConfigChange={onImageConfigChange}
-            onStartImage={() => {}}
-            disabled={disabled}
-            fileCount={1}
-            isTrimmerMode={true}
-            isCollapsed={trimmer.isPanelCollapsed}
-            onToggleCollapse={() => trimmer.setIsPanelCollapsed(!trimmer.isPanelCollapsed)}
-            onStartTrim={trimmer.handleExport}
-            fastCopyTrim={trimmer.fastCopy}
-            onFastCopyTrimChange={trimmer.setFastCopy}
-          />
-        </div>
+        {(() => {
+          const isSpeedChanged = Math.abs(trimmer.playbackSpeed - 1.0) > 0.001;
+          const isCropActive = trimmer.aspectRatio !== 'ORIGINAL' || trimmer.isCropApplied;
+          const isFastCopyTrimDisabled = isSpeedChanged || isCropActive;
+          const fastCopyTrimDisabledReason =
+            isSpeedChanged && isCropActive
+              ? 'Speed adjustment and crop framing require re-encoding.'
+              : isSpeedChanged
+              ? `Speed alteration (${trimmer.playbackSpeed}x) requires re-encoding.`
+              : 'Crop framing and custom aspect ratios require re-encoding.';
+
+          return (
+            <div
+              style={{
+                width: trimmer.isPanelCollapsed ? '44px' : '360px',
+                minWidth: trimmer.isPanelCollapsed ? '44px' : '320px',
+                maxWidth: trimmer.isPanelCollapsed ? '44px' : '400px',
+                transition: 'width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease',
+                height: '100%',
+                flexShrink: 0,
+              }}
+            >
+              <ConfigPanel
+                mediaType="video"
+                config={videoConfig}
+                onChange={onVideoConfigChange}
+                onStart={trimmer.handleExport}
+                imageConfig={imageConfig}
+                onImageConfigChange={onImageConfigChange}
+                onStartImage={() => {}}
+                disabled={disabled}
+                fileCount={1}
+                isTrimmerMode={true}
+                isCollapsed={trimmer.isPanelCollapsed}
+                onToggleCollapse={() => trimmer.setIsPanelCollapsed(!trimmer.isPanelCollapsed)}
+                onStartTrim={trimmer.handleExport}
+                fastCopyTrim={trimmer.fastCopy}
+                onFastCopyTrimChange={trimmer.setFastCopy}
+                isFastCopyTrimDisabled={isFastCopyTrimDisabled}
+                fastCopyTrimDisabledReason={fastCopyTrimDisabledReason}
+              />
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

@@ -10,18 +10,10 @@
   <br />
 
   <p align="center">
-    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest">
-      <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit%20%26%20ARM64)-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform" />
-    </a>
-    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest">
-      <img src="https://img.shields.io/badge/Release-v0.8.1-6366f1?style=for-the-badge&logo=tag&logoColor=white" alt="Release" />
-    </a>
-    <a href="file:///d:/ALitken/Alitken-GUI/LICENSE">
-      <img src="https://img.shields.io/badge/License-GPL--3.0-22c55e?style=for-the-badge" alt="License" />
-    </a>
-    <a href="#-the-manifesto-a-rant">
-      <img src="https://img.shields.io/badge/Why%20Alitken-The%20Rant-f59e0b?style=for-the-badge" alt="The Rant" />
-    </a>
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit%20%26%20ARM64)-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform" /></a>
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><img src="https://img.shields.io/badge/Release-v0.8.1-6366f1?style=for-the-badge&logo=tag&logoColor=white" alt="Release" /></a>
+    <a href="file:///d:/ALitken/Alitken-GUI/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-22c55e?style=for-the-badge" alt="License" /></a>
+    <a href="#-the-manifesto-a-rant"><img src="https://img.shields.io/badge/Why%20Alitken-The%20Rant-f59e0b?style=for-the-badge" alt="The Rant" /></a>
   </p>
 
   <p align="center">
@@ -159,12 +151,14 @@
 
 ---
 
-## 💻 System Requirements & Supported Media
+## 💻 System Requirements & Media Compatibility
 
-* **Operating System**: Windows 10 or Windows 11 (64-bit x86_64 or ARM64)
-* **Video Formats**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.ts`, `.flv`, `.m2ts`
-* **Audio Formats**: `.mp3`, `.aac`, `.wav`, `.flac`, `.ogg`, `.m4a`
-* **Image Formats**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`
+* **Operating System**: Windows 10 or Windows 11 (Native 64-bit x86_64 & ARM64)
+* **Supported Video Inputs**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.wmv`, `.m4v`, `.flv`, `.ts`, `.mts`, `.m2ts`, `.3gp`, `.mxf`
+* **Video Output Targets**: `.mp4` (H.264 / HEVC), `.mkv` (AV1), or original container (Lossless Cut)
+* **Soundtrack & Audio Tracks**: `.mp3`, `.aac`, `.wav`, `.m4a`, `.flac` *(used for background music replacement & video audio muxing)*
+* **Supported Image Inputs**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.tiff`, `.heic`, plus Camera RAW (`.dng`, `.cr2`, `.cr3`, `.nef`, `.arw`)
+* **Image Output Targets**: `.png`, `.jpg`, `.webp`, `.pdf` (single/multi-page merge), or `.mp4` (Slideshow/Sequence)
 
 ---
 
@@ -173,13 +167,9 @@
 Alitken is completely free, open source, and built with love by **Kaleksanan Bagus**. If this tool saved you from subscription scams, watermarked videos, or jet-engine CPU fans, consider buying me a coffee:
 
 <p align="center">
-  <a href="https://saweria.co/curlyzed">
-    <img src="https://img.shields.io/badge/Saweria%20(Indonesia)-Support%20Creator-ff4757?style=for-the-badge&logo=coffee" alt="Saweria Donate" />
-  </a>
+  <a href="https://saweria.co/curlyzed"><img src="https://img.shields.io/badge/Saweria%20(Indonesia)-Support%20Creator-ff4757?style=for-the-badge&logo=coffee" alt="Saweria Donate" /></a>
   &nbsp;&nbsp;
-  <a href="https://paypal.me/BagusMassani">
-    <img src="https://img.shields.io/badge/PayPal%20(Global)-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Donate" />
-  </a>
+  <a href="https://paypal.me/BagusMassani"><img src="https://img.shields.io/badge/PayPal%20(Global)-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Donate" /></a>
 </p>
 
 ---

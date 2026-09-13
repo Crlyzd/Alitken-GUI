@@ -80,12 +80,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
     startOffsetX: number;
     startOffsetY: number;
     startScale: number;
+    centerX: number;
+    centerY: number;
+    startRadius: number;
   }>({
     mouseX: 0,
     mouseY: 0,
     startOffsetX: 0.5,
     startOffsetY: 0.5,
     startScale: 1.0,
+    centerX: 0,
+    centerY: 0,
+    startRadius: 1.0,
   });
 
   const handleMetadata = useCallback(() => {
@@ -112,12 +118,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
       e.stopPropagation();
       e.preventDefault();
       setIsDraggingMove(true);
+      const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
+      const cx = wrapperRect ? wrapperRect.left + wrapperRect.width / 2 : e.clientX;
+      const cy = wrapperRect ? wrapperRect.top + wrapperRect.height / 2 : e.clientY;
       dragStartRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
         startOffsetX: cropOffset.x,
         startOffsetY: cropOffset.y,
         startScale: cropScale,
+        centerX: cx,
+        centerY: cy,
+        startRadius: 1.0,
       };
     },
     [aspectRatio, cropOffset, cropScale]
@@ -130,12 +142,20 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
       e.stopPropagation();
       e.preventDefault();
       setIsDraggingResize(corner);
+      const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
+      const cx = wrapperRect ? wrapperRect.left + wrapperRect.width / 2 : e.clientX;
+      const cy = wrapperRect ? wrapperRect.top + wrapperRect.height / 2 : e.clientY;
+      const startRadius = Math.hypot(e.clientX - cx, e.clientY - cy);
+
       dragStartRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
         startOffsetX: cropOffset.x,
         startOffsetY: cropOffset.y,
         startScale: cropScale,
+        centerX: cx,
+        centerY: cy,
+        startRadius: Math.max(10, startRadius),
       };
     },
     [aspectRatio, cropOffset, cropScale]
@@ -152,10 +172,11 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
       const deltaY = e.clientY - dragStartRef.current.mouseY;
 
       if (isDraggingMove) {
-        // Use the video wrapper's own dimensions so translate(X%, Y%) maps 1:1 to mouse pixels
+        // Use the video wrapper's unscaled base dimensions so translate(X%, Y%) maps 1:1 to mouse pixels regardless of cropScale
         const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
-        const wW = wrapperRect && wrapperRect.width > 0 ? wrapperRect.width : rect.width;
-        const wH = wrapperRect && wrapperRect.height > 0 ? wrapperRect.height : rect.height;
+        const currentScale = Math.max(0.01, cropScale || 1.0);
+        const wW = wrapperRect && wrapperRect.width > 0 ? wrapperRect.width / currentScale : rect.width;
+        const wH = wrapperRect && wrapperRect.height > 0 ? wrapperRect.height / currentScale : rect.height;
         const sensitivityX = 1 / wW;
         const sensitivityY = 1 / wH;
 
@@ -203,13 +224,12 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
 
         // Shift / Ctrl / Alt key: Outer video container edge magnetic snapping
         if (isMagnet && rect.width > 0 && rect.height > 0) {
-          const halfW = (wW / rect.width) / 2;
-          const halfH = (wH / rect.height) / 2;
-
-          const leftSnapX = halfW;
-          const rightSnapX = 1.0 - halfW;
-          const topSnapY = halfH;
-          const bottomSnapY = 1.0 - halfH;
+          const scaledW = wW * currentScale;
+          const scaledH = wH * currentScale;
+          const leftSnapX = 0.5 - (rect.width - scaledW) / (2 * wW);
+          const rightSnapX = 0.5 + (rect.width - scaledW) / (2 * wW);
+          const topSnapY = 0.5 - (rect.height - scaledH) / (2 * wH);
+          const bottomSnapY = 0.5 + (rect.height - scaledH) / (2 * wH);
 
           if (!snappedX) {
             if (Math.abs(rawX - leftSnapX) <= SNAP_THRESHOLD) {
@@ -247,12 +267,20 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         const isMagnet = isShift || isCtrl || isAlt;
         setIsMagnetActive(isMagnet);
 
-        // Uniform aspect ratio locked resize based on drag distance
+        // Uniform aspect ratio locked resize based on polar diagonal vector projection
         const minFillScale = Math.max(canvasAspect / videoAspect, videoAspect / canvasAspect);
         const maxScale = Math.max(10.0, minFillScale * 1.5);
-        const distance = (deltaX + deltaY) / (rect.width || 400);
-        const factor = isDraggingResize.includes('top') || isDraggingResize.includes('left') ? -distance : distance;
-        let targetScale = Math.max(0.3, Math.min(maxScale, dragStartRef.current.startScale + factor * 1.5));
+
+        const v0X = dragStartRef.current.mouseX - dragStartRef.current.centerX;
+        const v0Y = dragStartRef.current.mouseY - dragStartRef.current.centerY;
+        const vX = e.clientX - dragStartRef.current.centerX;
+        const vY = e.clientY - dragStartRef.current.centerY;
+
+        const dot = vX * v0X + vY * v0Y;
+        const r0Sq = dragStartRef.current.startRadius * dragStartRef.current.startRadius;
+        const ratio = r0Sq > 0 ? dot / r0Sq : 1.0;
+
+        let targetScale = Math.max(0.3, Math.min(maxScale, dragStartRef.current.startScale * ratio));
 
         let snapL = false;
         let snapR = false;
@@ -315,6 +343,13 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   const translateX = (cropOffset.x - 0.5) * 100;
   const translateY = (cropOffset.y - 0.5) * 100;
 
+  // Counter-scaling for overlay elements (crop border & corner handles) so they maintain constant pixel size across all zoom scales
+  const invScale = 1 / Math.max(0.01, cropScale || 1.0);
+  const strokeWidth = Math.max(0.75, 1.5 * invScale);
+  const strokeShadow = Math.max(3, 15 * invScale);
+  const handleBorder = Math.max(0.5, 1 * invScale);
+  const handleShadow = Math.max(2, 6 * invScale);
+
   return (
     <div
       style={{
@@ -326,7 +361,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         position: 'relative',
         width: '100%',
         minHeight: '200px',
-        maxHeight: '440px',
+        maxHeight: '100%',
         overflow: 'hidden',
         gap: '4px',
         contain: 'layout size',
@@ -338,7 +373,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         style={{
           aspectRatio: `${canvasAspect}`,
           height: '100%',
-          maxHeight: '440px',
+          maxHeight: '100%',
           maxWidth: '100%',
           borderRadius: '0px',
           overflow: 'hidden',
@@ -613,8 +648,8 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               style={{
                 position: 'absolute',
                 inset: 0,
-                border: '1.5px solid rgba(255, 255, 255, 0.85)',
-                boxShadow: '0 0 15px rgba(0, 0, 0, 0.5)',
+                border: `${strokeWidth}px solid rgba(255, 255, 255, 0.85)`,
+                boxShadow: `0 0 ${strokeShadow}px rgba(0, 0, 0, 0.5)`,
                 pointerEvents: 'none',
                 zIndex: 10,
               }}
@@ -679,16 +714,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 onMouseDown={(e) => handleResizeStart('top-left', e)}
                 style={{
                   position: 'absolute',
-                  top: '-5px',
-                  left: '-5px',
+                  top: '0px',
+                  left: '0px',
                   width: '10px',
                   height: '10px',
                   borderRadius: '50%',
                   background: '#ffffff',
-                  border: '1px solid #000000',
-                  boxShadow: '0 0 6px rgba(255, 255, 255, 0.9)',
+                  border: `${handleBorder}px solid #000000`,
+                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
                   cursor: 'nwse-resize',
                   zIndex: 20,
+                  transform: `translate(-50%, -50%) scale(${invScale})`,
+                  transformOrigin: 'center center',
                 }}
               />
               {/* Top-Right Handle */}
@@ -696,16 +733,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 onMouseDown={(e) => handleResizeStart('top-right', e)}
                 style={{
                   position: 'absolute',
-                  top: '-5px',
-                  right: '-5px',
+                  top: '0px',
+                  right: '0px',
                   width: '10px',
                   height: '10px',
                   borderRadius: '50%',
                   background: '#ffffff',
-                  border: '1px solid #000000',
-                  boxShadow: '0 0 6px rgba(255, 255, 255, 0.9)',
+                  border: `${handleBorder}px solid #000000`,
+                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
                   cursor: 'nesw-resize',
                   zIndex: 20,
+                  transform: `translate(50%, -50%) scale(${invScale})`,
+                  transformOrigin: 'center center',
                 }}
               />
               {/* Bottom-Left Handle */}
@@ -713,16 +752,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 onMouseDown={(e) => handleResizeStart('bottom-left', e)}
                 style={{
                   position: 'absolute',
-                  bottom: '-5px',
-                  left: '-5px',
+                  bottom: '0px',
+                  left: '0px',
                   width: '10px',
                   height: '10px',
                   borderRadius: '50%',
                   background: '#ffffff',
-                  border: '1px solid #000000',
-                  boxShadow: '0 0 6px rgba(255, 255, 255, 0.9)',
+                  border: `${handleBorder}px solid #000000`,
+                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
                   cursor: 'nesw-resize',
                   zIndex: 20,
+                  transform: `translate(-50%, 50%) scale(${invScale})`,
+                  transformOrigin: 'center center',
                 }}
               />
               {/* Bottom-Right Handle */}
@@ -730,16 +771,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 onMouseDown={(e) => handleResizeStart('bottom-right', e)}
                 style={{
                   position: 'absolute',
-                  bottom: '-5px',
-                  right: '-5px',
+                  bottom: '0px',
+                  right: '0px',
                   width: '10px',
                   height: '10px',
                   borderRadius: '50%',
                   background: '#ffffff',
-                  border: '1px solid #000000',
-                  boxShadow: '0 0 6px rgba(255, 255, 255, 0.9)',
+                  border: `${handleBorder}px solid #000000`,
+                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
                   cursor: 'nwse-resize',
                   zIndex: 20,
+                  transform: `translate(50%, 50%) scale(${invScale})`,
+                  transformOrigin: 'center center',
                 }}
               />
             </>

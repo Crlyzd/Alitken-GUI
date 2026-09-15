@@ -1,9 +1,9 @@
 # Alitken Multi-Target Release Build Script
 # Builds Release Binaries for GitHub and Microsoft Store:
-#   1. GitHub Release (64)       - Self-Updater Enabled
+#   1. GitHub Release (64)       - Self-Updater Enabled (NSIS Setup.exe + Portable.exe)
 #   2. GitHub Release (ARM64)    - Self-Updater Enabled (Optional / Auto-Skipped if toolchain missing)
-#   3. MS Store Build (64)       - Store Update Managed
-#   4. MS Store Build (ARM64)    - Store Update Managed (Optional / Auto-Skipped if toolchain missing)
+#   3. MS Store Build (64)       - Store Update Managed (.msix Windows App Package + Portable.exe)
+#   4. MS Store Build (ARM64)    - Store Update Managed (.msix Windows App Package + Portable.exe)
 
 [CmdletBinding()]
 param (
@@ -104,6 +104,25 @@ try {
         throw "Frontend build failed"
     }
 
+    # Find MakeAppx.exe from Windows Kits 10/11 or PATH
+    function Find-MakeAppxExe {
+        $cmd = Get-Command "makeappx.exe" -ErrorAction SilentlyContinue
+        if ($cmd) { return $cmd.Source }
+
+        $kitsDir = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+        if (Test-Path $kitsDir) {
+            $makeAppx = Get-ChildItem -Path $kitsDir -Filter "makeappx.exe" -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -like "*\x64\makeappx.exe" } |
+                Select-Object -First 1
+            if ($makeAppx) { return $makeAppx.FullName }
+        }
+
+        $fallback = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits" -Filter "makeappx.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($fallback) { return $fallback.FullName }
+
+        return $null
+    }
+
     # Helper function to execute Tauri release build and collect binaries into releases/ folder
     function Invoke-TauriTarget {
         param(
@@ -155,6 +174,138 @@ try {
         return $true
     }
 
+    # Helper function to build MS Store target as an authentic Windows App Package (.msix)
+    function Invoke-TauriMsixTarget {
+        param(
+            [string]$Target,
+            [string]$FlavorName,
+            [string]$OutputPrefix,
+            [string]$Features = "store-build"
+        )
+
+        Write-Host ""
+        Write-Host "----------------------------------------------------" -ForegroundColor Green
+        Write-Host " Building MS Store Package: $FlavorName ($Target)..." -ForegroundColor Green
+        Write-Host "----------------------------------------------------" -ForegroundColor Green
+
+        $MakeAppxExe = Find-MakeAppxExe
+        if (-not $MakeAppxExe) {
+            Write-Host "[ERROR] 'makeappx.exe' from Windows Kits 10/11 SDK was not detected." -ForegroundColor Red
+            Write-Host "        Install the Windows 10/11 SDK or ensure makeappx.exe is in PATH." -ForegroundColor Yellow
+            throw "makeappx.exe not found"
+        }
+        Write-Host " Using Windows SDK MakeAppx: $MakeAppxExe" -ForegroundColor Gray
+
+        Set-Location $RootPath
+
+        # Compile Tauri binary with store-build feature, skipping NSIS packaging
+        $buildArgs = @("tauri", "build", "--target", $Target, "--no-bundle")
+        if ($Features) {
+            $buildArgs += @("--features", $Features)
+        }
+
+        & npx $buildArgs
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to compile $FlavorName for $Target" -ForegroundColor Red
+            throw "Failed to compile $FlavorName for $Target"
+        }
+
+        $TargetReleaseExe = Join-Path $RootPath "src-tauri\target\$Target\release\alitken-gui.exe"
+        if (-not (Test-Path $TargetReleaseExe)) {
+            throw "Compiled binary not found at $TargetReleaseExe"
+        }
+
+        # Setup staging directory for MSIX layout
+        $StagingDir = Join-Path $RootPath "src-tauri\target\$Target\msix_staging"
+        if (Test-Path $StagingDir) {
+            Remove-Item -Path $StagingDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
+
+        # 1. Copy application binary
+        Copy-Item -Path $TargetReleaseExe -Destination (Join-Path $StagingDir "alitken-gui.exe") -Force
+
+        # 2. Copy visual assets
+        $AssetsDir = Join-Path $StagingDir "Assets"
+        $SourceAssets = Join-Path $RootPath "src-tauri\msix\Assets"
+        if (-not (Test-Path $SourceAssets)) {
+            Write-Host " Generating missing MSIX visual assets..." -ForegroundColor Yellow
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RootPath "scripts\generate-msix-assets.ps1")
+        }
+        Copy-Item -Path $SourceAssets -Destination $AssetsDir -Recurse -Force
+
+        # 3. Read MS Store Partner Center credentials
+        $ConfigPath = Join-Path $RootPath "src-tauri\msix\msstore.config.json"
+        $storeConfig = if (Test-Path $ConfigPath) {
+            Get-Content $ConfigPath -Raw | ConvertFrom-Json
+        } else {
+            [PSCustomObject]@{
+                packageIdentityName = "curlyzed.Alitken"
+                publisher = "CN=6DDD7CD9-2258-47A2-B61F-0E60DE9FFBAE"
+                publisherDisplayName = "curlyzed"
+                packageDisplayName = "Alitken"
+                description = "High-performance Windows media converter, video trimmer and video splitter."
+            }
+        }
+
+        $pkgIdentity = if ($env:MSSTORE_PACKAGE_NAME) { $env:MSSTORE_PACKAGE_NAME } else { $storeConfig.packageIdentityName }
+        $publisher = if ($env:MSSTORE_PUBLISHER) { $env:MSSTORE_PUBLISHER } else { $storeConfig.publisher }
+        $pubDisplayName = if ($env:MSSTORE_PUBLISHER_DISPLAY_NAME) { $env:MSSTORE_PUBLISHER_DISPLAY_NAME } else { $storeConfig.publisherDisplayName }
+        $pkgDisplayName = if ($env:MSSTORE_PACKAGE_DISPLAY_NAME) { $env:MSSTORE_PACKAGE_DISPLAY_NAME } else { $storeConfig.packageDisplayName }
+        $description = if ($storeConfig.description) { $storeConfig.description } else { "Alitken Media Converter" }
+
+        # Format 4-part quad version (Major.Minor.Build.Revision)
+        $cleanVersion = $AppVersion.Split("-")[0].Split("+")[0]
+        $verParts = $cleanVersion.Split(".")
+        $major = if ($verParts.Length -gt 0) { $verParts[0] } else { "0" }
+        $minor = if ($verParts.Length -gt 1) { $verParts[1] } else { "0" }
+        $patch = if ($verParts.Length -gt 2) { $verParts[2] } else { "0" }
+        $quadVersion = "$major.$minor.$patch.0"
+
+        # MSIX Processor Architecture: x64 or arm64
+        $msixArch = if ($Target -like "*aarch64*") { "arm64" } else { "x64" }
+
+        # 4. Generate AppxManifest.xml from template
+        $TemplatePath = Join-Path $RootPath "src-tauri\msix\AppxManifest.template.xml"
+        if (-not (Test-Path $TemplatePath)) {
+            throw "MSIX manifest template not found at $TemplatePath"
+        }
+        $manifestContent = Get-Content $TemplatePath -Raw
+        $manifestContent = $manifestContent.Replace("{{PACKAGE_IDENTITY_NAME}}", $pkgIdentity)
+        $manifestContent = $manifestContent.Replace("{{PUBLISHER}}", $publisher)
+        $manifestContent = $manifestContent.Replace("{{PUBLISHER_DISPLAY_NAME}}", $pubDisplayName)
+        $manifestContent = $manifestContent.Replace("{{PACKAGE_DISPLAY_NAME}}", $pkgDisplayName)
+        $manifestContent = $manifestContent.Replace("{{DESCRIPTION}}", $description)
+        $manifestContent = $manifestContent.Replace("{{VERSION}}", $quadVersion)
+        $manifestContent = $manifestContent.Replace("{{PROCESSOR_ARCHITECTURE}}", $msixArch)
+        $manifestContent = $manifestContent.Replace("{{EXECUTABLE}}", "alitken-gui.exe")
+
+        $ManifestDest = Join-Path $StagingDir "AppxManifest.xml"
+        [System.IO.File]::WriteAllText($ManifestDest, $manifestContent, [System.Text.Encoding]::UTF8)
+
+        # 5. Pack into .msix with MakeAppx.exe
+        $DestMsixName = "${OutputPrefix}.msix"
+        $DestMsixPath = Join-Path $OutputDistFolder $DestMsixName
+
+        Write-Host " Packing Windows App Package (.msix)..." -ForegroundColor Yellow
+        & "$MakeAppxExe" pack /d "$StagingDir" /p "$DestMsixPath" /o
+        if ($LASTEXITCODE -ne 0) {
+            throw "MakeAppx failed with exit code $LASTEXITCODE"
+        }
+
+        Write-Host " Saved MSIX Package:  $DestMsixPath" -ForegroundColor Green
+        Write-Host "   -> Package Identity:  $pkgIdentity" -ForegroundColor DarkGray
+        Write-Host "   -> Package Publisher: $publisher" -ForegroundColor DarkGray
+        Write-Host "   -> Package Version:   $quadVersion ($msixArch)" -ForegroundColor DarkGray
+        Write-Host "   -> Submission Status: Ready for Microsoft Store Partner Center (auto-signed upon ingestion)" -ForegroundColor DarkGray
+
+        # Clean staging directory
+        Remove-Item -Path $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
+
+        return $true
+    }
+
     $isArm64Supported = -not $SkipArm64 -and (Test-Arm64ToolchainAvailable)
 
     # 1. GitHub Release (64)
@@ -167,14 +318,14 @@ try {
         Invoke-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_GitHub_ARM64"
     }
 
-    # 3. MS Store Build (64)
+    # 3. MS Store Build (64) -> Outputs .msix Windows App Package
     if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "store") {
-        Invoke-TauriTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_64" -Features "store-build"
+        Invoke-TauriMsixTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_64" -Features "store-build"
     }
 
-    # 4. MS Store Build (ARM64)
+    # 4. MS Store Build (ARM64) -> Outputs .msix Windows App Package
     if ($isArm64Supported -and ($Scope -eq "all" -or $Scope -eq "arm64" -or $Scope -eq "store")) {
-        Invoke-TauriTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_ARM64" -Features "store-build"
+        Invoke-TauriMsixTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${AppVersion}_MSStore_ARM64" -Features "store-build"
     }
 
     Write-Host ""

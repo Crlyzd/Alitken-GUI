@@ -11,7 +11,7 @@
 
   <p align="center">
     <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit%20%26%20ARM64)-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform" /></a>
-    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><img src="https://img.shields.io/badge/Release-v0.8.1-6366f1?style=for-the-badge&logo=tag&logoColor=white" alt="Release" /></a>
+    <a href="https://github.com/Crlyzd/Alitken-GUI/releases/latest"><img src="https://img.shields.io/github/v/release/Crlyzd/Alitken-GUI?style=for-the-badge&logo=tag&logoColor=white&label=Release&color=6366f1" alt="Release" /></a>
     <a href="file:///d:/ALitken/Alitken-GUI/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-22c55e?style=for-the-badge" alt="License" /></a>
     <a href="#-the-manifesto-a-rant"><img src="https://img.shields.io/badge/Why%20Alitken-The%20Rant-f59e0b?style=for-the-badge" alt="The Rant" /></a>
   </p>

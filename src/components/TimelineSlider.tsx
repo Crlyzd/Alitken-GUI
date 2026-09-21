@@ -17,7 +17,7 @@ interface TimelineSliderProps {
 }
 
 export function formatTimeWithMs(seconds: number): string {
-  if (isNaN(seconds) || seconds < 0) seconds = 0;
+  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -49,10 +49,10 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   const [dragging, setDragging] = useState<'start' | 'end' | 'playhead' | 'range' | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; time: number } | null>(null);
 
-  const effectiveDuration = durationSec > 0 ? durationSec : 1;
-  const startPercent = Math.max(0, Math.min(100, (startSec / effectiveDuration) * 100));
-  const endPercent = Math.max(0, Math.min(100, (endSec / effectiveDuration) * 100));
-  const currentPercent = Math.max(0, Math.min(100, (currentSec / effectiveDuration) * 100));
+  const effectiveDuration = Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 1;
+  const startPercent = Math.max(0, Math.min(100, (startSec / effectiveDuration) * 100)) || 0;
+  const endPercent = Math.max(0, Math.min(100, (endSec / effectiveDuration) * 100)) || 0;
+  const currentPercent = Math.max(0, Math.min(100, (currentSec / effectiveDuration) * 100)) || 0;
 
   const getTimeFromEvent = useCallback(
     (e: MouseEvent | React.MouseEvent | TouchEvent | React.TouchEvent): number => {

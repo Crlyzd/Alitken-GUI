@@ -108,7 +108,7 @@ export const TrimmerHeader: React.FC<TrimmerHeaderProps> = ({ file, onSaveAndBac
             <Film size={11} /> {file.resolution}
           </span>
         )}
-        {file.durationSec && (
+        {Boolean(file.durationSec && file.durationSec > 0) && (
           <span
             style={{
               display: 'inline-flex',
@@ -122,7 +122,7 @@ export const TrimmerHeader: React.FC<TrimmerHeaderProps> = ({ file, onSaveAndBac
               color: 'var(--text-dim)',
             }}
           >
-            <Clock size={11} /> {formatTimeWithMs(file.durationSec)}
+            <Clock size={11} /> {formatTimeWithMs(file.durationSec || 0)}
           </span>
         )}
         {file.sizeMb > 0 && (

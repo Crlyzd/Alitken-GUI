@@ -60,14 +60,20 @@ export function useTrimmerState({
   const [hoverThumbnailSrc, setHoverThumbnailSrc] = useState<string | null>(null);
   const [isWmfSupported, setIsWmfSupported] = useState<boolean>(true);
 
-  const [duration, setDuration] = useState<number>(file.durationSec || 60);
+  const [duration, setDuration] = useState<number>(() => {
+    return Number.isFinite(file.durationSec) && (file.durationSec ?? 0) > 0
+      ? (file.durationSec as number)
+      : 60;
+  });
   const [currentSec, setCurrentSec] = useState<number>(file.trimStartSec || 0);
   const [startSec, setStartSec] = useState<number>(file.trimStartSec || 0);
   const [endSec, setEndSec] = useState<number>(() => {
     if (file.trimEndSec && file.trimEndSec > (file.trimStartSec || 0)) {
       return file.trimEndSec;
     }
-    return file.durationSec || 60;
+    return Number.isFinite(file.durationSec) && (file.durationSec ?? 0) > 0
+      ? (file.durationSec as number)
+      : 60;
   });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [fastCopy, setFastCopy] = useState<boolean>(file.trimFastCopy ?? false);
@@ -168,6 +174,18 @@ export function useTrimmerState({
               })
               .catch(() => {});
           }
+
+          // If the original file lacked duration and was remuxed, probe the remuxed preview for exact duration
+          if ((!file.durationSec || file.durationSec <= 0) && resolvedPath !== file.path) {
+            invoke<any>('probe_media_file', { ffprobePath: '', filePath: resolvedPath })
+              .then((meta) => {
+                if (!isCancelled && meta && Number.isFinite(meta.duration_sec) && meta.duration_sec > 0) {
+                  setDuration(meta.duration_sec);
+                  setEndSec((prev) => (!file.trimEndSec || prev >= 60 || prev > meta.duration_sec ? meta.duration_sec : prev));
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch((err) => {
@@ -187,7 +205,7 @@ export function useTrimmerState({
       // Compact memory on trimmer unmount
       invoke('trim_memory').catch(() => {});
     };
-  }, [file.path]);
+  }, [file.path, file.filmstrip]);
 
   // Sync playbackRate and mute status to video element
   useEffect(() => {
@@ -196,6 +214,7 @@ export function useTrimmerState({
     }
   }, [playbackSpeed]);
 
+  // Sync isMuted state with HTML5 video player
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = isMuted;
@@ -216,11 +235,13 @@ export function useTrimmerState({
   }, [startSec, endSec]);
 
   const handleLoadedMetadata = useCallback(() => {
-    if (videoRef.current && videoRef.current.duration > 0 && !isNaN(videoRef.current.duration)) {
+    if (videoRef.current) {
       const dur = videoRef.current.duration;
-      setDuration(dur);
-      if (!file.trimEndSec || file.trimEndSec > dur) {
-        setEndSec(dur);
+      if (Number.isFinite(dur) && dur > 0) {
+        setDuration(dur);
+        if (!file.trimEndSec || file.trimEndSec > dur) {
+          setEndSec(dur);
+        }
       }
     }
   }, [file.trimEndSec]);

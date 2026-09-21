@@ -84,9 +84,17 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
 
     let start_sec = config.start_sec.max(0.0);
     let end_sec = if config.end_sec > start_sec {
-        config.end_sec.min(meta.duration_sec)
+        if meta.duration_sec > 0.0 {
+            config.end_sec.min(meta.duration_sec)
+        } else {
+            config.end_sec
+        }
     } else {
-        meta.duration_sec
+        if meta.duration_sec > 0.0 {
+            meta.duration_sec
+        } else {
+            start_sec + 60.0
+        }
     };
     let trim_duration = (end_sec - start_sec).max(0.1);
     let effective_output_duration = trim_duration / speed;

@@ -218,12 +218,13 @@ pub async fn prepare_preview_video(
     let codec = meta.codec_name.to_lowercase();
     let audio_codec = meta.audio_codec.to_lowercase();
 
-    // Tier 1: Check if already native web format
+    // Tier 1: Check if already native web format with valid finite duration
     let is_native_container = ext == "mp4" || ext == "webm" || ext == "m4v";
     let is_native_codec = codec == "h264" || codec == "vp8" || codec == "vp9" || codec == "av1";
     let is_native_audio = audio_codec.is_empty() || audio_codec == "aac" || audio_codec == "mp3" || audio_codec == "opus" || audio_codec == "flac";
+    let has_valid_duration = meta.duration_sec > 0.0 && meta.duration_sec.is_finite();
 
-    if is_native_container && is_native_codec && is_native_audio {
+    if is_native_container && is_native_codec && is_native_audio && has_valid_duration {
         log_info(&format!("Preview Tier 1 (Direct native stream): {}", file_path));
         return Ok(file_path.to_string());
     }

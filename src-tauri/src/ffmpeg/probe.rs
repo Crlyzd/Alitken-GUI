@@ -49,6 +49,11 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         duration_sec = dur_str.parse::<f64>().unwrap_or(0.0);
     }
 
+    let mut bitrate_bps: f64 = parsed["format"]["bit_rate"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
     let mut total_frames = 1000.0;
     let mut codec_name = String::new();
     let mut audio_codec = String::new();
@@ -68,6 +73,21 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
                 if let Some(nb_frames) = stream["nb_frames"].as_str() {
                     if let Ok(f) = nb_frames.parse::<f64>() {
                         total_frames = f;
+                    }
+                }
+
+                if bitrate_bps <= 0.0 {
+                    if let Some(br_str) = stream["bit_rate"].as_str() {
+                        if let Ok(b) = br_str.parse::<f64>() {
+                            bitrate_bps = b;
+                        }
+                    } else if let Some(bps_str) = stream["tags"]["BPS"]
+                        .as_str()
+                        .or_else(|| stream["tags"]["BPS-eng"].as_str())
+                    {
+                        if let Ok(b) = bps_str.parse::<f64>() {
+                            bitrate_bps = b;
+                        }
                     }
                 }
             } else if codec_type == "audio" && audio_codec.is_empty() {
@@ -128,9 +148,20 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         }
     }
 
+    // Mathematical duration/size fallback for containers without container-level bitrate headers (e.g., WebM screen recordings)
+    if is_video && bitrate_bps <= 0.0 && duration_sec > 0.0 && file_size > 0.0 {
+        bitrate_bps = (file_size * 8.0) / duration_sec;
+    }
+
+    let bitrate_kbps = if is_video && bitrate_bps > 0.0 {
+        Some((bitrate_bps / 1000.0).round())
+    } else {
+        None
+    };
+
     log_info(&format!(
-        "Probed {}: v_codec={}, a_codec={}, duration={}s, res={}x{}",
-        file_name, codec_name, audio_codec, duration_sec, width, height
+        "Probed {}: v_codec={}, a_codec={}, duration={}s, res={}x{}, bitrate={:?} kbps",
+        file_name, codec_name, audio_codec, duration_sec, width, height, bitrate_kbps
     ));
 
     let is_corrupted = file_size == 0.0 || (width == 0 && height == 0 && duration_sec == 0.0);
@@ -155,6 +186,7 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         is_video,
         is_corrupted,
         error_message,
+        bitrate_kbps,
     })
 }
 

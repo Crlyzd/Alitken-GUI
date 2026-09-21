@@ -257,6 +257,7 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
                     is_video: false,
                     is_corrupted,
                     error_message,
+                    bitrate_kbps: None,
                 }
             })
             .await
@@ -285,6 +286,7 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
                     is_video: false,
                     is_corrupted: true,
                     error_message,
+                    bitrate_kbps: None,
                 }
             });
 
@@ -318,6 +320,7 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
         is_video: false,
         is_corrupted: false,
         error_message: None,
+        bitrate_kbps: None,
     };
     let mut results = vec![dummy_meta; count];
     while let Some(res) = set.join_next().await {

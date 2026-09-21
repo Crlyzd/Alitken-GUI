@@ -54,6 +54,7 @@ export interface MediaFileItem {
   durationSec?: number;
   resolution?: string;
   codec?: string;
+  bitrateKbps?: number;
 }
 
 export interface IntegrationStatus {

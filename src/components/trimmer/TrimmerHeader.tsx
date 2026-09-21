@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowLeft, Sparkles, Film, Clock, HardDrive } from 'lucide-react';
-import { FileItem } from '../Dropzone';
+import { ArrowLeft, Sparkles, Film, Clock, HardDrive, Activity } from 'lucide-react';
+import { FileItem, formatBitrate } from '../Dropzone';
 import { formatTimeWithMs } from '../TimelineSlider';
 
 interface TrimmerHeaderProps {
@@ -140,6 +140,23 @@ export const TrimmerHeader: React.FC<TrimmerHeaderProps> = ({ file, onSaveAndBac
             }}
           >
             <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
+          </span>
+        )}
+        {file.bitrateKbps !== undefined && file.bitrateKbps > 0 && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              fontSize: '11px',
+              color: 'var(--text-dim)',
+            }}
+          >
+            <Activity size={11} /> {formatBitrate(file.bitrateKbps)}
           </span>
         )}
       </div>

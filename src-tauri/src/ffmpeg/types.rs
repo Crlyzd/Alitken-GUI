@@ -14,6 +14,7 @@ pub struct MediaMetadata {
     pub is_video: bool,
     pub is_corrupted: bool,
     pub error_message: Option<String>,
+    pub bitrate_kbps: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

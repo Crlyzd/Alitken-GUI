@@ -8,6 +8,7 @@ import {
   Film,
   Clock,
   HardDrive,
+  Activity,
   ArrowUpDown,
   AlertCircle,
   Scissors,
@@ -37,6 +38,7 @@ export interface FileItem {
   path: string;
   sizeMb: number;
   durationSec?: number;
+  bitrateKbps?: number;
   resolution?: string;
   codec?: string;
   mediaKind?: 'video' | 'image';
@@ -56,6 +58,16 @@ export interface FileItem {
   crop_w?: number;
   crop_h?: number;
   crop_filter?: string;
+}
+
+export function formatBitrate(kbps?: number): string {
+  if (!kbps || kbps <= 0) return '';
+  if (kbps >= 1000) {
+    const mbps = kbps / 1000;
+    const formatted = mbps >= 100 ? Math.round(mbps).toString() : (mbps % 1 === 0 ? mbps.toFixed(0) : mbps.toFixed(1));
+    return `${formatted} Mbps`;
+  }
+  return `${Math.round(kbps)} kbps`;
 }
 
 interface DropzoneProps {
@@ -629,6 +641,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                         <HardDrive size={11} /> 0 B
                       </span>
                     ) : null}
+                    {!isImg && file.bitrateKbps !== undefined && file.bitrateKbps > 0 && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Activity size={11} /> {formatBitrate(file.bitrateKbps)}
+                      </span>
+                    )}
                     {file.codec && (
                       <span
                         style={{

@@ -36,4 +36,4 @@ src-tauri/test_*
 src-tauri/target_*/
 
 # releases
-#releases/
+releases/

@@ -664,29 +664,48 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
 
     // Extract magick.exe: Tier 1: In-process pure-Rust 7z extraction
     let mut extracted = false;
+    let target_magick_path = target_dir.join("magick.exe");
+
     let in_process_res = sevenz_rust::decompress_file_with_extract_fn(
         &archive_path,
         &target_dir,
-        |entry, reader, dest| {
+        |entry, reader, _dest| {
             let entry_name = entry.name().to_lowercase();
             if entry_name.ends_with("magick.exe") {
-                let out_file_path = dest.join("magick.exe");
-                let mut out_file = std::fs::File::create(&out_file_path)
+                let mut out_file = std::fs::File::create(&target_magick_path)
                     .map_err(|e| sevenz_rust::Error::io(e))?;
                 std::io::copy(reader, &mut out_file)
                     .map_err(|e| sevenz_rust::Error::io(e))?;
                 Ok(true)
             } else {
+                // Drain reader so CRC32 checksum verification succeeds across solid blocks
+                let _ = std::io::copy(reader, &mut std::io::sink());
                 Ok(true)
             }
         },
     );
 
-    if in_process_res.is_ok() && target_dir.join("magick.exe").exists() {
+    let is_valid_magick = |p: &Path| -> bool {
+        p.exists() && p.metadata().map(|m| m.len() > 1_000_000).unwrap_or(false)
+    };
+
+    if in_process_res.is_ok() && is_valid_magick(&target_magick_path) {
+        log::info!("Successfully extracted magick.exe via in-process 7z decompressor");
         extracted = true;
     } else {
-        // Tier 2 Fallback: Windows native tar command
-        if let Ok(tar_status) = crate::utils::create_hidden_cmd("tar")
+        if let Err(ref e) = in_process_res {
+            log::warn!("In-process 7z decompression failed: {:?}. Attempting fallback...", e);
+        }
+
+        // Tier 2 Fallback: Windows native tar command (favor explicit System32 path)
+        let system_tar = Path::new(r"C:\Windows\System32\tar.exe");
+        let tar_program = if system_tar.exists() {
+            system_tar.to_string_lossy().to_string()
+        } else {
+            "tar".to_string()
+        };
+
+        if let Ok(tar_status) = crate::utils::create_hidden_cmd(&tar_program)
             .args(&[
                 "-xf",
                 archive_path.to_str().unwrap_or_default(),
@@ -696,7 +715,8 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
             ])
             .status()
         {
-            if tar_status.success() && target_dir.join("magick.exe").exists() {
+            if tar_status.success() && is_valid_magick(&target_magick_path) {
+                log::info!("Extracted magick.exe via system tar fallback");
                 extracted = true;
             }
         }

@@ -60,6 +60,53 @@ pub fn get_appdata_bin_dir() -> PathBuf {
     app_bin
 }
 
+pub fn parse_version_components(version_str: &str) -> Vec<u32> {
+    let mut components = Vec::new();
+    let mut current_num = String::new();
+
+    for ch in version_str.chars() {
+        if ch.is_ascii_digit() {
+            current_num.push(ch);
+        } else if !current_num.is_empty() {
+            if let Ok(num) = current_num.parse::<u32>() {
+                components.push(num);
+            }
+            current_num.clear();
+        }
+    }
+    if !current_num.is_empty() {
+        if let Ok(num) = current_num.parse::<u32>() {
+            components.push(num);
+        }
+    }
+
+    components
+}
+
+pub fn compare_versions(v1: &str, v2: &str) -> std::cmp::Ordering {
+    let c1 = parse_version_components(v1);
+    let c2 = parse_version_components(v2);
+
+    let max_len = c1.len().max(c2.len());
+    for i in 0..max_len {
+        let p1 = c1.get(i).copied().unwrap_or(0);
+        let p2 = c2.get(i).copied().unwrap_or(0);
+        match p1.cmp(&p2) {
+            std::cmp::Ordering::Equal => continue,
+            non_eq => return non_eq,
+        }
+    }
+
+    std::cmp::Ordering::Equal
+}
+
+pub fn is_version_outdated(installed: &str, target: &str) -> bool {
+    if installed.is_empty() || target.is_empty() {
+        return false;
+    }
+    compare_versions(installed, target) == std::cmp::Ordering::Less
+}
+
 pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
     if binary_path.is_empty() || !Path::new(binary_path).exists() {
         return (String::new(), 0, 0);
@@ -124,7 +171,7 @@ pub fn probe_binary_version(binary_path: &str) -> (String, u32, u32) {
                 }
             }
         }
-        return ("7.1.2-29".to_string(), 7, 1);
+        return ("7.1.2-31".to_string(), 7, 1);
     }
 
     (String::new(), 0, 0)
@@ -189,16 +236,23 @@ fn compute_dependencies() -> DependencyStatus {
     let ffmpeg_valid = ffmpeg_exists && (ffmpeg_maj >= 5 || ffmpeg_maj == 0 || ffmpeg_maj == 999);
     let magick_valid = magick_exists && (magick_maj >= 7 || magick_maj == 0 || magick_maj == 999);
 
-    let ffmpeg_latest_version = "7.1".to_string();
-    let magick_latest_version = "7.1.2-29".to_string();
+    let mut ffmpeg_latest_version = "7.1".to_string();
+    let mut magick_latest_version = "7.1.2-31".to_string();
 
     let has_update = ffmpeg_valid
         && ffmpeg_maj > 0
-        && (ffmpeg_maj < 7 || (!ffmpeg_version.is_empty() && !ffmpeg_version.starts_with(&ffmpeg_latest_version)));
+        && is_version_outdated(&ffmpeg_version, &ffmpeg_latest_version);
 
     let magick_has_update = magick_valid
         && magick_maj > 0
-        && (magick_maj < 7 || (!magick_version.is_empty() && magick_version != magick_latest_version));
+        && is_version_outdated(&magick_version, &magick_latest_version);
+
+    if compare_versions(&ffmpeg_version, &ffmpeg_latest_version) == std::cmp::Ordering::Greater {
+        ffmpeg_latest_version = ffmpeg_version.clone();
+    }
+    if compare_versions(&magick_version, &magick_latest_version) == std::cmp::Ordering::Greater {
+        magick_latest_version = magick_version.clone();
+    }
 
     DependencyStatus {
         ffmpeg_exists,
@@ -274,9 +328,9 @@ async fn fetch_latest_ffmpeg_url(client: &reqwest::Client) -> String {
 async fn fetch_latest_magick_url(client: &reqwest::Client) -> String {
     let is_arm64 = cfg!(target_arch = "aarch64");
     let fallback_url = if is_arm64 {
-        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-arm64.7z".to_string()
+        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-31/ImageMagick-7.1.2-31-portable-Q16-arm64.7z".to_string()
     } else {
-        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-29/ImageMagick-7.1.2-29-portable-Q16-x64.7z".to_string()
+        "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-31/ImageMagick-7.1.2-31-portable-Q16-x64.7z".to_string()
     };
     let api_url = "https://api.github.com/repos/ImageMagick/ImageMagick/releases/latest";
 
@@ -790,4 +844,38 @@ pub fn uninstall_appdata() -> Result<DependencyStatus, String> {
     }
     invalidate_dependency_cache();
     Ok(check_dependencies())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_parsing_and_comparison() {
+        assert_eq!(
+            compare_versions("7.1.2-31", "7.1.2-29"),
+            std::cmp::Ordering::Greater
+        );
+        assert_eq!(
+            compare_versions("7.1.2-29", "7.1.2-31"),
+            std::cmp::Ordering::Less
+        );
+        assert_eq!(
+            compare_versions("7.1.2-31", "7.1.2-31"),
+            std::cmp::Ordering::Equal
+        );
+        assert_eq!(compare_versions("7.1", "7.1.0"), std::cmp::Ordering::Equal);
+        assert_eq!(
+            compare_versions("7.2", "7.1"),
+            std::cmp::Ordering::Greater
+        );
+        assert_eq!(compare_versions("6.1", "7.1"), std::cmp::Ordering::Less);
+
+        assert!(!is_version_outdated("7.1.2-31", "7.1.2-29"));
+        assert!(!is_version_outdated("7.1.2-31", "7.1.2-31"));
+        assert!(is_version_outdated("7.1.2-29", "7.1.2-31"));
+        assert!(!is_version_outdated("7.1", "7.1"));
+        assert!(!is_version_outdated("8.0", "7.1"));
+        assert!(is_version_outdated("5.1", "7.1"));
+    }
 }

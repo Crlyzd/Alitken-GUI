@@ -15,6 +15,7 @@ export const VIDEO_EXTENSIONS = [
 ];
 
 export const IMAGE_EXTENSIONS = [
+  // Standard Web & Photos
   '.jpg',
   '.jpeg',
   '.png',
@@ -23,31 +24,56 @@ export const IMAGE_EXTENSIONS = [
   '.tiff',
   '.tif',
   '.gif',
+  '.qoi',
+
+  // Mobile & Next-Gen
   '.heic',
   '.heif',
   '.avif',
   '.jxl',
+
+  // Camera RAW (All Major Brands)
+  '.dng',
   '.cr2',
   '.cr3',
   '.crw',
   '.nef',
+  '.nrw',
   '.arw',
   '.srf',
   '.sr2',
-  '.dng',
   '.raf',
   '.orf',
   '.rw2',
   '.pef',
-  '.nrw',
   '.rwl',
+  '.raw',
   '.srw',
   '.mrw',
   '.mef',
   '.mos',
   '.3fr',
-  '.raw',
+  '.fff',
   '.x3f',
+  '.dcr',
+  '.kdc',
+  '.k25',
+  '.erf',
+
+  // Creative, Graphic Design & Game Assets
+  '.psd',
+  '.psb',
+  '.svg',
+  '.svgz',
+  '.tga',
+  '.dds',
+  '.ase',
+  '.aseprite',
+  '.hdr',
+  '.exr',
+  '.ico',
+  '.cur',
+  '.xcf',
 ];
 
 export type FileKind = 'video' | 'image' | 'unknown';

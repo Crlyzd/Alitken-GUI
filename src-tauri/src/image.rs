@@ -154,7 +154,18 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
 
         let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
         cmd.args(["-limit", "memory", "1GiB", "-limit", "map", "2GiB"]);
-        cmd.arg(input_path_str);
+        
+        let ext = input_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let input_arg = if ext == "psd" || ext == "psb" {
+            format!("{}[0]", input_path_str)
+        } else {
+            input_path_str.to_string()
+        };
+        cmd.arg(&input_arg);
 
         // Quality and scaling flags
         match config.output_format.as_str() {

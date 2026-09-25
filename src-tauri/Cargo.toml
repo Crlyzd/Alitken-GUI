@@ -1,6 +1,6 @@
 [package]
 name = "alitken-gui"
-version = "0.8.3"
+version = "0.8.4"
 description = "Alitken Media Converter & Video Splitter (Tauri v2 Desktop UI)"
 authors = ["Alitken"]
 edition = "2021"

@@ -24,6 +24,9 @@ export const IMAGE_EXTENSIONS = [
   '.tif',
   '.gif',
   '.heic',
+  '.heif',
+  '.avif',
+  '.jxl',
   '.cr2',
   '.cr3',
   '.crw',
@@ -38,6 +41,13 @@ export const IMAGE_EXTENSIONS = [
   '.pef',
   '.nrw',
   '.rwl',
+  '.srw',
+  '.mrw',
+  '.mef',
+  '.mos',
+  '.3fr',
+  '.raw',
+  '.x3f',
 ];
 
 export type FileKind = 'video' | 'image' | 'unknown';

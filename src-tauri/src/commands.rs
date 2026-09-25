@@ -217,78 +217,63 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
     let loaded_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut set = tokio::task::JoinSet::new();
 
+    let magick_path = dependencies::check_dependencies().magick_path;
+    let magick_path_arc = std::sync::Arc::new(magick_path);
+
     for (index, file_path) in file_paths.into_iter().enumerate() {
         let sem = semaphore.clone();
         let app_handle = app.clone();
         let counter = loaded_counter.clone();
+        let m_path_arc = magick_path_arc.clone();
 
         set.spawn(async move {
             let _permit = sem.acquire().await;
             let path_for_io = file_path.clone();
 
-            let meta = tokio::task::spawn_blocking(move || {
-                let path = std::path::Path::new(&path_for_io);
-                let file_name = path
-                    .file_name()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                let size = std::fs::metadata(&path_for_io)
-                    .map(|m| m.len() as f64)
-                    .unwrap_or(0.0);
-                let (width, height) = utils::get_image_dimensions(&path_for_io);
-                let is_corrupted = size == 0.0 || (width == 0 && height == 0);
-                let error_message = if size == 0.0 {
-                    Some("0 Bytes (Empty File)".to_string())
-                } else if width == 0 && height == 0 {
-                    Some("Corrupted or unreadable image".to_string())
+            let path = std::path::Path::new(&path_for_io);
+            let file_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let size = std::fs::metadata(&path_for_io)
+                .map(|m| m.len() as f64)
+                .unwrap_or(0.0);
+
+            let (width, height, is_corrupted, error_message) = if size == 0.0 {
+                (0, 0, true, Some("0 Bytes (Empty File)".to_string()))
+            } else {
+                let (w, h) = utils::get_image_dimensions(&path_for_io);
+                if w > 0 && h > 0 {
+                    (w, h, false, None)
                 } else {
-                    None
-                };
-                MediaMetadata {
-                    file_name,
-                    file_path: path_for_io,
-                    duration_sec: 0.0,
-                    total_frames: 0.0,
-                    codec_name: "image".to_string(),
-                    audio_codec: String::new(),
-                    width,
-                    height,
-                    file_size_mb: size / (1024.0 * 1024.0),
-                    is_video: false,
-                    is_corrupted,
-                    error_message,
-                    bitrate_kbps: None,
+                    let m_path = m_path_arc.as_str();
+                    if !m_path.is_empty() && std::path::Path::new(m_path).exists() {
+                        match crate::image::probe_image_dimensions_magick(m_path, &path_for_io).await {
+                            Ok((mw, mh)) => (mw, mh, false, None),
+                            Err(_) => (0, 0, true, Some("Corrupted or unreadable image".to_string())),
+                        }
+                    } else {
+                        // If ImageMagick is not available, don't falsely block non-empty files
+                        (0, 0, false, None)
+                    }
                 }
-            })
-            .await
-            .unwrap_or_else(|_| {
-                let size = std::fs::metadata(&file_path)
-                    .map(|m| m.len() as f64)
-                    .unwrap_or(0.0);
-                let error_message = if size == 0.0 {
-                    Some("0 Bytes (Empty File)".to_string())
-                } else {
-                    Some("Corrupted or unreadable image".to_string())
-                };
-                MediaMetadata {
-                    file_name: std::path::Path::new(&file_path)
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_default(),
-                    file_path: file_path.clone(),
-                    duration_sec: 0.0,
-                    total_frames: 0.0,
-                    codec_name: "image".to_string(),
-                    audio_codec: String::new(),
-                    width: 0,
-                    height: 0,
-                    file_size_mb: 0.0,
-                    is_video: false,
-                    is_corrupted: true,
-                    error_message,
-                    bitrate_kbps: None,
-                }
-            });
+            };
+
+            let meta = MediaMetadata {
+                file_name,
+                file_path: path_for_io,
+                duration_sec: 0.0,
+                total_frames: 0.0,
+                codec_name: "image".to_string(),
+                audio_codec: String::new(),
+                width,
+                height,
+                file_size_mb: size / (1024.0 * 1024.0),
+                is_video: false,
+                is_corrupted,
+                error_message,
+                bitrate_kbps: None,
+            };
 
             let finished = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
             let loaded = offset + finished;

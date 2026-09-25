@@ -473,3 +473,38 @@ fn build_output_filepath(
     // Deconflict against any previously converted output with the same name
     Ok(resolve_conflict_path(out_file))
 }
+
+/// Probes image width and height using ImageMagick `identify -ping`.
+/// Reads image metadata without decompressing pixel data, supporting HEIC and all Camera RAW formats.
+pub async fn probe_image_dimensions_magick(
+    magick_path: &str,
+    file_path: &str,
+) -> Result<(u32, u32), String> {
+    if magick_path.is_empty() || !Path::new(magick_path).exists() {
+        return Err("ImageMagick executable not found".to_string());
+    }
+
+    let mut cmd = utils::create_tokio_hidden_cmd(magick_path);
+    cmd.args(["identify", "-ping", "-format", "%w %h\n", file_path]);
+
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to spawn ImageMagick identify: {}", e))?;
+
+    if !output.status.success() {
+        return Err("ImageMagick failed to identify image".to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let parts: Vec<&str> = text.split_whitespace().collect();
+    if parts.len() >= 2 {
+        let w = parts[0].parse::<u32>().unwrap_or(0);
+        let h = parts[1].parse::<u32>().unwrap_or(0);
+        if w > 0 && h > 0 {
+            return Ok((w, h));
+        }
+    }
+
+    Err("Could not parse image dimensions from ImageMagick output".to_string())
+}

@@ -464,7 +464,23 @@ pub fn get_image_dimensions<P: AsRef<std::path::Path>>(path: P) -> (u32, u32) {
             }
         }
     }
-
+    // HEIC / HEIF / AVIF (ISOBMFF with ftyp)
+    if header.len() >= 12 && &header[4..8] == b"ftyp" {
+        let _ = reader.seek(SeekFrom::Start(0));
+        let mut buf = vec![0u8; 65536];
+        if let Ok(n) = reader.read(&mut buf) {
+            let slice = &buf[..n];
+            if let Some(pos) = slice.windows(4).position(|w| w == b"ispe") {
+                if pos + 16 <= n {
+                    let width = u32::from_be_bytes([slice[pos + 8], slice[pos + 9], slice[pos + 10], slice[pos + 11]]);
+                    let height = u32::from_be_bytes([slice[pos + 12], slice[pos + 13], slice[pos + 14], slice[pos + 15]]);
+                    if width > 0 && height > 0 && width <= 65536 && height <= 65536 {
+                        return (width, height);
+                    }
+                }
+            }
+        }
+    }
 
     (0, 0)
 }

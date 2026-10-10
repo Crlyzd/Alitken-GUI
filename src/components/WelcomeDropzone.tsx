@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { UploadCloud, Film, Image as ImageIcon, Sparkles, Scissors } from 'lucide-react';
-import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS, getFileKind } from '../utils/mediaType';
+import { UploadCloud, Film, Image as ImageIcon } from 'lucide-react';
+import { VIDEO_EXTENSIONS, IMAGE_EXTENSIONS } from '../utils/mediaType';
 import { getLastImportFolder, updateImportFolderFromFilePath } from '../utils/folderHistory';
+import { WelcomeTrimmerCard } from './WelcomeTrimmerCard';
 
 interface WelcomeDropzoneProps {
   onAddFiles: (paths: string[]) => void;
@@ -19,10 +20,8 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
   onZoneChange,
 }) => {
   const [localTopDragOver, setLocalTopDragOver] = useState(false);
-  const [localTrimmerDragOver, setLocalTrimmerDragOver] = useState(false);
-
   const isTopDragOver = dragTargetZone === 'batch' || localTopDragOver;
-  const isTrimmerDragOver = dragTargetZone === 'trimmer' || localTrimmerDragOver;
+  const isTrimmerDragOver = dragTargetZone === 'trimmer';
 
   const handlePickFiles = async () => {
     try {
@@ -60,43 +59,6 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
     }
   };
 
-  const handlePickTrimmerFile = async (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    try {
-      const selected = await open({
-        multiple: false,
-        defaultPath: getLastImportFolder() || undefined,
-        filters: [
-          {
-            name: 'Video Files',
-            extensions: VIDEO_EXTENSIONS.map((e) => e.replace('.', '')),
-          },
-        ],
-      });
-
-      if (selected && typeof selected === 'string' && onOpenTrimmerFile) {
-        updateImportFolderFromFilePath(selected);
-        onOpenTrimmerFile(selected);
-      }
-    } catch (err) {
-      console.error('Trimmer file selection error:', err);
-    }
-  };
-
-  const handleTrimmerDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setLocalTrimmerDragOver(false);
-    onZoneChange?.(null);
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedFile = e.dataTransfer.files[0];
-      const filePath = (droppedFile as any).path;
-      if (filePath && onOpenTrimmerFile && getFileKind(filePath) === 'video') {
-        onOpenTrimmerFile(filePath);
-      }
-    }
-  };
-
   return (
     <div
       style={{
@@ -116,7 +78,6 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
         onDragOver={(e) => {
           e.preventDefault();
           setLocalTopDragOver(true);
-          setLocalTrimmerDragOver(false);
           onZoneChange?.('batch');
         }}
         onDragLeave={() => {
@@ -159,7 +120,7 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
           userSelect: 'none',
         }}
       >
-        {/* Animated Glow Icon Container (Preserved UploadCloud + Sparkles) */}
+        {/* Animated Glow Icon Container (UploadCloud) */}
         <div
           style={{
             position: 'relative',
@@ -181,15 +142,6 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
           }}
         >
           <UploadCloud size={32} />
-          <Sparkles
-            size={13}
-            style={{
-              position: 'absolute',
-              top: '5px',
-              right: '5px',
-              color: 'var(--accent-primary)',
-            }}
-          />
         </div>
 
         {/* Text Content */}
@@ -267,123 +219,11 @@ export const WelcomeDropzone: React.FC<WelcomeDropzoneProps> = ({
       </div>
 
       {/* Bottom Card: Dedicated Video Trimmer Target Zone */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setLocalTrimmerDragOver(true);
-          setLocalTopDragOver(false);
-          onZoneChange?.('trimmer');
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setLocalTrimmerDragOver(false);
-          onZoneChange?.(null);
-        }}
-        onDrop={handleTrimmerDrop}
-        onClick={() => handlePickTrimmerFile()}
-        className="glass-panel"
-        style={{
-          height: '92px',
-          flexShrink: 0,
-          borderRadius: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 20px',
-          border: `2px dashed ${
-            isTrimmerDragOver ? 'var(--accent-cyan)' : 'rgba(6, 182, 212, 0.3)'
-          }`,
-          background: isTrimmerDragOver
-            ? 'rgba(6, 182, 212, 0.2)'
-            : 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%)',
-          cursor: 'pointer',
-          transition: 'all 0.25s ease',
-          boxShadow: isTrimmerDragOver
-            ? '0 0 25px rgba(6, 182, 212, 0.4), inset 0 0 15px rgba(6, 182, 212, 0.15)'
-            : '0 4px 16px rgba(0, 0, 0, 0.15)',
-          userSelect: 'none',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          {/* Glowing Scissors Icon Box */}
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              background: 'rgba(6, 182, 212, 0.18)',
-              border: '1px solid rgba(6, 182, 212, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent-cyan)',
-              boxShadow: isTrimmerDragOver
-                ? '0 0 20px rgba(6, 182, 212, 0.6)'
-                : '0 4px 12px rgba(6, 182, 212, 0.2)',
-              transform: isTrimmerDragOver ? 'scale(1.08)' : 'scale(1)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Scissors size={22} />
-          </div>
-
-          <div style={{ textAlign: 'left' }}>
-            <h3
-              style={{
-                fontSize: '13.5px',
-                fontWeight: 700,
-                color: 'var(--text-main)',
-                margin: 0,
-                letterSpacing: '0.2px',
-              }}
-            >
-              Drop Video Here to Trim & Edit
-            </h3>
-            <p
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                margin: '2px 0 0 0',
-              }}
-            >
-              Or click to open single video directly in Video Trimmer
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handlePickTrimmerFile}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: 'rgba(6, 182, 212, 0.15)',
-            border: '1px solid rgba(6, 182, 212, 0.35)',
-            fontSize: '11.5px',
-            fontWeight: 600,
-            color: 'var(--accent-cyan)',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 2px 10px rgba(6, 182, 212, 0.15)',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(6, 182, 212, 0.28)';
-            e.currentTarget.style.boxShadow = '0 0 15px rgba(6, 182, 212, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(6, 182, 212, 0.15)';
-            e.currentTarget.style.boxShadow = '0 2px 10px rgba(6, 182, 212, 0.15)';
-          }}
-        >
-          <Scissors size={13} /> Open Video Trimmer
-        </button>
-      </div>
+      <WelcomeTrimmerCard
+        isTrimmerDragOver={isTrimmerDragOver}
+        onZoneChange={onZoneChange}
+        onOpenTrimmerFile={onOpenTrimmerFile}
+      />
     </div>
   );
 };

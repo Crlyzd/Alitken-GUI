@@ -283,6 +283,13 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     };
 
     for i in 0..archive.len() {
+        if crate::utils::check_cancel_flag() {
+            let _ = fs::remove_file(&zip_path);
+            let _ = fs::remove_file(target_dir.join("ffmpeg.exe.tmp"));
+            let _ = fs::remove_file(target_dir.join("ffprobe.exe.tmp"));
+            return Err("Download aborted by user.".to_string());
+        }
+
         let mut file = match archive.by_index(i) {
             Ok(f) => f,
             Err(e) => {
@@ -301,7 +308,8 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
         {
             if let Some(target_file_name) = filename.file_name() {
                 let outpath = target_dir.join(target_file_name);
-                let mut outfile = match fs::File::create(&outpath) {
+                let tmp_outpath = target_dir.join(format!("{}.tmp", target_file_name.to_string_lossy()));
+                let mut outfile = match fs::File::create(&tmp_outpath) {
                     Ok(f) => f,
                     Err(e) => {
                         let _ = fs::remove_file(&zip_path);
@@ -309,8 +317,23 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
                     }
                 };
                 if let Err(e) = std::io::copy(&mut file, &mut outfile) {
+                    drop(outfile);
+                    let _ = fs::remove_file(&tmp_outpath);
                     let _ = fs::remove_file(&zip_path);
                     return Err(format!("Copy failed: {}", e));
+                }
+                drop(outfile);
+
+                if crate::utils::check_cancel_flag() {
+                    let _ = fs::remove_file(&tmp_outpath);
+                    let _ = fs::remove_file(&zip_path);
+                    return Err("Download aborted by user.".to_string());
+                }
+
+                if let Err(e) = fs::rename(&tmp_outpath, &outpath) {
+                    let _ = fs::remove_file(&tmp_outpath);
+                    let _ = fs::remove_file(&zip_path);
+                    return Err(format!("Rename failed: {}", e));
                 }
             }
         }
@@ -327,6 +350,9 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     current_step: usize,
     total_steps: usize,
 ) -> Result<DependencyStatus, String> {
+    if crate::utils::check_cancel_flag() {
+        return Err("Download aborted by user.".to_string());
+    }
     crate::utils::reset_cancel_flag();
 
     let client = reqwest::Client::builder()
@@ -486,6 +512,9 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         &archive_path,
         &target_dir,
         |entry, reader, _dest| {
+            if crate::utils::check_cancel_flag() {
+                return Err(sevenz_rust::Error::other("Extraction cancelled by user"));
+            }
             let entry_name = entry.name().to_lowercase();
             if entry_name.ends_with("magick.exe") {
                 let mut out_file = std::fs::File::create(&target_magick_path)
@@ -500,6 +529,12 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         },
     );
 
+    if crate::utils::check_cancel_flag() {
+        let _ = fs::remove_file(&target_magick_path);
+        let _ = fs::remove_file(&archive_path);
+        return Err("Download aborted by user.".to_string());
+    }
+
     let is_valid_magick = |p: &Path| -> bool {
         p.exists() && p.metadata().map(|m| m.len() > 1_000_000).unwrap_or(false)
     };
@@ -508,6 +543,12 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         log::info!("Successfully extracted magick.exe via in-process 7z decompressor");
         extracted = true;
     } else {
+        if crate::utils::check_cancel_flag() {
+            let _ = fs::remove_file(&target_magick_path);
+            let _ = fs::remove_file(&archive_path);
+            return Err("Download aborted by user.".to_string());
+        }
+
         if let Err(ref e) = in_process_res {
             log::warn!("In-process 7z decompression failed: {:?}. Attempting fallback...", e);
         }
@@ -537,6 +578,11 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
     }
 
     let _ = fs::remove_file(&archive_path);
+
+    if crate::utils::check_cancel_flag() {
+        let _ = fs::remove_file(&target_magick_path);
+        return Err("Download aborted by user.".to_string());
+    }
 
     if !extracted {
         return Err("Failed to extract magick.exe from archive. Please ensure disk write permissions or manually extract ImageMagick portable to bin/.".to_string());
@@ -576,6 +622,9 @@ pub async fn download_all_dependencies<R: tauri::Runtime>(
     if need_ffmpeg {
         current_step += 1;
         download_ffmpeg_dependencies(app, current_step, total_steps).await?;
+    }
+    if crate::utils::check_cancel_flag() {
+        return Err("Download aborted by user.".to_string());
     }
     if need_magick {
         current_step += 1;

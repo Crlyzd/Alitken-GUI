@@ -48,6 +48,9 @@ export const ProgressTelemetrySection: React.FC<ProgressTelemetrySectionProps> =
     }
     if (progress.error) {
       if (isAborted) {
+        if (isDownload) {
+          return 'Download was cancelled by user.';
+        }
         if (isSingleOutput) {
           return 'Operation was cancelled before output file was completed.';
         }

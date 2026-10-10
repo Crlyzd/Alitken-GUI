@@ -27,9 +27,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
   const isDownload = progress.type === 'download';
   const isSingleOutput = Boolean(progress.isSingleOutput);
   const completedCount = isSingleOutput ? 0 : Math.max(0, progress.fileIndex - 1);
-  const isAborted =
-    progress.error === 'Processing aborted by user.' ||
-    Boolean(progress.error && progress.error.toLowerCase().includes('aborted'));
+  const isAborted = Boolean(
+    progress.error &&
+      (progress.error.toLowerCase().includes('abort') ||
+        progress.error.toLowerCase().includes('cancel'))
+  );
   const isFileMissing = Boolean(
     progress.error &&
       (progress.error.toLowerCase().includes('not found') ||

@@ -453,7 +453,7 @@ export function useMediaPipelines(
         ...prev,
         isProcessing: false,
         completed: false,
-        error: 'Processing aborted by user.',
+        error: 'Operation cancelled by user.',
       }));
       invoke('trim_memory').catch(() => {});
     } catch (err: any) {

@@ -110,13 +110,23 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
       } catch (err: any) {
         const errMsg = err?.toString() || 'Download failed';
         const isCanceled = errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('abort');
-        setProgress((prev) => ({
-          ...prev,
-          type: 'download',
-          isProcessing: false,
-          completed: false,
-          error: isCanceled ? 'Operation cancelled by user.' : errMsg,
-        }));
+        setProgress((prev) => {
+          if (isCanceled && prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'))) {
+            return {
+              ...prev,
+              type: 'download',
+              isProcessing: false,
+              completed: false,
+            };
+          }
+          return {
+            ...prev,
+            type: 'download',
+            isProcessing: false,
+            completed: false,
+            error: isCanceled ? 'Operation cancelled by user.' : errMsg,
+          };
+        });
       } finally {
         setIsDownloadingDeps(false);
       }

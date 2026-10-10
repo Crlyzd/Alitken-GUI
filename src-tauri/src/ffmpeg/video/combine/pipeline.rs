@@ -1,229 +1,31 @@
-use super::convert::append_bitrate_flags;
+use super::audio::append_combine_audio_args;
+use super::compatibility::check_stream_compatibility;
 use crate::ffmpeg::process::{execute_ffmpeg_combine_process, execute_ffmpeg_combine_segment_process};
 use crate::ffmpeg::probe::probe_file;
 use crate::ffmpeg::types::{ConversionConfig, MediaMetadata, StreamCompatibilityResult};
+use crate::ffmpeg::video::convert::append_bitrate_flags;
 use crate::utils::{log_info, resolve_conflict_path};
 use std::path::{Path, PathBuf};
 
-/// Pre-flight stream compatibility check for lossless video combination.
-/// Validates that all queued video files share matching codecs, resolutions, pixel formats, and audio presence.
-pub async fn check_stream_compatibility(
-    ffprobe_path: &str,
-    file_paths: &[String],
-) -> Result<StreamCompatibilityResult, String> {
-    if file_paths.len() < 2 {
-        return Ok(StreamCompatibilityResult {
-            is_compatible: true,
-            reason: String::new(),
-        });
-    }
-
-    struct StreamInfo {
-        v_codec: String,
-        width: u32,
-        height: u32,
-        pix_fmt: String,
-        fps_num: u64,
-        fps_den: u64,
-        has_audio: bool,
-        a_codec: String,
-    }
-
-    let mut first_info: Option<StreamInfo> = None;
-
-    for path_str in file_paths {
-        let path = PathBuf::from(&path_str);
-        if !path.exists() {
-            continue;
-        }
-        if let Ok(m) = std::fs::metadata(&path) {
-            if m.len() == 0 {
-                let fname = path.file_name().unwrap_or_default().to_string_lossy();
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!("File '{}' is empty (0 Bytes) and cannot be combined.", fname),
-                });
-            }
-        }
-
-        let output = crate::utils::create_tokio_hidden_cmd(ffprobe_path)
-            .args(&[
-                "-v",
-                "error",
-                "-show_entries",
-                "stream=codec_name,width,height,pix_fmt,r_frame_rate,codec_type",
-                "-of",
-                "json",
-                path.to_str().unwrap_or_default(),
-            ])
-            .output()
-            .await;
-
-        let mut v_codec = String::new();
-        let mut width = 0u32;
-        let mut height = 0u32;
-        let mut pix_fmt = String::new();
-        let mut fps_num = 0u64;
-        let mut fps_den = 1u64;
-        let mut has_audio = false;
-        let mut a_codec = String::new();
-
-        if let Ok(out) = output {
-            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
-                if let Some(streams) = json["streams"].as_array() {
-                    for stream in streams {
-                        let codec_type = stream["codec_type"].as_str().unwrap_or("");
-                        if codec_type == "video" && v_codec.is_empty() {
-                            v_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
-                            width = stream["width"].as_u64().unwrap_or(0) as u32;
-                            height = stream["height"].as_u64().unwrap_or(0) as u32;
-                            pix_fmt = stream["pix_fmt"].as_str().unwrap_or("").to_string();
-
-                            if let Some(r_fps) = stream["r_frame_rate"].as_str() {
-                                let parts: Vec<&str> = r_fps.split('/').collect();
-                                if parts.len() == 2 {
-                                    fps_num = parts[0].parse::<u64>().unwrap_or(0);
-                                    fps_den = parts[1].parse::<u64>().unwrap_or(1);
-                                }
-                            }
-                        } else if codec_type == "audio" {
-                            has_audio = true;
-                            a_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
-                        }
-                    }
-                }
-            }
-        }
-
-        let current = StreamInfo {
-            v_codec,
-            width,
-            height,
-            pix_fmt,
-            fps_num,
-            fps_den,
-            has_audio,
-            a_codec,
-        };
-
-        if let Some(ref base) = first_info {
-            if current.v_codec != base.v_codec {
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!(
-                        "Codec mismatch: {} vs {}",
-                        base.v_codec, current.v_codec
-                    ),
-                });
-            }
-            if current.width != base.width || current.height != base.height {
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!(
-                        "Resolution mismatch: {}x{} vs {}x{}",
-                        base.width, base.height, current.width, current.height
-                    ),
-                });
-            }
-            if current.pix_fmt != base.pix_fmt && !current.pix_fmt.is_empty() && !base.pix_fmt.is_empty() {
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!(
-                        "Pixel format mismatch: {} vs {}",
-                        base.pix_fmt, current.pix_fmt
-                    ),
-                });
-            }
-            if base.fps_den > 0 && current.fps_den > 0 {
-                let fps1 = base.fps_num as f64 / base.fps_den as f64;
-                let fps2 = current.fps_num as f64 / current.fps_den as f64;
-                if (fps1 - fps2).abs() > 0.05 {
-                    return Ok(StreamCompatibilityResult {
-                        is_compatible: false,
-                        reason: format!(
-                            "Frame rate mismatch: {:.2} fps vs {:.2} fps",
-                            fps1, fps2
-                        ),
-                    });
-                }
-            }
-            if current.has_audio != base.has_audio {
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!(
-                        "Audio stream mismatch: {} audio vs {} audio",
-                        if base.has_audio { "with" } else { "without" },
-                        if current.has_audio { "with" } else { "without" }
-                    ),
-                });
-            }
-            if base.has_audio && current.has_audio && base.a_codec != current.a_codec {
-                return Ok(StreamCompatibilityResult {
-                    is_compatible: false,
-                    reason: format!(
-                        "Audio codec mismatch: {} vs {}",
-                        base.a_codec, current.a_codec
-                    ),
-                });
-            }
-        } else {
-            first_info = Some(current);
-        }
-    }
-
-    Ok(StreamCompatibilityResult {
-        is_compatible: true,
-        reason: String::new(),
-    })
+struct CombineClipInfo {
+    meta: MediaMetadata,
+    start_sec: f64,
+    end_sec: f64,
+    has_trim: bool,
+    crop_x: Option<u32>,
+    crop_y: Option<u32>,
+    crop_w: Option<u32>,
+    crop_h: Option<u32>,
+    crop_filter: Option<String>,
+    has_crop: bool,
 }
 
-/// Helper to configure audio stream mapping, fade filters, and encoding for combined outputs.
-fn append_combine_audio_args(
-    args: &mut Vec<String>,
-    has_custom_audio: bool,
-    fade_in: bool,
-    fade_out: bool,
-    total_duration_sec: f64,
-    default_c_a_copy: bool,
-) {
-    if has_custom_audio {
-        args.extend([
-            "-map".to_string(),
-            "0:v:0".to_string(),
-            "-map".to_string(),
-            "1:a:0".to_string(),
-        ]);
-
-        let mut af_filters = Vec::new();
-        if fade_in {
-            af_filters.push("afade=t=in:ss=0:d=1.5".to_string());
-        }
-        if fade_out && total_duration_sec > 1.5 {
-            let st = (total_duration_sec - 1.5).max(0.0);
-            af_filters.push(format!("afade=t=out:st={:.3}:d=1.5", st));
-        }
-        if !af_filters.is_empty() {
-            args.extend(["-af".to_string(), af_filters.join(",")]);
-        }
-
-        args.extend([
-            "-c:a".to_string(),
-            "aac".to_string(),
-            "-b:a".to_string(),
-            "192k".to_string(),
-            "-shortest".to_string(),
-        ]);
-    } else {
-        args.extend([
-            "-map".to_string(),
-            "0:v:0".to_string(),
-            "-map".to_string(),
-            "0:a?".to_string(),
-            "-c:a".to_string(),
-            if default_c_a_copy { "copy".to_string() } else { "aac".to_string() },
-        ]);
-        if !default_c_a_copy {
-            args.extend(["-b:a".to_string(), "192k".to_string()]);
+struct StagingGuard(PathBuf);
+impl Drop for StagingGuard {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            let _ = std::fs::remove_dir_all(&self.0);
+            log_info(&format!("Cleaned up staging directory: {:?}", self.0));
         }
     }
 }
@@ -275,20 +77,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         }
     }
 
-    // Structure to hold per-file probed metadata along with resolved trim/crop bounds
-    struct CombineClipInfo {
-        meta: MediaMetadata,
-        start_sec: f64,
-        end_sec: f64,
-        has_trim: bool,
-        crop_x: Option<u32>,
-        crop_y: Option<u32>,
-        crop_w: Option<u32>,
-        crop_h: Option<u32>,
-        crop_filter: Option<String>,
-        has_crop: bool,
-    }
-
     let mut clip_infos: Vec<CombineClipInfo> = Vec::new();
     let mut total_duration_sec = 0.0;
     let mut first_height: Option<u32> = None;
@@ -305,7 +93,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             has_av1_input = true;
         }
 
-        // Resolve saved trim boundaries & crop params (from config.video_items or trim_presets.json)
         let mut trim_start: Option<f64> = None;
         let mut trim_end: Option<f64> = None;
         let mut crop_x: Option<u32> = None;
@@ -391,7 +178,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         return Err("Lossless stream copy cannot be used when video cropping is applied to clips. Please switch off Lossless Copy to combine cropped videos.".to_string());
     }
 
-    // Resolve destination output path
     let first_path = Path::new(&config.video_files[0]);
     let parent_dir = if let Some(ref custom_dir) = config.custom_output_dir {
         PathBuf::from(custom_dir)
@@ -420,7 +206,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
     ));
 
     if is_fast_copy {
-        // Fast stream copy mode via demuxer
         let timestamp_nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -494,10 +279,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         let _ = std::fs::remove_file(&concat_file_path);
         result
     } else {
-        // Transcode mode: Smart Hybrid Architecture
-        // Pass 1: If streams are compatible, runs Fast Concat Pre-pass (-c copy ~1s) then single-input GPU transcode (300+ FPS).
-        // Fallback: If streams differ, uses Sequential Segment Normalization.
-        // Peak RAM is strictly bounded (~150MB constant RAM).
         let base_temp_dir = crate::utils::get_temp_dir();
         let timestamp_nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -513,21 +294,9 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             staging_dir
         ));
 
-        // RAII Guard to guarantee deletion of staging directory on completion, failure, or cancellation
-        struct StagingGuard(PathBuf);
-        impl Drop for StagingGuard {
-            fn drop(&mut self) {
-                if self.0.exists() {
-                    let _ = std::fs::remove_dir_all(&self.0);
-                    log_info(&format!("Cleaned up staging directory: {:?}", self.0));
-                }
-            }
-        }
         let _guard = StagingGuard(staging_dir.clone());
-
         let output_file_name = format!("{}.{}", raw_stem, ext);
 
-        // Target bounding box dimensions (even numbers, mod-4 aligned for NVENC/hardware codecs)
         let (target_w, target_h) = if config.target_height != "ORIGINAL" {
             let h = config.target_height.parse::<u32>().unwrap_or(720).clamp(144, 8192);
             let w = match h {
@@ -544,7 +313,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             (w.max(4), h.max(2))
         };
 
-        // Check if stream compatibility allows Fast Concat Pre-Pass
         let compatibility = if any_clip_has_crop {
             StreamCompatibilityResult {
                 is_compatible: false,
@@ -553,6 +321,7 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         } else {
             check_stream_compatibility(ffprobe_path, &config.video_files).await?
         };
+
         if compatibility.is_compatible {
             log_info("Streams compatible: Using Fast Concat Pre-Pass + Single-Input GPU Transcode pipeline");
             let master_concat_path = staging_dir.join("master_concat.mp4");
@@ -668,7 +437,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
         let mut temp_clip_paths: Vec<PathBuf> = Vec::new();
         let mut elapsed_duration_sec = 0.0;
 
-        // Step 1: Normalize each clip sequentially into an intermediate staging file
         for (idx, info) in clip_infos.iter().enumerate() {
             if crate::utils::check_cancel_flag() {
                 return Err("Processing aborted by user.".to_string());
@@ -694,7 +462,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 args.push("auto".to_string());
             }
 
-            // Input trimming (-ss before -i, -t for relative duration limit)
             if info.has_trim {
                 args.push("-ss".to_string());
                 args.push(format!("{:.3}", info.start_sec));
@@ -710,7 +477,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             args.push("-i".to_string());
             args.push(file_path.clone());
 
-            // If input file has no audio, generate a duration-bounded dummy silent audio stream
             if !has_audio {
                 args.push("-f".to_string());
                 args.push("lavfi".to_string());
@@ -720,7 +486,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
                 args.push("anullsrc=r=48000:cl=stereo".to_string());
             }
 
-            // Video scaling & letterboxing/pillarboxing with SAR reset (including clip crop filter if applied)
             let mut vf_parts: Vec<String> = Vec::new();
             if let Some(ref cf) = info.crop_filter {
                 log_info(&format!("Applying canvas aspect ratio & crop filter for combine: {}", cf));
@@ -746,7 +511,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
 
             append_bitrate_flags(&mut args, &config.target_bitrate, &gpu_caps.encoder);
 
-            // Limit thread count per segment process to avoid CPU thread starvation
             args.push("-threads".to_string());
             args.push("4".to_string());
 
@@ -803,7 +567,6 @@ pub async fn run_combine_pipeline<R: tauri::Runtime>(
             elapsed_duration_sec += clip_duration;
         }
 
-        // Step 2: Assemble normalized clips via instant Lossless Concat Demuxer
         let concat_txt_path = staging_dir.join("concat_list.txt");
         {
             let mut file = std::fs::File::create(&concat_txt_path)

@@ -19,6 +19,9 @@ This file governs the behavior, conventions, and architectural standards for all
   - *Working Mode*: Expands to `1060×720 px` with minimum bound `1040×700 px` (`expand_to_working_window`, resizable) upon loading media files. Automatically collapses back to 500×500 px when the queue is cleared.
 - **Titlebar Header Branding**: Must strictly follow the format `Alitken v<version>` or `ALITKEN v<version>` (e.g., `ALITKEN v0.8.4`).
 - **Memory Management**: Automatic working set memory compaction (`utils::trim_working_set()` / `trim_memory` command) triggered on startup, upon window collapse, and after heavy media operations.
+- **Modular Domain Architecture**:
+  - *Frontend*: Modular domain directories under `src/components/<domain>/` (`queue/`, `trimmer/`, `config/`, `video-config/`, `image-config/`, `titlebar/`, `welcome/`, `ui/`, `modals/`, `settings/`, `banners/`) with lean coordinator shells. Backward-compatible re-export shims at legacy root paths prevent breaking existing callers. Types centralized in `src/types/`.
+  - *Backend*: Domain-driven submodules under `src-tauri/src/` (`commands/`, `utils/`, `dependencies/`, `updater/`, `image/`, `ffmpeg/video/combine/`, `ffmpeg/video/convert/`, `ffmpeg/image_to_video/`).
 
 ---
 
@@ -53,11 +56,11 @@ This file governs the behavior, conventions, and architectural standards for all
 
 ### A. Component Modularity & Anti-Monolith Policy
 - **Target Size**: 150–250 lines per component; strict ceiling of **250–300 lines** for any single frontend component or hook.
-- **Existing Monolithic Files** (Must NOT be inflated):
-  - [`src/components/Dropzone.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/Dropzone.tsx) (~900 lines)
-  - [`src/components/trimmer/VideoPlayerViewport.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/trimmer/VideoPlayerViewport.tsx) (~810 lines)
-  - [`src/components/AboutModal.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/AboutModal.tsx) (~627 lines)
-- **Decomposition Mandate**: Never append new feature code directly to these monolithic files. When adding functionality, extract focused child components into domain folders (e.g., `src/components/<domain>/subcomponents/`) or custom hooks into `src/hooks/`.
+- **Modular Decomposition & Coordinator Shells**:
+  - All former monolithic components have been decomposed into dedicated domain directories (`src/components/queue/`, `src/components/trimmer/`, `src/components/config/`, `src/components/video-config/`, `src/components/modals/`, `src/components/titlebar/`).
+  - Root components (e.g., [`src/components/Dropzone.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/Dropzone.tsx), [`src/components/ConfigPanel.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/ConfigPanel.tsx), [`src/components/Titlebar.tsx`](file:///d:/ALitken/Alitken-GUI/src/components/Titlebar.tsx)) act as backward-compatible re-export shims and lean coordinator shells.
+- **Zero-Inflation Mandate**: Never append new feature code directly to coordinator shells or root shims. When adding functionality, extract focused child components into their respective domain folders (e.g., `src/components/<domain>/`) or custom hooks into `src/hooks/`.
+- **Re-Export Shim Pattern**: When organizing or moving components, maintain thin re-export shims at the original root path to prevent breaking existing imports across the application.
 
 ### B. Universal Frosted Glass Mandate (Zero Native `<select>`)
 - **Strictly No Native Selects**: Never use browser-native `<select>` elements or unstyled HTML dropdowns.
@@ -99,7 +102,8 @@ This file governs the behavior, conventions, and architectural standards for all
   - Timecode, timestamps & frame math: [`src/utils/trimmerUtils.ts`](file:///d:/ALitken/Alitken-GUI/src/utils/trimmerUtils.ts)
   - Folder picking & directory history: [`src/utils/folderUtils.ts`](file:///d:/ALitken/Alitken-GUI/src/utils/folderUtils.ts), [`src/utils/folderHistory.ts`](file:///d:/ALitken/Alitken-GUI/src/utils/folderHistory.ts)
   - Media extensions & format mappings: [`src/utils/mediaType.ts`](file:///d:/ALitken/Alitken-GUI/src/utils/mediaType.ts)
-  - Native backend process & path helpers: [`src-tauri/src/utils.rs`](file:///d:/ALitken/Alitken-GUI/src-tauri/src/utils.rs)
+  - Native backend process & path helpers: [`src-tauri/src/utils/`](file:///d:/ALitken/Alitken-GUI/src-tauri/src/utils/) (`paths.rs`, `system.rs`, `cache.rs`, `logger.rs`, `process.rs`)
+  - Shared domain models and DTO interfaces: [`src/types/`](file:///d:/ALitken/Alitken-GUI/src/types/) (`queue.ts`, `config.ts`, `progress.ts`, `update.ts`, `media.ts`)
 - **Dead Code & Hygiene**: Clean up unused imports, commented-out dead code, and temporary debug logs before finishing.
 
 ### F. Strict Line Ceilings
@@ -124,7 +128,7 @@ When switching roles using slash commands or persona instructions, agents must a
 **Mission**: Coordinate multi-phase, cross-stack features spanning Rust backend, Tauri IPC, custom hooks, and React UI.
 
 **5-Phase Execution Sequence**:
-1. **Phase 1 (Rust Engine & IPC)**: Design or modify backend commands in `src-tauri/src/` (`commands.rs`, `ffmpeg/`), defining typed input/output DTOs with `serde`.
+1. **Phase 1 (Rust Engine & IPC)**: Design or modify backend commands in `src-tauri/src/commands/` (`media.rs`, `system.rs`, `storage.rs`, etc.) and processing engines in `src-tauri/src/ffmpeg/`, defining typed input/output DTOs with `serde`.
 2. **Phase 2 (IPC Registration & State)**: Register commands in `src-tauri/src/lib.rs` and export TypeScript interfaces in `src/types/`.
 3. **Phase 3 (Frontend Hooks & Logic)**: Encapsulate IPC calls, event listeners, and business logic into a custom hook in `src/hooks/`.
 4. **Phase 4 (Modular UI Presentation)**: Build modular, glassmorphic UI components adhering to the `< 250–300` line ceiling and using `GlassSelect`.
@@ -175,8 +179,9 @@ When switching roles using slash commands or persona instructions, agents must a
    - [ ] Did the author reinvent existing utilities (e.g., path, folder, or timestamp math already in `src/utils/`)?
    - [ ] Is there unnecessary boilerplate, over-engineering, or dead code/commented blocks left behind?
 2. **Monolith Prevention & Line Ceilings**:
-   - [ ] Did the change inflate existing monolithic files (`Dropzone.tsx`, `VideoPlayerViewport.tsx`, `AboutModal.tsx`) instead of extracting subcomponents or hooks?
-   - [ ] Are new frontend files under 250–300 lines and Rust modules under 300–400 lines?
+   - [ ] Did the change inflate coordinator shells (`Dropzone.tsx`, `VideoPlayerViewport.tsx`, `ConfigPanel.tsx`) instead of adding subcomponents to domain folders?
+   - [ ] Are all frontend components strictly under 250–300 lines and Rust modules under 300–400 lines?
+   - [ ] Do new domain directories include a clean `index.ts` barrel export and preserve re-export shims?
 3. **Frosted Glass & Dropdowns**:
    - [ ] Are there any unstyled `<select>` or native browser inputs? (Reject if present).
    - [ ] Do all dropdowns, popovers, and modals apply `backdrop-filter: blur(20px)` and glass tokens?

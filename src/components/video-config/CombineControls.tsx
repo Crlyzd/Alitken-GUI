@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { Zap, AlertTriangle, Link2, Loader2, CheckCircle, Clock, Info } from 'lucide-react';
+import { Zap, AlertTriangle, Info } from 'lucide-react';
 import { ConfigState } from '../ConfigPanel';
 import { StreamCompatibilityResult } from '../../types/media';
-import { FileItem } from '../Dropzone';
+import { FileItem } from '../../types/queue';
+import { CombineCompatibilityBadge } from './CombineCompatibilityBadge';
+import { CombineDurationCard } from './CombineDurationCard';
 
 interface CombineControlsProps {
   config: ConfigState;
@@ -13,20 +15,6 @@ interface CombineControlsProps {
   files?: FileItem[];
   croppedFilesCount?: number;
 }
-
-const formatTotalDuration = (sec: number): string => {
-  if (!sec || sec <= 0) return '0s';
-  const hrs = Math.floor(sec / 3600);
-  const mins = Math.floor((sec % 3600) / 60);
-  const secs = Math.floor(sec % 60);
-  if (hrs > 0) {
-    return `${hrs}h ${mins}m ${secs}s`;
-  }
-  if (mins > 0) {
-    return `${mins}m ${secs}s`;
-  }
-  return `${secs}s`;
-};
 
 export const CombineControls: React.FC<CombineControlsProps> = ({
   config,
@@ -43,7 +31,11 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
   const totalCombinedDurationSec = useMemo(() => {
     if (!files || files.length === 0) return 0;
     return files.reduce((sum, f) => {
-      if (f.trimStartSec !== undefined && f.trimEndSec !== undefined && f.trimEndSec > f.trimStartSec) {
+      if (
+        f.trimStartSec !== undefined &&
+        f.trimEndSec !== undefined &&
+        f.trimEndSec > f.trimStartSec
+      ) {
         return sum + (f.trimEndSec - f.trimStartSec);
       }
       return sum + (f.durationSec || 0);
@@ -81,7 +73,10 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
           <Zap
             size={16}
             style={{
-              color: config.combineFastCopy && !isStreamIncompatible ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              color:
+                config.combineFastCopy && !isStreamIncompatible
+                  ? 'var(--accent-cyan)'
+                  : 'var(--text-muted)',
               flexShrink: 0,
             }}
           />
@@ -125,7 +120,9 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
         >
           <Info size={15} color="#c084fc" style={{ flexShrink: 0, marginTop: '1px' }} />
           <span style={{ fontSize: '11px', color: 'var(--text-main)', lineHeight: '1.35' }}>
-            Cropped clips detected. Lossless merge preserves original frame sizes without re-encoding. To combine and apply your crops, please uncheck <strong>Lossless Merge</strong> above.
+            Cropped clips detected. Lossless merge preserves original frame sizes without
+            re-encoding. To combine and apply your crops, please uncheck{' '}
+            <strong>Lossless Merge</strong> above.
           </span>
         </div>
       )}
@@ -148,68 +145,28 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
             color="var(--accent-amber)"
             style={{ flexShrink: 0 }}
           />
-          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--warning-text)', lineHeight: '1.3' }}>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 500,
+              color: 'var(--warning-text)',
+              lineHeight: '1.3',
+            }}
+          >
             {streamCompatibility?.reason}
           </div>
         </div>
       )}
 
       {/* Permanent Stream Compatibility Status Line */}
-      {(() => {
-        let statusColor = 'var(--text-muted)';
-        let statusIcon = <Link2 size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />;
-        let statusText = 'Add 2+ videos to check compatibility';
-
-        if (fileCount < 2) {
-          statusText = 'Add 2+ videos to check compatibility';
-        } else if (isCheckingCompatibility) {
-          statusColor = 'var(--accent-cyan)';
-          statusIcon = <Loader2 size={12} className="spin" style={{ flexShrink: 0, color: 'var(--accent-cyan)' }} />;
-          statusText = 'Checking stream compatibility...';
-        } else if (streamCompatibility?.is_compatible) {
-          if (croppedFilesCount > 0) {
-            if (config.combineFastCopy) {
-              statusColor = '#c084fc';
-              statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc' }} />;
-              statusText = 'Streams Matched • Uncheck Lossless to apply crops';
-            } else {
-              statusColor = '#c084fc';
-              statusIcon = <Info size={12} style={{ flexShrink: 0, color: '#c084fc' }} />;
-              statusText = `Streams Matched • Transcoding ${croppedFilesCount} cropped clip${croppedFilesCount > 1 ? 's' : ''}`;
-            }
-          } else {
-            statusColor = 'var(--accent-emerald)';
-            statusIcon = <CheckCircle size={12} style={{ flexShrink: 0, color: 'var(--accent-emerald)' }} />;
-            statusText = config.combineFastCopy
-              ? 'Streams Compatible (Lossless Ready)'
-              : 'Streams Compatible (Transcode Active)';
-          }
-        } else if (isStreamIncompatible) {
-          statusColor = 'var(--accent-rose)';
-          statusIcon = <AlertTriangle size={12} style={{ flexShrink: 0, color: 'var(--accent-rose)' }} />;
-          statusText = 'Streams Incompatible';
-        }
-
-        return (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11px',
-              fontWeight: 500,
-              color: statusColor,
-              minHeight: '20px',
-              lineHeight: '1.35',
-              boxSizing: 'border-box',
-              userSelect: 'none',
-            }}
-          >
-            {statusIcon}
-            <span>{statusText}</span>
-          </div>
-        );
-      })()}
+      <CombineCompatibilityBadge
+        fileCount={fileCount}
+        isCheckingCompatibility={isCheckingCompatibility}
+        streamCompatibility={streamCompatibility}
+        croppedFilesCount={croppedFilesCount}
+        combineFastCopy={Boolean(config.combineFastCopy)}
+        isStreamIncompatible={isStreamIncompatible}
+      />
 
       <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
 
@@ -251,68 +208,10 @@ export const CombineControls: React.FC<CombineControlsProps> = ({
       </div>
 
       {/* Single Consolidated Combined Duration & Queue Info Card */}
-      <div
-        style={{
-          padding: '10px 12px',
-          borderRadius: '10px',
-          background: 'rgba(6, 182, 212, 0.08)',
-          border: '1px solid rgba(6, 182, 212, 0.22)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '8px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: 'var(--accent-cyan)',
-              letterSpacing: '0.3px',
-              textTransform: 'uppercase',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Clock size={13} style={{ flexShrink: 0 }} />
-            <span>Total Duration</span>
-          </div>
-          <span
-            style={{
-              fontSize: '12px',
-              fontWeight: 700,
-              color: 'var(--accent-cyan)',
-              fontFamily: 'monospace',
-              background: 'rgba(6, 182, 212, 0.15)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
-              padding: '2px 8px',
-              borderRadius: '6px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {formatTotalDuration(totalCombinedDurationSec)}
-          </span>
-        </div>
-        <div
-          style={{
-            fontSize: '10.5px',
-            color: 'var(--text-muted)',
-            lineHeight: '1.4',
-          }}
-        >
-          {fileCount} {fileCount === 1 ? 'video' : 'videos'} joined in queue order (after clip trims). Reorder via queue sort.
-        </div>
-      </div>
+      <CombineDurationCard
+        totalCombinedDurationSec={totalCombinedDurationSec}
+        fileCount={fileCount}
+      />
     </div>
   );
 };

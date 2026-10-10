@@ -1,7 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Loader2, Scissors } from 'lucide-react';
 import { AspectRatioOption } from '../../types/media';
 import { AspectRatioSelector } from './AspectRatioSelector';
+import { CropGuideLines } from './CropGuideLines';
+import { VideoCanvasRenderer } from './VideoCanvasRenderer';
+import { useCropInteraction } from './useCropInteraction';
 
 interface VideoPlayerViewportProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -15,7 +18,7 @@ interface VideoPlayerViewportProps {
   onPlay: () => void;
   onPause: () => void;
   onEnded: () => void;
-  onVideoClick: () => void;
+  onVideoClick?: () => void;
   isDragOver?: boolean;
   aspectRatio: AspectRatioOption;
   onSelectAspectRatio: (ratio: AspectRatioOption) => void;
@@ -62,38 +65,6 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
 
   const [videoAspect, setVideoAspect] = useState<number>(16 / 9);
 
-  const [isDraggingMove, setIsDraggingMove] = useState(false);
-  const [isDraggingResize, setIsDraggingResize] = useState<string | null>(null);
-
-  const [isSnappedX, setIsSnappedX] = useState(false);
-  const [isSnappedY, setIsSnappedY] = useState(false);
-  const [isSnappedLeft, setIsSnappedLeft] = useState(false);
-  const [isSnappedRight, setIsSnappedRight] = useState(false);
-  const [isSnappedTop, setIsSnappedTop] = useState(false);
-  const [isSnappedBottom, setIsSnappedBottom] = useState(false);
-  const [isMagnetActive, setIsMagnetActive] = useState(false);
-  const [activeAxisLock, setActiveAxisLock] = useState<'vertical' | 'horizontal' | 'both' | null>(null);
-
-  const dragStartRef = useRef<{
-    mouseX: number;
-    mouseY: number;
-    startOffsetX: number;
-    startOffsetY: number;
-    startScale: number;
-    centerX: number;
-    centerY: number;
-    startRadius: number;
-  }>({
-    mouseX: 0,
-    mouseY: 0,
-    startOffsetX: 0.5,
-    startOffsetY: 0.5,
-    startScale: 1.0,
-    centerX: 0,
-    centerY: 0,
-    startRadius: 1.0,
-  });
-
   const handleMetadata = useCallback(() => {
     onLoadedMetadata();
     if (videoRef.current && videoRef.current.videoWidth && videoRef.current.videoHeight) {
@@ -111,230 +82,6 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
     [onSelectAspectRatio, onCropOffsetChange, onCropScaleChange]
   );
 
-  // Handle Drag Move Start (body of video layer)
-  const handleMoveStart = useCallback(
-    (e: React.MouseEvent) => {
-      if (aspectRatio === 'ORIGINAL') return;
-      e.stopPropagation();
-      e.preventDefault();
-      setIsDraggingMove(true);
-      const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
-      const cx = wrapperRect ? wrapperRect.left + wrapperRect.width / 2 : e.clientX;
-      const cy = wrapperRect ? wrapperRect.top + wrapperRect.height / 2 : e.clientY;
-      dragStartRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        startOffsetX: cropOffset.x,
-        startOffsetY: cropOffset.y,
-        startScale: cropScale,
-        centerX: cx,
-        centerY: cy,
-        startRadius: 1.0,
-      };
-    },
-    [aspectRatio, cropOffset, cropScale]
-  );
-
-  // Handle Corner Handle Resize Start
-  const handleResizeStart = useCallback(
-    (corner: string, e: React.MouseEvent) => {
-      if (aspectRatio === 'ORIGINAL') return;
-      e.stopPropagation();
-      e.preventDefault();
-      setIsDraggingResize(corner);
-      const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
-      const cx = wrapperRect ? wrapperRect.left + wrapperRect.width / 2 : e.clientX;
-      const cy = wrapperRect ? wrapperRect.top + wrapperRect.height / 2 : e.clientY;
-      const startRadius = Math.hypot(e.clientX - cx, e.clientY - cy);
-
-      dragStartRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        startOffsetX: cropOffset.x,
-        startOffsetY: cropOffset.y,
-        startScale: cropScale,
-        centerX: cx,
-        centerY: cy,
-        startRadius: Math.max(10, startRadius),
-      };
-    },
-    [aspectRatio, cropOffset, cropScale]
-  );
-
-  // Continuous Drag & Resize Handler
-  useEffect(() => {
-    if (!isDraggingMove && !isDraggingResize) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const deltaX = e.clientX - dragStartRef.current.mouseX;
-      const deltaY = e.clientY - dragStartRef.current.mouseY;
-
-      if (isDraggingMove) {
-        // Use the video wrapper's unscaled base dimensions so translate(X%, Y%) maps 1:1 to mouse pixels regardless of cropScale
-        const wrapperRect = videoWrapperRef.current?.getBoundingClientRect();
-        const currentScale = Math.max(0.01, cropScale || 1.0);
-        const wW = wrapperRect && wrapperRect.width > 0 ? wrapperRect.width / currentScale : rect.width;
-        const wH = wrapperRect && wrapperRect.height > 0 ? wrapperRect.height / currentScale : rect.height;
-        const sensitivityX = 1 / wW;
-        const sensitivityY = 1 / wH;
-
-        // Axis locking with modifier keys:
-        // Shift key -> lock vertical movement (Y remains fixed at startOffsetY)
-        // Ctrl/Cmd key -> lock horizontal movement (X remains fixed at startOffsetX)
-        // Shift / Ctrl / Alt keys -> activate edge magnetic snapping
-        const isShift = e.shiftKey;
-        const isCtrl = e.ctrlKey || e.metaKey;
-        const isAlt = e.altKey;
-        const isMagnet = isShift || isCtrl || isAlt;
-        setIsMagnetActive(isMagnet);
-
-        let lock: 'vertical' | 'horizontal' | 'both' | null = null;
-        if (isShift && isCtrl) {
-          lock = 'both';
-        } else if (isShift) {
-          lock = 'vertical';
-        } else if (isCtrl) {
-          lock = 'horizontal';
-        }
-        setActiveAxisLock(lock);
-
-        let rawX = isCtrl ? dragStartRef.current.startOffsetX : dragStartRef.current.startOffsetX + deltaX * sensitivityX;
-        let rawY = isShift ? dragStartRef.current.startOffsetY : dragStartRef.current.startOffsetY + deltaY * sensitivityY;
-
-        // Center cross section magnetic snapping (0.5 = center)
-        const SNAP_THRESHOLD = 0.02;
-        let snappedX = false;
-        let snappedY = false;
-        let snapL = false;
-        let snapR = false;
-        let snapT = false;
-        let snapB = false;
-
-        if (Math.abs(rawX - 0.5) <= SNAP_THRESHOLD) {
-          rawX = 0.5;
-          snappedX = true;
-        }
-
-        if (Math.abs(rawY - 0.5) <= SNAP_THRESHOLD) {
-          rawY = 0.5;
-          snappedY = true;
-        }
-
-        // Shift / Ctrl / Alt key: Outer video container edge magnetic snapping
-        if (isMagnet && rect.width > 0 && rect.height > 0) {
-          const scaledW = wW * currentScale;
-          const scaledH = wH * currentScale;
-          const leftSnapX = 0.5 - (rect.width - scaledW) / (2 * wW);
-          const rightSnapX = 0.5 + (rect.width - scaledW) / (2 * wW);
-          const topSnapY = 0.5 - (rect.height - scaledH) / (2 * wH);
-          const bottomSnapY = 0.5 + (rect.height - scaledH) / (2 * wH);
-
-          if (!snappedX) {
-            if (Math.abs(rawX - leftSnapX) <= SNAP_THRESHOLD) {
-              rawX = leftSnapX;
-              snapL = true;
-            } else if (Math.abs(rawX - rightSnapX) <= SNAP_THRESHOLD) {
-              rawX = rightSnapX;
-              snapR = true;
-            }
-          }
-
-          if (!snappedY) {
-            if (Math.abs(rawY - topSnapY) <= SNAP_THRESHOLD) {
-              rawY = topSnapY;
-              snapT = true;
-            } else if (Math.abs(rawY - bottomSnapY) <= SNAP_THRESHOLD) {
-              rawY = bottomSnapY;
-              snapB = true;
-            }
-          }
-        }
-
-        setIsSnappedX(snappedX);
-        setIsSnappedY(snappedY);
-        setIsSnappedLeft(snapL);
-        setIsSnappedRight(snapR);
-        setIsSnappedTop(snapT);
-        setIsSnappedBottom(snapB);
-
-        onCropOffsetChange({ x: rawX, y: rawY });
-      } else if (isDraggingResize) {
-        const isShift = e.shiftKey;
-        const isCtrl = e.ctrlKey || e.metaKey;
-        const isAlt = e.altKey;
-        const isMagnet = isShift || isCtrl || isAlt;
-        setIsMagnetActive(isMagnet);
-
-        // Uniform aspect ratio locked resize based on polar diagonal vector projection
-        const minFillScale = Math.max(canvasAspect / videoAspect, videoAspect / canvasAspect);
-        const maxScale = Math.max(10.0, minFillScale * 1.5);
-
-        const v0X = dragStartRef.current.mouseX - dragStartRef.current.centerX;
-        const v0Y = dragStartRef.current.mouseY - dragStartRef.current.centerY;
-        const vX = e.clientX - dragStartRef.current.centerX;
-        const vY = e.clientY - dragStartRef.current.centerY;
-
-        const dot = vX * v0X + vY * v0Y;
-        const r0Sq = dragStartRef.current.startRadius * dragStartRef.current.startRadius;
-        const ratio = r0Sq > 0 ? dot / r0Sq : 1.0;
-
-        let targetScale = Math.max(0.3, Math.min(maxScale, dragStartRef.current.startScale * ratio));
-
-        let snapL = false;
-        let snapR = false;
-        let snapT = false;
-        let snapB = false;
-
-        // Shift / Ctrl / Alt key: Outer container magnetic snapping during corner resize
-        if (isMagnet) {
-          const SCALE_SNAP_THRESHOLD = 0.04;
-          if (Math.abs(targetScale - minFillScale) <= SCALE_SNAP_THRESHOLD) {
-            targetScale = minFillScale;
-            snapL = true;
-            snapR = true;
-            snapT = true;
-            snapB = true;
-          } else if (Math.abs(targetScale - 1.0) <= SCALE_SNAP_THRESHOLD) {
-            targetScale = 1.0;
-            snapL = true;
-            snapR = true;
-            snapT = true;
-            snapB = true;
-          }
-        }
-
-        setIsSnappedLeft(snapL);
-        setIsSnappedRight(snapR);
-        setIsSnappedTop(snapT);
-        setIsSnappedBottom(snapB);
-
-        onCropScaleChange?.(targetScale);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingMove(false);
-      setIsDraggingResize(null);
-      setIsSnappedX(false);
-      setIsSnappedY(false);
-      setIsSnappedLeft(false);
-      setIsSnappedRight(false);
-      setIsSnappedTop(false);
-      setIsSnappedBottom(false);
-      setIsMagnetActive(false);
-      setActiveAxisLock(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingMove, isDraggingResize, onCropOffsetChange, onCropScaleChange]);
-
   const targetRatio = RATIO_NUMERICS[aspectRatio];
   const canvasAspect = targetRatio || videoAspect;
   const isVideoWider = videoAspect >= canvasAspect;
@@ -343,12 +90,30 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   const translateX = (cropOffset.x - 0.5) * 100;
   const translateY = (cropOffset.y - 0.5) * 100;
 
-  // Counter-scaling for overlay elements (crop border & corner handles) so they maintain constant pixel size across all zoom scales
-  const invScale = 1 / Math.max(0.01, cropScale || 1.0);
-  const strokeWidth = Math.max(0.75, 1.5 * invScale);
-  const strokeShadow = Math.max(3, 15 * invScale);
-  const handleBorder = Math.max(0.5, 1 * invScale);
-  const handleShadow = Math.max(2, 6 * invScale);
+  const {
+    isDraggingMove,
+    isDraggingResize,
+    isSnappedX,
+    isSnappedY,
+    isSnappedLeft,
+    isSnappedRight,
+    isSnappedTop,
+    isSnappedBottom,
+    isMagnetActive,
+    activeAxisLock,
+    handleMoveStart,
+    handleResizeStart,
+  } = useCropInteraction({
+    aspectRatio,
+    cropOffset,
+    onCropOffsetChange,
+    cropScale,
+    onCropScaleChange,
+    containerRef,
+    videoWrapperRef,
+    canvasAspect,
+    videoAspect,
+  });
 
   return (
     <div
@@ -409,172 +174,44 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               transition: 'all 0.2s ease',
             }}
           >
-            <Scissors size={40} style={{ color: 'var(--accent-cyan)', filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.8))' }} />
+            <Scissors
+              size={40}
+              style={{
+                color: 'var(--accent-cyan)',
+                filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.8))',
+              }}
+            />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.3px' }}>Drop Single Video File</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '2px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.3px' }}>
+                Drop Single Video File
+              </div>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  marginTop: '2px',
+                }}
+              >
                 Replace current video target in Trimmer
               </div>
             </div>
           </div>
         )}
 
-        {/* Thin Glowing Center Cross Section Magnet Guide Lines */}
-        {isDraggingMove && (isSnappedX || Math.abs(cropOffset.x - 0.5) < 0.001) && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: '50%',
-              width: '1px',
-              transform: 'translateX(-50%)',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {isDraggingMove && (isSnappedY || Math.abs(cropOffset.y - 0.5) < 0.001) && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: '50%',
-              height: '1px',
-              transform: 'translateY(-50%)',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {/* Outer Container Edge Magnet Guide Lines (Alt key move or resize) */}
-        {(isDraggingMove || isDraggingResize) && isSnappedLeft && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: 0,
-              width: '1px',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {(isDraggingMove || isDraggingResize) && isSnappedRight && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              right: 0,
-              width: '1px',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {(isDraggingMove || isDraggingResize) && isSnappedTop && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              height: '1px',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {(isDraggingMove || isDraggingResize) && isSnappedBottom && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: '1px',
-              background: 'rgba(6, 182, 212, 0.95)',
-              boxShadow: '0 0 4px rgba(6, 182, 212, 0.8)',
-              pointerEvents: 'none',
-              zIndex: 25,
-            }}
-          />
-        )}
-
-        {/* Center Crosshair Point indicator when both axes are centered */}
-        {isDraggingMove &&
-          (isSnappedX || Math.abs(cropOffset.x - 0.5) < 0.001) &&
-          (isSnappedY || Math.abs(cropOffset.y - 0.5) < 0.001) && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: '#ffffff',
-                border: '1.5px solid var(--accent-cyan)',
-                transform: 'translate(-50%, -50%)',
-                boxShadow: '0 0 8px var(--accent-cyan)',
-                pointerEvents: 'none',
-                zIndex: 26,
-              }}
-            />
-          )}
-
-        {/* Axis & Magnet Lock Feedback Toast */}
-        {(isDraggingMove || isDraggingResize) && (activeAxisLock || isMagnetActive) && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '10px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              background: 'rgba(0, 0, 0, 0.75)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              border: '1px solid rgba(6, 182, 212, 0.4)',
-              color: 'var(--accent-cyan)',
-              fontSize: '11px',
-              fontWeight: 600,
-              letterSpacing: '0.3px',
-              whiteSpace: 'nowrap',
-              pointerEvents: 'none',
-              zIndex: 35,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-cyan)', boxShadow: '0 0 6px var(--accent-cyan)', flexShrink: 0 }} />
-            {activeAxisLock === 'vertical' && 'SHIFT: Locked Vertical'}
-            {activeAxisLock === 'horizontal' && 'CTRL: Locked Horizontal'}
-            {activeAxisLock === 'both' && 'SHIFT + CTRL: Position Locked'}
-            {isMagnetActive && !activeAxisLock && (isDraggingResize ? 'Resize Magnet Active' : 'Edge Magnet Active')}
-          </div>
-        )}
+        {/* Thin Glowing Center & Container Edge Magnet Guide Lines */}
+        <CropGuideLines
+          isDraggingMove={isDraggingMove}
+          isDraggingResize={isDraggingResize}
+          cropOffset={cropOffset}
+          isSnappedX={isSnappedX}
+          isSnappedY={isSnappedY}
+          isSnappedLeft={isSnappedLeft}
+          isSnappedRight={isSnappedRight}
+          isSnappedTop={isSnappedTop}
+          isSnappedBottom={isSnappedBottom}
+          isMagnetActive={isMagnetActive}
+          activeAxisLock={activeAxisLock}
+        />
 
         {/* Loading Overlay */}
         {isLoadingPreview && (
@@ -598,7 +235,11 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               color: '#ffffff',
             }}
           >
-            <Loader2 size={32} className="spinning-loader" style={{ color: 'var(--accent-cyan)' }} />
+            <Loader2
+              size={32}
+              className="spinning-loader"
+              style={{ color: 'var(--accent-cyan)' }}
+            />
             <span
               style={{
                 fontSize: '13px',
@@ -613,188 +254,35 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
           </div>
         )}
 
-        {/* Inner Video Layer (Draggable & Resizable - Native Aspect Ratio Locked) */}
-        <div
-          ref={videoWrapperRef}
-          onMouseDown={aspectRatio !== 'ORIGINAL' ? handleMoveStart : undefined}
-          onDoubleClick={() => {
-            onCropOffsetChange({ x: 0.5, y: 0.5 });
-            onCropScaleChange?.(1.0);
-          }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            margin: 'auto',
-            aspectRatio: `${videoAspect}`,
-            width: isVideoWider ? '100%' : 'auto',
-            height: isVideoWider ? 'auto' : '100%',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform:
-              aspectRatio !== 'ORIGINAL'
-                ? `translate(${translateX}%, ${translateY}%) scale(${cropScale})`
-                : 'none',
-            transition: isDraggingMove || isDraggingResize ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-            cursor: aspectRatio !== 'ORIGINAL' ? (isDraggingMove ? 'grabbing' : 'grab') : 'pointer',
-            boxSizing: 'border-box',
-          }}
-        >
-          {/* White Border Frame around Video Layer */}
-          {aspectRatio !== 'ORIGINAL' && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                border: `${strokeWidth}px solid rgba(255, 255, 255, 0.85)`,
-                boxShadow: `0 0 ${strokeShadow}px rgba(0, 0, 0, 0.5)`,
-                pointerEvents: 'none',
-                zIndex: 10,
-              }}
-            />
-          )}
-
-          {/* Actual HTML5 Video Element */}
-          {isNativeSupported ? (
-            <video
-              ref={videoRef}
-              src={activeMediaSrc}
-              onLoadedMetadata={handleMetadata}
-              onTimeUpdate={onTimeUpdate}
-              onError={onError}
-              onPlay={onPlay}
-              onPause={onPause}
-              onEnded={onEnded}
-              playsInline
-              preload="auto"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                cursor: 'default',
-              }}
-            />
-          ) : fallbackFrameSrc ? (
-            <img
-              src={fallbackFrameSrc}
-              alt="Extracted Preview Frame"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                color: 'var(--text-dim)',
-                fontSize: '13px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                padding: '0 16px',
-                boxSizing: 'border-box',
-                gap: '8px',
-              }}
-            >
-              <Loader2 size={24} className="spinning-loader" />
-              <span style={{ textAlign: 'center', lineHeight: 1.4 }}>Extracting GPU Preview Frame...</span>
-            </div>
-          )}
-
-          {/* 4 White Corner Handles for Resizing Video Layer */}
-          {aspectRatio !== 'ORIGINAL' && (
-            <>
-              {/* Top-Left Handle */}
-              <div
-                onMouseDown={(e) => handleResizeStart('top-left', e)}
-                style={{
-                  position: 'absolute',
-                  top: '0px',
-                  left: '0px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: `${handleBorder}px solid #000000`,
-                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
-                  cursor: 'nwse-resize',
-                  zIndex: 20,
-                  transform: `translate(-50%, -50%) scale(${invScale})`,
-                  transformOrigin: 'center center',
-                }}
-              />
-              {/* Top-Right Handle */}
-              <div
-                onMouseDown={(e) => handleResizeStart('top-right', e)}
-                style={{
-                  position: 'absolute',
-                  top: '0px',
-                  right: '0px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: `${handleBorder}px solid #000000`,
-                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
-                  cursor: 'nesw-resize',
-                  zIndex: 20,
-                  transform: `translate(50%, -50%) scale(${invScale})`,
-                  transformOrigin: 'center center',
-                }}
-              />
-              {/* Bottom-Left Handle */}
-              <div
-                onMouseDown={(e) => handleResizeStart('bottom-left', e)}
-                style={{
-                  position: 'absolute',
-                  bottom: '0px',
-                  left: '0px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: `${handleBorder}px solid #000000`,
-                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
-                  cursor: 'nesw-resize',
-                  zIndex: 20,
-                  transform: `translate(-50%, 50%) scale(${invScale})`,
-                  transformOrigin: 'center center',
-                }}
-              />
-              {/* Bottom-Right Handle */}
-              <div
-                onMouseDown={(e) => handleResizeStart('bottom-right', e)}
-                style={{
-                  position: 'absolute',
-                  bottom: '0px',
-                  right: '0px',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: `${handleBorder}px solid #000000`,
-                  boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
-                  cursor: 'nwse-resize',
-                  zIndex: 20,
-                  transform: `translate(50%, 50%) scale(${invScale})`,
-                  transformOrigin: 'center center',
-                }}
-              />
-            </>
-          )}
-        </div>
-
-
-
-
+        {/* Inner Video Layer (Draggable & Resizable) */}
+        <VideoCanvasRenderer
+          videoWrapperRef={videoWrapperRef}
+          videoRef={videoRef}
+          aspectRatio={aspectRatio}
+          videoAspect={videoAspect}
+          isVideoWider={isVideoWider}
+          cropScale={cropScale}
+          translateX={translateX}
+          translateY={translateY}
+          isDraggingMove={isDraggingMove}
+          isDraggingResize={isDraggingResize}
+          isNativeSupported={isNativeSupported}
+          activeMediaSrc={activeMediaSrc}
+          fallbackFrameSrc={fallbackFrameSrc}
+          handleMoveStart={handleMoveStart}
+          handleResizeStart={handleResizeStart}
+          onCropOffsetChange={onCropOffsetChange}
+          onCropScaleChange={onCropScaleChange}
+          onLoadedMetadata={handleMetadata}
+          onTimeUpdate={onTimeUpdate}
+          onError={onError}
+          onPlay={onPlay}
+          onPause={onPause}
+          onEnded={onEnded}
+        />
       </div>
 
-      {/* Aspect Ratio Chooser — below canvas, right-aligned, no shadow bleed */}
+      {/* Aspect Ratio Chooser — below canvas, right-aligned */}
       <div
         style={{
           display: 'flex',

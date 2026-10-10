@@ -43,13 +43,38 @@ Alitken/
 │   └── src/
 │       ├── main.rs            # Application entry point
 │       ├── lib.rs             # Tauri builder, plugins, legacy folder migration, memory compaction & IPC registration
-│       ├── commands.rs        # Tauri IPC command dispatch layer (conversion, preview, window geometry, storage, WMF)
-│       ├── dependencies.rs    # Dependency status checker, binary cache & installer (%LOCALAPPDATA%\curlyzed\bin)
-│       ├── utils.rs           # Hidden process spawner (CREATE_NO_WINDOW), temp cache manager, logging, working set trimming
+│       ├── window.rs          # Win32 window geometry subclassing & constraints
 │       ├── gpu.rs             # Rust GPU detector (Win32 / FFmpeg dry-run with hidden processes)
-│       ├── image.rs           # Batch Image processing engine (Magick / FFmpeg conversions & scaling)
-│       ├── updater.rs         # Automated GitHub release updater & 1-click update executable swapper
 │       ├── win_integration.rs # Windows Shell integration (SendTo shortcut & Win11 Context Menu registry)
+│       ├── commands/          # Modularized Tauri IPC command handlers
+│       │   ├── mod.rs         # Re-exports all IPC command functions for lib.rs
+│       │   ├── media.rs       # Media probe, transcode, combine, split, frame extraction commands
+│       │   ├── system.rs      # Window geometry, subclassing, memory trim, shell openers
+│       │   ├── storage.rs     # Temp cache management, trimmer/extraction disk capacity validation
+│       │   ├── dependencies.rs # Binary status checks, downloads, engine updates, uninstallation
+│       │   ├── hardware.rs    # GPU capability detection & WMF support checks
+│       │   └── updater.rs     # In-app update checking and installer triggers
+│       ├── utils/             # System, path, logging and process utilities
+│       │   ├── mod.rs         # Utility exports
+│       │   ├── paths.rs       # App data roots, temp dirs, binary and log path resolution
+│       │   ├── system.rs      # Working set memory trimming, system probing, file reveal
+│       │   ├── cache.rs       # Temp cache disk usage calculation and purge helpers
+│       │   ├── logger.rs      # Application logging setup and log rotation
+│       │   └── process.rs     # Hidden process spawner (CREATE_NO_WINDOW)
+│       ├── dependencies/      # FFmpeg, FFprobe, and ImageMagick engine manager
+│       │   ├── mod.rs         # Engine status & installer exports
+│       │   ├── downloader.rs  # GitHub release binary download, extraction & verification
+│       │   ├── status.rs      # Binary existence & version validation in %LOCALAPPDATA%\curlyzed\bin
+│       │   └── uninstaller.rs # Safe binary uninstallation and PATH cleanup
+│       ├── updater/           # Automated GitHub release self-updater
+│       │   ├── mod.rs         # Updater exports
+│       │   ├── client.rs      # GitHub API release checker and manifest parser
+│       │   └── installer.rs   # In-place executable swapper and process restart
+│       ├── image/             # Batch image processing & PDF merge engine
+│       │   ├── mod.rs         # Image module exports
+│       │   ├── convert.rs     # ImageMagick batch image conversions & resizing
+│       │   ├── pdf.rs         # Image-to-PDF merging pipeline
+│       │   └── types.rs       # Image configuration and format types
 │       ├── wmf/               # Native Windows Media Foundation Frame Extractor & Filmstrip Engine
 │       │   └── mod.rs         # D3D11 / MF hardware transform frame seeking & base64 BMP generator
 │       └── ffmpeg/            # Modularized FFmpeg Execution & Telemetry Engine
@@ -59,42 +84,47 @@ Alitken/
 │           ├── process.rs     # Tokio process spawner with redirected stdout/stderr progress pipe
 │           ├── video/         # Modular video processing sub-pipelines
 │           │   ├── mod.rs     # Video sub-module router
-│           │   ├── combine.rs # Video concat / joiner pipeline
-│           │   ├── convert.rs # Transcoding & re-encoding pipeline
-│           │   ├── extract_frames.rs # Multi-frame extraction pipeline
+│           │   ├── combine/   # Video concat & lossless remux engine (mod.rs, pipeline.rs, compatibility.rs, audio.rs)
+│           │   ├── convert/   # Video transcode & segment splitter (mod.rs, split.rs, transcode.rs, args.rs)
+│           │   ├── extract_frames.rs # Multi-frame burst extraction pipeline
 │           │   ├── preview.rs # 3-Tier preview router & stream copy remuxer
-│           │   └── trim.rs    # Precision video trimmer & segment splitter
-│           └── image_to_video.rs # Image-to-Video Slideshow generator (transitions, audio overlay, FPS)
+│           │   └── trim.rs    # Precision video trimmer pipeline
+│           └── image_to_video/ # Image-to-Video Slideshow generator (mod.rs, demuxer.rs, pipe.rs)
 └── src/                       # Frontend (React 18 / Vite 6 + TypeScript 5.7 + Lucide React + Vanilla CSS)
     ├── index.html             # Borderless root with custom drag region
     ├── index.css              # Frosted glass, acrylic, dark/light theme design system
     ├── App.tsx                # Main view router, layout shell, and modal controller
+    ├── types/                 # Centralized domain types & interfaces
+    │   ├── index.ts           # Types barrel export
+    │   ├── queue.ts           # FileItem, SortOption, formatBitrate
+    │   ├── config.ts          # ConfigState, PRESET_HEIGHTS, PRESET_BITRATES
+    │   ├── progress.ts        # ProgressState telemetry models
+    │   ├── update.ts          # UpdateInfo, UpdateProgressPayload
+    │   └── media.ts           # FullMediaInfoPayload, AspectRatioOption, MediaMetadata
     ├── hooks/                 # Modular domain hooks (state, business logic & side-effects)
     │   ├── useAppTelemetry.ts # Telemetry, hardware probe, dependency status & download
     │   ├── useAppUpdates.ts   # In-app updater checks & installation
     │   ├── useMediaQueue.ts   # File queue, window expand/collapse transitions, validation, trimmer navigation
     │   ├── useMediaPipelines.ts # Batch conversion, split, combine, frame extraction & slideshow pipelines
     │   └── useNativeDragDrop.ts # OS-level native drag-and-drop listener via Tauri payload
-    ├── components/            # Domain-modular UI components
-    │   ├── Titlebar.tsx       # Custom borderless titlebar with window controls & branding
-    │   ├── WelcomeDropzone.tsx# Initial 1:1 startup dropzone view
-    │   ├── Dropzone.tsx       # Expanded multi-file queue & drag-drop area
-    │   ├── ConfigPanel.tsx    # Conversion configuration orchestrator
-    │   ├── VideoTrimmer.tsx   # Video trimmer workspace
-    │   ├── TimelineSlider.tsx # Interactive dual-handle timeline scrubber
-    │   ├── ProgressModal.tsx  # Modal with real-time conversion telemetry & percentage
-    │   ├── AboutModal.tsx     # Information modal with update checks & log access
-    │   ├── SettingsModal.tsx  # App settings modal
-    │   ├── FileLoadingOverlay.tsx # File queue import spinner & progress
-    │   ├── GlassSelect.tsx    # Glassmorphism dropdown selector
-    │   ├── video-config/      # Sub-components: ActionRail, Transcode, Split, Combine, ExtractFrames, OutputFolder
-    │   ├── image-config/      # Sub-components: FormatSelector, ScaleSelector, QualitySlider, VideoControls, PdfControls
-    │   ├── trimmer/           # Trimmer sub-components & StorageValidationModal
-    │   ├── modals/            # Specialized dialogs (e.g., LargeFrameWarningModal)
-    │   ├── banners/           # Status banners (ValidationErrorBanner, DependencyBanner)
-    │   └── settings/          # Settings sub-panels (SystemIntegration, TempCache, ThemeSettings)
-    ├── types/                 # Shared TypeScript interfaces (media.ts, updater.ts)
-    └── utils/                 # Utility functions (mediaType.ts, pathUtils.ts, folderUtils.ts, version.ts, timeUtils.ts)
+    ├── components/            # Domain-modular UI components (<250-300 lines each)
+    │   ├── ui/                # Shared UI primitives (GlassSelect.tsx, FileLoadingOverlay.tsx)
+    │   ├── titlebar/          # Borderless titlebar & controls (Titlebar.tsx, WindowControls.tsx, HardwareAccelPill.tsx, TitlebarBranding.tsx)
+    │   ├── welcome/           # Startup 1:1 view (WelcomeDropzone.tsx, WelcomeTrimmerCard.tsx)
+    │   ├── queue/             # File queue & reordering (Dropzone.tsx, QueueHeader.tsx, QueueFileList.tsx, QueueFileCard.tsx, QueueCardBadges.tsx, QueueCardActions.tsx, useQueueReorder.ts)
+    │   ├── config/            # Transcode configuration panel (ConfigPanel.tsx, useConfigPanelHandlers.ts, TrimmerActionBanner.tsx, BatchActionFooter.tsx, CollapsedConfigBar.tsx)
+    │   ├── video-config/      # Video sub-panels (TranscodeControls.tsx, CodecSelector.tsx, ResolutionSelector.tsx, BitrateSelector.tsx, AudioTrackControls.tsx, CombineControls.tsx, CombineCompatibilityBadge.tsx, CombineDurationCard.tsx, ExtractFramesControls.tsx, SplitControls.tsx, VideoActionRail.tsx, OutputFolderSection.tsx)
+    │   ├── image-config/      # Image sub-components (ImageConfigTab.tsx, FormatSelector, ScaleSelector, QualitySlider, VideoControls, PdfControls)
+    │   ├── trimmer/           # Lossless trimmer workspace (VideoTrimmer.tsx, VideoPlayerViewport.tsx, CropGuideLines.tsx, VideoCanvasRenderer.tsx, useCropInteraction.ts, AspectRatioSelector.tsx, TrimmerHeader.tsx, TrimmerPlaybackControls.tsx, TrimmerStatusBar.tsx, useTrimmerState.ts)
+    │   │   ├── timeline/      # Timeline scrubber (TimelineSlider.tsx, RangeHandles.tsx, FilmstripTrack.tsx, HoverTimeTooltip.tsx, useTimelineScrubber.ts, formatTime.ts)
+    │   │   └── modals/        # Media details & storage check dialogs (MediaDetailsModal.tsx, MediaDetailsToolbar.tsx, MediaSpecsVisualView.tsx, StorageValidationModal.tsx, StorageValidationBody.tsx)
+    │   ├── modals/            # Application dialogs (LargeFrameWarningModal.tsx)
+    │   │   ├── about/         # About dialog (AboutModal.tsx, AboutBrandingSection.tsx, AboutLinksGrid.tsx, HardwareInfoSection.tsx, UpdateCheckerSection.tsx)
+    │   │   └── progress/      # Progress dialog (ProgressModal.tsx, ProgressBarSection.tsx, ProgressTelemetrySection.tsx, ProgressActionsSection.tsx)
+    │   ├── settings/          # Settings sub-panels (SettingsModal.tsx, MediaEnginesSection.tsx, SystemIntegration, TempCache, ThemeSettings)
+    │   ├── banners/           # Notification banners (ValidationErrorBanner, DependencyBanner)
+    │   └── [Shims]            # Re-export shims at root component paths ensuring non-breaking caller imports
+    └── utils/                 # Pure domain utility functions (mediaType.ts, pathUtils.ts, folderUtils.ts, version.ts, trimmerUtils.ts, folderHistory.ts)
 ```
 
 ---
@@ -142,17 +172,18 @@ When designing, implementing, or auditing any code in the Alitken project, you M
    - Never implement speculative configurations, dead utility functions, or anticipatory hooks for unrequested features.
    - Prune dead code, unused props, and dangling imports immediately.
 3. **DRY (Don't Repeat Yourself)**:
-   - Centralize repeated logic in existing domain utilities (`src/utils/` for frontend, `src-tauri/src/utils.rs` for backend).
+   - Centralize repeated logic in existing domain utilities (`src/utils/` for frontend, `src-tauri/src/utils/` for backend).
    - Reuse existing CSS variables and glassmorphism classes from `src/index.css`.
    - Never duplicate version numbers or application branding; rely on the centralized version sync pipeline (`npm run version:sync` / `bump-version.ps1`).
 4. **Functional Modularity & Clean Component Architecture**:
    - Each component, hook, or module must have a single functional responsibility.
    - Decompose UI logic: UI presentation stays in components; complex state and asynchronous effects belong in dedicated custom hooks under `src/hooks/`.
-   - Backend logic: Keep `commands.rs` strictly as a dispatch layer; isolate actual media and process orchestration inside dedicated modules (`ffmpeg/`, `wmf/`, `gpu.rs`, `dependencies.rs`, `image.rs`, `utils.rs`).
-5. **Strict File Line Ceilings**:
+   - Backend logic: Keep `commands/` strictly as a dispatch layer; isolate actual media and process orchestration inside dedicated domain crates (`ffmpeg/`, `wmf/`, `gpu.rs`, `dependencies/`, `image/`, `utils/`, `updater/`).
+   - Preserve non-breaking backward compatibility by maintaining root re-export shims and `index.ts` / `mod.rs` barrel exports.
+5. **Strict File Line Ceilings & Zero Inflation**:
    - **Frontend Components & Hooks**: Ceiling of **250–300 lines** per file. If any file approaches this ceiling, break it into focused sub-components or extract state into custom hooks.
-   - **Backend Rust Modules**: Ceiling of **300–400 lines** per file. Functions must remain under **50–60 lines**. Complex routines must be broken into sub-modules (following the pattern of `src-tauri/src/ffmpeg/video/`).
-   - When modifying legacy files that exceed these ceilings, actively refactor and extract sub-components rather than appending new code.
+   - **Backend Rust Modules**: Ceiling of **300–400 lines** per file. Functions must remain under **50–60 lines**. Complex routines must be broken into sub-modules (following `src-tauri/src/ffmpeg/video/`).
+   - **Zero-Inflation Mandate**: Never append new code directly to coordinator shells (`Dropzone.tsx`, `VideoPlayerViewport.tsx`, `ConfigPanel.tsx`, etc.); implement new features in dedicated domain subcomponents.
 
 ---
 

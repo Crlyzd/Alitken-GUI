@@ -6,3 +6,4 @@ export * from './MediaEnginesSection';
 export * from './CacheStorageSection';
 export * from './WindowsIntegrationSection';
 export * from './SettingsFooter';
+export * from './SettingsModal';

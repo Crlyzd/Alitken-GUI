@@ -1,6 +1,12 @@
 export { VideoActionRail } from './VideoActionRail';
 export { CombineControls } from './CombineControls';
+export { CombineCompatibilityBadge } from './CombineCompatibilityBadge';
+export { CombineDurationCard } from './CombineDurationCard';
 export { ExtractFramesControls } from './ExtractFramesControls';
 export { SplitControls } from './SplitControls';
 export { TranscodeControls } from './TranscodeControls';
 export { OutputFolderSection } from './OutputFolderSection';
+export { CodecSelector } from './CodecSelector';
+export { ResolutionSelector } from './ResolutionSelector';
+export { BitrateSelector } from './BitrateSelector';
+export { AudioTrackControls } from './AudioTrackControls';

@@ -43,8 +43,6 @@ function Get-AppVersion {
     }
 }
 
-$AppVersion = Get-AppVersion
-
 # Clean up any residual Cargo release profile environment overrides
 function Reset-CargoProfileEnv {
     Get-ChildItem Env:CARGO_PROFILE_RELEASE_* -ErrorAction SilentlyContinue | Remove-Item -ErrorAction SilentlyContinue
@@ -177,7 +175,7 @@ function Invoke-GenerateMsixAssets {
 
         $sourceFrame = $decoder.Frames | Sort-Object PixelWidth -Descending | Select-Object -First 1
 
-        function Local-SaveAsset {
+        function Save-VisualAsset {
             param($CWidth, $CHeight, $IWidth, $IHeight, $FName)
             $group = [System.Windows.Media.DrawingGroup]::new()
             $dc = $group.Open()
@@ -206,11 +204,11 @@ function Invoke-GenerateMsixAssets {
             Write-Host "  [+] Generated: $FName ($CWidth x $CHeight)" -ForegroundColor Green
         }
 
-        Local-SaveAsset 50 50 50 50 "StoreLogo.png"
-        Local-SaveAsset 44 44 44 44 "Square44x44Logo.png"
-        Local-SaveAsset 150 150 150 150 "Square150x150Logo.png"
-        Local-SaveAsset 310 150 150 150 "Wide310x150Logo.png"
-        Local-SaveAsset 620 300 200 200 "SplashScreen.png"
+        Save-VisualAsset 50 50 50 50 "StoreLogo.png"
+        Save-VisualAsset 44 44 44 44 "Square44x44Logo.png"
+        Save-VisualAsset 150 150 150 150 "Square150x150Logo.png"
+        Save-VisualAsset 310 150 150 150 "Wide310x150Logo.png"
+        Save-VisualAsset 620 300 200 200 "SplashScreen.png"
 
         Write-Host ""
         Write-Host "[OK] All MSIX Visual Assets generated successfully in: $OutputDir" -ForegroundColor Green
@@ -229,7 +227,6 @@ function Invoke-VersionSync {
         [string]$TargetVersion
     )
 
-    $PackageJsonPath = Join-Path $ScriptDir "package.json"
     $TauriConfPath = Join-Path $ScriptDir "src-tauri\tauri.conf.json"
     $CargoTomlPath = Join-Path $ScriptDir "src-tauri\Cargo.toml"
     $IndexHtmlPath = Join-Path $ScriptDir "index.html"
@@ -361,7 +358,7 @@ function Invoke-BuildOrDev {
     param (
         [bool]$IsDev,
         [bool]$IsStoreDev,
-        [string]$Profile,
+        [string]$BuildProfile,
         [bool]$Interactive = $false
     )
 
@@ -394,7 +391,7 @@ function Invoke-BuildOrDev {
             Write-Host ""
             Write-Host "[OK] Tauri development session ended." -ForegroundColor Cyan
         } else {
-            if ($Profile -eq "Fast") {
+            if ($BuildProfile -eq "Fast") {
                 Write-Host "[2/3] Compiling Tauri Desktop Executable (Ultra-Fast Compilation Profile)..." -ForegroundColor White
                 Write-Host "NOTE: Zero LTO, 256 parallel codegen units, opt-level 1 for maximum build speed." -ForegroundColor DarkGray
 
@@ -404,7 +401,7 @@ function Invoke-BuildOrDev {
                 $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
                 $env:CARGO_PROFILE_RELEASE_STRIP = "false"
                 npm run tauri build
-            } elseif ($Profile -eq "Small") {
+            } elseif ($BuildProfile -eq "Small") {
                 Write-Host "[2/3] Compiling Tauri Desktop Executable (Ultra-Small LTO Profile)..." -ForegroundColor Green
                 Write-Host "NOTE: Full LLVM Link-Time Optimization enabled (~2-4 minute build)." -ForegroundColor DarkYellow
 
@@ -414,7 +411,7 @@ function Invoke-BuildOrDev {
                 $env:CARGO_PROFILE_RELEASE_PANIC = "abort"
                 $env:CARGO_PROFILE_RELEASE_STRIP = "true"
                 npm run tauri build
-            } elseif ($Profile -eq "Store") {
+            } elseif ($BuildProfile -eq "Store") {
                 Write-Host "[2/3] Compiling Tauri Desktop Executable (MS Store Release - Ultra-Small Profile)..." -ForegroundColor Blue
                 $env:CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
                 $env:CARGO_PROFILE_RELEASE_LTO = "true"
@@ -454,7 +451,7 @@ function Invoke-BuildOrDev {
             $ParentDir = Split-Path -Parent $ScriptDir
             $ParentExePath = Join-Path $ParentDir "Alitken.exe"
 
-            $OutputProfile = if ($Profile -eq "Store") { "MSStore" } else { $Profile }
+            $OutputProfile = if ($BuildProfile -eq "Store") { "MSStore" } else { $BuildProfile }
 
             if (Test-Path $ExePath) {
                 try {
@@ -495,7 +492,7 @@ function Invoke-BuildOrDev {
             Write-Host "==================================================" -ForegroundColor Green
             Write-Host "               BUILD SUCCESSFUL!                 " -ForegroundColor Green
             Write-Host "==================================================" -ForegroundColor Green
-            Write-Host "Profile Used:                 $Profile ($OutputProfile)" -ForegroundColor Yellow
+            Write-Host "Profile Used:                 $BuildProfile ($OutputProfile)" -ForegroundColor Yellow
             Write-Host "Releases Output Folder:       $ReleasesDir" -ForegroundColor Green
             Write-Host "Executable Location:          $ExePath" -ForegroundColor Cyan
 
@@ -584,7 +581,7 @@ function Invoke-ReleasePipeline {
         }
 
         # Helper to build NSIS target
-        function Local-BuildNsisTarget {
+        function Invoke-BuildNsisTarget {
             param($Target, $FlavorName, $OutputPrefix, $Features = "")
             Write-Host ""
             Write-Host "----------------------------------------------------" -ForegroundColor Green
@@ -615,7 +612,7 @@ function Invoke-ReleasePipeline {
         }
 
         # Helper to build MSIX Store target
-        function Local-BuildMsixTarget {
+        function Invoke-BuildMsixTarget {
             param($Target, $FlavorName, $OutputPrefix, $Features = "store-build")
             Write-Host ""
             Write-Host "----------------------------------------------------" -ForegroundColor Green
@@ -707,22 +704,22 @@ function Invoke-ReleasePipeline {
 
         # 1. GitHub Release (64)
         if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "github") {
-            Local-BuildNsisTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (64)" -OutputPrefix "Alitken_v${curVer}_GitHub_64"
+            Invoke-BuildNsisTarget -Target "x86_64-pc-windows-msvc" -FlavorName "GitHub Release (64)" -OutputPrefix "Alitken_v${curVer}_GitHub_64"
         }
 
         # 2. GitHub Release (ARM64)
         if ($isArm64 -and ($Scope -eq "all" -or $Scope -eq "arm64" -or $Scope -eq "github")) {
-            Local-BuildNsisTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_GitHub_ARM64"
+            Invoke-BuildNsisTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_GitHub_ARM64"
         }
 
         # 3. MS Store Build (64) -> .msix
         if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "store") {
-            Local-BuildMsixTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${curVer}_MSStore_64" -Features "store-build"
+            Invoke-BuildMsixTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${curVer}_MSStore_64" -Features "store-build"
         }
 
         # 4. MS Store Build (ARM64) -> .msix
         if ($isArm64 -and ($Scope -eq "all" -or $Scope -eq "arm64" -or $Scope -eq "store")) {
-            Local-BuildMsixTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_MSStore_ARM64" -Features "store-build"
+            Invoke-BuildMsixTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_MSStore_ARM64" -Features "store-build"
         }
 
         Write-Host ""
@@ -837,11 +834,11 @@ if ($IsInteractive) {
         }
 
         switch ($choice) {
-            "1" { Invoke-BuildOrDev -IsDev $true -IsStoreDev $false -Profile "Standard" -Interactive $true }
-            "2" { Invoke-BuildOrDev -IsDev $true -IsStoreDev $true -Profile "Store" -Interactive $true }
-            "3" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -Profile "Fast" -Interactive $true }
-            "4" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -Profile "Standard" -Interactive $true }
-            "5" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -Profile "Small" -Interactive $true }
+            "1" { Invoke-BuildOrDev -IsDev $true -IsStoreDev $false -BuildProfile "Standard" -Interactive $true }
+            "2" { Invoke-BuildOrDev -IsDev $true -IsStoreDev $true -BuildProfile "Store" -Interactive $true }
+            "3" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -BuildProfile "Fast" -Interactive $true }
+            "4" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -BuildProfile "Standard" -Interactive $true }
+            "5" { Invoke-BuildOrDev -IsDev $false -IsStoreDev $false -BuildProfile "Small" -Interactive $true }
             "6" { Invoke-ReleasePipeline -Scope "all" -SkipArm $SkipArm64 -Interactive $true }
             "7" { Invoke-ReleasePipeline -Scope "github" -SkipArm $SkipArm64 -Interactive $true }
             "8" { Invoke-ReleasePipeline -Scope "store" -SkipArm $SkipArm64 -Interactive $true }
@@ -863,7 +860,7 @@ if ($IsInteractive) {
                 Read-Host | Out-Null
             }
             default {
-                Invoke-BuildOrDev -IsDev $true -IsStoreDev $false -Profile "Standard" -Interactive $true
+                Invoke-BuildOrDev -IsDev $true -IsStoreDev $false -BuildProfile "Standard" -Interactive $true
             }
         }
     }
@@ -880,6 +877,6 @@ if ($IsInteractive) {
     } elseif (-not [string]::IsNullOrEmpty($ReleaseScope)) {
         Invoke-ReleasePipeline -Scope $ReleaseScope -SkipArm $SkipArm64 -Interactive $false
     } else {
-        Invoke-BuildOrDev -IsDev $Dev -IsStoreDev $StoreDev -Profile $BuildProfile -Interactive $false
+        Invoke-BuildOrDev -IsDev $Dev -IsStoreDev $StoreDev -BuildProfile $BuildProfile -Interactive $false
     }
 }

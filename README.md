@@ -65,10 +65,16 @@
 | **Custom Audio & Fade** | Complex multi-pass setup | Paid feature | Unsupported | **Built-in Song Track + Fades** |
 | **Hardware Acceleration** | Requires manual setup | Watermarked on free tier | Server-side throttled | **Auto NVIDIA / AMD / Intel** |
 | **Queue Error Resilience** | Crashes on bad files | Silent failure | Upload timeout | **Pre-flight 0B / Corrupt Filter** |
+| **Deep Stream Inspection** | External tools required | Basic info or paywalled | Unsupported | **Built-in MediaInfo (Specs + Text)** |
 
 ---
 
 ## 🌟 Core Capabilities
+
+### 🔬 MediaInfo-Grade Stream Inspector & Technical Diagnostics
+* **Workstation-Grade Telemetry**: Inspect deep stream properties directly in the trimmer—including video profile & level, chroma subsampling (4:2:0 / 4:2:2 / 4:4:4), color primaries, matrix coefficients, color range, bit depth (8/10/12-bit), audio channel layouts, and timecode tracks.
+* **Dual-View Frosted Modal**: Seamlessly toggle between structured Visual Specs cards and standard, monospaced MediaInfo text reports.
+* **1-Click Convenience**: Instantly copy full file paths, reveal files in Windows File Explorer, copy formatted technical reports, or export raw JSON metadata.
 
 ### ✂️ Instant Lossless Trimmer & Smart Transcode Guard
 * **Sub-Second Cutting**: Snip highlights from multi-hour screen recordings or movies instantly without touching video packets or dropping visual quality.
@@ -135,16 +141,19 @@
 +-------------------------------------------------------------------------+
 |                       ALITKEN ARCHITECTURE                              |
 +-------------------------------------------------------------------------+
-|  Frontend UI          React 18 • TypeScript • Tailwind/CSS Glass Tokens |
-|  Desktop Runtime      Tauri v2 • Windows DWM Mica/Acrylic Windowing     |
+|  Frontend UI          React 18 • TypeScript 5.7 • Vanilla CSS Glass     |
+|  Desktop Runtime      Tauri v2 • Win32 Subclassing (Borderless Mica)    |
 |  Native Core          Rust (2021 Edition) • Tokio Asynchronous Runtime  |
 |  Subprocess Engines   FFmpeg (GPLv3) • FFprobe • ImageMagick 7          |
 |  Hardware Decoders    VideoLAN libdav1d AV1 Engine (700+ FPS Decoding)  |
 |  Hardware Encoders    NVIDIA NVENC • AMD AMF • Intel QuickSync (QSV)    |
+|  Domain Architecture  Modular Subsystems • Strict Line Ceilings         |
 |  Memory Optimization  Windows Working-Set Compaction • V8 Heap Limiting |
 +-------------------------------------------------------------------------+
 ```
 
+* **True Borderless Frame Compositing**: Native Win32 window subclassing (`WS_THICKFRAME`) suppresses edge resizing during startup mode and permanently removes the Desktop Window Manager (DWM) 1px border stroke.
+* **Modular Domain Architecture**: Both frontend components (< 250–300 LOC) and backend Rust modules (< 300–400 LOC) follow domain-driven isolation with zero monolithic bloat.
 * **Zero-Leak Memory Profile**: Working-set memory compaction (`EmptyWorkingSet`) executes automatically post-launch and following heavy batch pipelines, holding RAM footprints tight.
 * **Blink/V8 Guardrails**: Strict 128 MB V8 heap boundaries and explicit HTML5 video DOM unmount cleanup eliminate media player memory leaks.
 * **Subprocess Safety**: All background child process trees (FFmpeg/Magick) are attached to cancellation tokens for clean, zero-zombie shutdown on exit or cancel.
@@ -157,8 +166,25 @@
 * **Supported Video Inputs**: `.mp4`, `.mkv`, `.webm`, `.mov`, `.avi`, `.wmv`, `.m4v`, `.flv`, `.ts`, `.mts`, `.m2ts`, `.3gp`, `.mxf`
 * **Video Output Targets**: `.mp4` (H.264 / HEVC), `.mkv` (AV1), or original container (Lossless Cut)
 * **Soundtrack & Audio Tracks**: `.mp3`, `.aac`, `.wav`, `.m4a`, `.flac` *(used for background music replacement & video audio muxing)*
-* **Supported Image Inputs**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.tiff`, `.heic`, plus Camera RAW (`.dng`, `.cr2`, `.cr3`, `.nef`, `.arw`)
+* **Supported Image Inputs (52 Formats)**:
+  * **Standard & Modern**: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.tiff`, `.heic`, `.heif`, `.avif`, `.jxl`, `.qoi`
+  * **Creative & Vector**: Photoshop (`.psd`, `.psb` flattened composite export), Vector (`.svg`, `.svgz`), GIMP (`.xcf`), Icons (`.ico`, `.cur`)
+  * **Gaming & VFX**: `.dds`, `.tga`, Pixel art (`.ase`, `.aseprite`), OpenEXR (`.exr`), Radiance HDR (`.hdr`)
+  * **Archival & Camera RAW**: `.dng`, `.cr2`, `.cr3`, `.nef`, `.arw`, `.orf`, `.rw2`, `.pef`, `.raf`, `.fff`, `.dcr`, `.kdc`, `.k25`, `.erf`, `.srw`, `.mrw`, `.mef`, `.mos`, `.3fr`, `.raw`, `.x3f`
 * **Image Output Targets**: `.png`, `.jpg`, `.webp`, `.pdf` (single/multi-page merge), or `.mp4` (Slideshow/Sequence)
+
+---
+
+## 🛠️ Developer Toolchain (`build.ps1`)
+
+Alitken provides a consolidated PowerShell dashboard for local development, asset generation, versioning, and multi-target release compilation:
+
+```powershell
+.\build.ps1                   # Launch interactive 11-option developer dashboard
+.\build.ps1 -Dev              # Start Vite + Tauri development server with persistent session
+.\build.ps1 -ReleaseScope all # Build full multi-target portable release binaries
+.\build.ps1 -Bump minor       # Synchronize semantic version across manifests
+```
 
 ---
 

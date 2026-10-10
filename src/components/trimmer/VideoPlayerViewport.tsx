@@ -608,7 +608,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
                 maxWidth: '100%',
               }}
             >
-              Preparing 60 FPS Live Preview...
+              Preparing Live Preview...
             </span>
           </div>
         )}

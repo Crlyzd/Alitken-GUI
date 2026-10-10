@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Sparkles, Film, Clock, HardDrive, Activity } from 'lucide-react';
+import { ArrowLeft, Film, Clock, HardDrive, Activity } from 'lucide-react';
 import { FileItem, formatBitrate } from '../Dropzone';
 import { formatTimeWithMs } from '../TimelineSlider';
 
@@ -74,23 +74,6 @@ export const TrimmerHeader: React.FC<TrimmerHeaderProps> = ({ file, onSaveAndBac
 
       {/* Metadata Badges */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '3px 8px',
-            borderRadius: '6px',
-            background: 'rgba(6, 182, 212, 0.12)',
-            border: '1px solid rgba(6, 182, 212, 0.3)',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: 'var(--accent-cyan)',
-          }}
-        >
-          <Sparkles size={11} /> 60 FPS Live Preview
-        </span>
-
         {file.resolution && (
           <span
             style={{

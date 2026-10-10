@@ -240,6 +240,19 @@ pub async fn download_ffmpeg_dependencies<R: tauri::Runtime>(
     }
     drop(file);
 
+    if crate::utils::check_cancel_flag() {
+        let _ = fs::remove_file(&zip_path);
+        return Err("Download aborted by user.".to_string());
+    }
+
+    if total_size > 0 && downloaded < total_size {
+        let _ = fs::remove_file(&zip_path);
+        return Err(format!(
+            "Download incomplete: received {} of {} bytes.",
+            downloaded, total_size
+        ));
+    }
+
     let _ = app.emit(
         "download-progress",
         DownloadProgressPayload {
@@ -439,6 +452,19 @@ pub async fn download_magick_dependencies<R: tauri::Runtime>(
         return Err(format!("Flush error: {}", e));
     }
     drop(file);
+
+    if crate::utils::check_cancel_flag() {
+        let _ = fs::remove_file(&archive_path);
+        return Err("Download aborted by user.".to_string());
+    }
+
+    if total_size > 0 && downloaded < total_size {
+        let _ = fs::remove_file(&archive_path);
+        return Err(format!(
+            "Download incomplete: received {} of {} bytes.",
+            downloaded, total_size
+        ));
+    }
 
     let _ = app.emit(
         "download-progress",

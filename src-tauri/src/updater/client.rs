@@ -125,7 +125,48 @@ pub fn resolve_target_asset(assets: &[GitHubAsset], target_arch: &str) -> Option
     None
 }
 
-/// Queries GitHub releases API to check for newer Alitken release
+async fn check_fallback_web_release(
+    client: &reqwest::Client,
+    current_version: &str,
+    is_store_build: bool,
+) -> Result<UpdateInfo, String> {
+    let web_url = "https://github.com/Crlyzd/Alitken-GUI/releases/latest";
+    let res = client
+        .get(web_url)
+        .send()
+        .await
+        .map_err(|e| format!("Web releases check failed: {}", e))?;
+
+    let final_url = res.url().to_string();
+    let tag = final_url
+        .rsplit('/')
+        .next()
+        .filter(|t| t.starts_with('v') || t.contains('.'))
+        .ok_or_else(|| "Could not determine release tag from web redirect".to_string())?
+        .to_string();
+
+    let latest_version = tag.trim_start_matches('v').to_string();
+    let available = is_version_newer(current_version, &latest_version);
+
+    let target_arch = get_target_arch();
+    let arch_token = if target_arch == "arm64" { "ARM64" } else { "64" };
+    let download_url = format!(
+        "https://github.com/Crlyzd/Alitken-GUI/releases/download/{}/Alitken_{}_GitHub_{}-Portable.exe",
+        tag, tag, arch_token
+    );
+
+    Ok(UpdateInfo {
+        available,
+        is_store_build,
+        current_version: current_version.to_string(),
+        latest_version,
+        download_url,
+        release_notes_url: final_url,
+        release_name: format!("Alitken {}", tag),
+    })
+}
+
+/// Queries GitHub releases API to check for newer Alitken release, with web redirect fallback
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     let is_store_build = cfg!(feature = "store-build");
@@ -142,8 +183,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
         });
     }
 
-    let repo_url = "https://api.github.com/repos/kaleksanan/Alitken-GUI/releases/latest";
-    let fallback_repo_url = "https://api.github.com/repos/Crlyzd/Alitken-GUI/releases/latest";
+    let repo_url = "https://api.github.com/repos/Crlyzd/Alitken-GUI/releases/latest";
 
     let client = reqwest::Client::builder()
         .user_agent("Alitken-Media-Converter-Updater")
@@ -151,55 +191,57 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
-    let res = match client.get(repo_url).send().await {
-        Ok(r) if r.status().is_success() => Some(r),
-        _ => match client.get(fallback_repo_url).send().await {
-            Ok(r) if r.status().is_success() => Some(r),
-            _ => None,
-        },
-    };
+    let api_res = client.get(repo_url).send().await;
 
-    let response = match res {
-        Some(r) => r,
-        None => {
-            return Ok(UpdateInfo {
-                available: false,
+    match api_res {
+        Ok(res) if res.status().is_success() => {
+            let release: GitHubRelease = res
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse GitHub release JSON: {}", e))?;
+
+            let latest_version = release.tag_name.trim_start_matches('v').to_string();
+            let available = is_version_newer(&current_version, &latest_version);
+
+            let target_arch = get_target_arch();
+            let mut download_url = resolve_target_asset(&release.assets, target_arch).unwrap_or_default();
+
+            if download_url.is_empty() {
+                download_url = release.html_url.clone();
+            }
+
+            let release_name = release.name.unwrap_or_else(|| release.tag_name.clone());
+
+            Ok(UpdateInfo {
+                available,
                 is_store_build,
-                current_version: current_version.clone(),
-                latest_version: current_version,
-                download_url: String::new(),
-                release_notes_url: String::new(),
-                release_name: String::new(),
-            });
+                current_version,
+                latest_version,
+                download_url,
+                release_notes_url: release.html_url,
+                release_name,
+            })
         }
-    };
-
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse GitHub release JSON: {}", e))?;
-
-    let latest_version = release.tag_name.trim_start_matches('v').to_string();
-    let available = is_version_newer(&current_version, &latest_version);
-
-    let target_arch = get_target_arch();
-    let mut download_url = resolve_target_asset(&release.assets, target_arch).unwrap_or_default();
-
-    if download_url.is_empty() {
-        download_url = release.html_url.clone();
+        Ok(res) if res.status() == reqwest::StatusCode::FORBIDDEN => {
+            // API rate limited (60 req/hr). Attempt web redirect fallback (not subject to API quota).
+            check_fallback_web_release(&client, &current_version, is_store_build).await.map_err(|_| {
+                "GitHub API rate limit exceeded. Please try again later or check releases manually in browser.".to_string()
+            })
+        }
+        err => {
+            // Try web redirect fallback before reporting network failure
+            match check_fallback_web_release(&client, &current_version, is_store_build).await {
+                Ok(info) => Ok(info),
+                Err(_) => {
+                    let err_detail = match err {
+                        Ok(r) => format!("Server returned HTTP {}", r.status()),
+                        Err(e) => format!("Network error: {}", e),
+                    };
+                    Err(format!("Could not connect to update server ({}). Please check your internet connection.", err_detail))
+                }
+            }
+        }
     }
-
-    let release_name = release.name.unwrap_or_else(|| release.tag_name.clone());
-
-    Ok(UpdateInfo {
-        available,
-        is_store_build,
-        current_version,
-        latest_version,
-        download_url,
-        release_notes_url: release.html_url,
-        release_name,
-    })
 }
 
 #[cfg(test)]

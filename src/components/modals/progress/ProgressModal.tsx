@@ -106,17 +106,19 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
           </button>
         )}
 
-        <ProgressTelemetrySection
-          progress={progress}
-          isDownload={isDownload}
-          isAborted={isAborted}
-          completedCount={completedCount}
-          isSingleOutput={isSingleOutput}
-          isFileMissing={isFileMissing}
-        />
-
         {!showConfirmCancel && (
-          <ProgressBarSection progress={progress} isDownload={isDownload} />
+          <>
+            <ProgressTelemetrySection
+              progress={progress}
+              isDownload={isDownload}
+              isAborted={isAborted}
+              completedCount={completedCount}
+              isSingleOutput={isSingleOutput}
+              isFileMissing={isFileMissing}
+            />
+
+            <ProgressBarSection progress={progress} isDownload={isDownload} />
+          </>
         )}
 
         <ProgressActionsSection

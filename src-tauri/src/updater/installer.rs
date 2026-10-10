@@ -36,6 +36,8 @@ pub async fn download_and_install_update(
     window: Window,
     download_url: String,
 ) -> Result<(), String> {
+    crate::utils::reset_cancel_flag();
+
     let current_exe = env::current_exe().map_err(|e| format!("Failed to resolve current exe: {}", e))?;
     let exe_dir = current_exe
         .parent()
@@ -44,10 +46,16 @@ pub async fn download_and_install_update(
     let tmp_exe = exe_dir.join("ALITKEN.exe.tmp");
     let old_exe = exe_dir.join("ALITKEN.exe.old");
 
+    if tmp_exe.exists() {
+        let _ = fs::remove_file(&tmp_exe);
+    }
+
     crate::utils::log_info(&format!("Downloading update from URL: {}", download_url));
 
     let client = reqwest::Client::builder()
         .user_agent("Alitken-Media-Converter-Updater")
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
@@ -74,10 +82,26 @@ pub async fn download_and_install_update(
     let mut last_emit = Instant::now();
 
     while let Some(chunk_res) = stream.next().await {
-        let chunk = chunk_res.map_err(|e| format!("Error downloading chunk: {}", e))?;
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Failed to write update chunk: {}", e))?;
+        if crate::utils::check_cancel_flag() {
+            drop(file);
+            let _ = fs::remove_file(&tmp_exe);
+            return Err("Update download canceled by user.".to_string());
+        }
+
+        let chunk = match chunk_res {
+            Ok(c) => c,
+            Err(e) => {
+                drop(file);
+                let _ = fs::remove_file(&tmp_exe);
+                return Err(format!("Error downloading chunk: {}", e));
+            }
+        };
+
+        if let Err(e) = file.write_all(&chunk).await {
+            drop(file);
+            let _ = fs::remove_file(&tmp_exe);
+            return Err(format!("Failed to write update chunk: {}", e));
+        }
 
         downloaded += chunk.len() as u64;
 
@@ -122,8 +146,25 @@ pub async fn download_and_install_update(
         }
     }
 
-    file.flush().await.map_err(|e| format!("Failed to flush binary file: {}", e))?;
+    if let Err(e) = file.flush().await {
+        drop(file);
+        let _ = fs::remove_file(&tmp_exe);
+        return Err(format!("Failed to flush binary file: {}", e));
+    }
     drop(file);
+
+    if crate::utils::check_cancel_flag() {
+        let _ = fs::remove_file(&tmp_exe);
+        return Err("Update download canceled by user.".to_string());
+    }
+
+    if total_size > 0 && downloaded < total_size {
+        let _ = fs::remove_file(&tmp_exe);
+        return Err(format!(
+            "Download incomplete: received {} of {} bytes.",
+            downloaded, total_size
+        ));
+    }
 
     let _ = window.emit(
         "update-progress",

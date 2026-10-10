@@ -87,6 +87,7 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
         totalParts: 1,
         status: 'Connecting...',
         completed: false,
+        error: undefined,
       });
 
       try {
@@ -107,11 +108,14 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
               : 'Portable binaries installed successfully!',
         }));
       } catch (err: any) {
+        const errMsg = err?.toString() || 'Download failed';
+        const isCanceled = errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('abort');
         setProgress((prev) => ({
           ...prev,
           type: 'download',
           isProcessing: false,
-          error: err.toString(),
+          completed: false,
+          error: isCanceled ? 'Operation cancelled by user.' : errMsg,
         }));
       } finally {
         setIsDownloadingDeps(false);
@@ -129,6 +133,8 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
         ...prev,
         type: 'conversion',
         isProcessing: true,
+        completed: false,
+        error: undefined,
         currentFile: payload.current_file,
         fileIndex: payload.file_index,
         totalFiles: payload.total_files,
@@ -145,6 +151,8 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
         ...prev,
         type: 'conversion',
         isProcessing: true,
+        completed: false,
+        error: undefined,
         currentFile: payload.current_file,
         fileIndex: payload.file_index,
         totalFiles: payload.total_files,
@@ -157,23 +165,30 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
 
     const unlistenDownload = listen('download-progress', (event: any) => {
       const payload = event.payload;
-      setProgress((prev) => ({
-        ...prev,
-        type: 'download',
-        isProcessing: true,
-        currentFile: payload.status,
-        fileIndex: payload.current_step || 1,
-        totalFiles: payload.total_steps || 1,
-        percent: payload.percent,
-        currentPart: 1,
-        totalParts: 1,
-        status:
-          payload.speed_mbps > 0
-            ? `${payload.downloaded_mb.toFixed(1)} MB / ${
-                payload.total_mb > 0 ? payload.total_mb.toFixed(1) + ' MB' : '?? MB'
-              } (${payload.speed_mbps.toFixed(1)} MB/s)`
-            : payload.status,
-      }));
+      setProgress((prev) => {
+        if (prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'))) {
+          return prev;
+        }
+        return {
+          ...prev,
+          type: 'download',
+          isProcessing: true,
+          completed: false,
+          error: undefined,
+          currentFile: payload.status,
+          fileIndex: payload.current_step || 1,
+          totalFiles: payload.total_steps || 1,
+          percent: typeof payload.percent === 'number' ? payload.percent : prev.percent,
+          currentPart: 1,
+          totalParts: 1,
+          status:
+            payload.speed_mbps > 0
+              ? `${payload.downloaded_mb.toFixed(1)} MB / ${
+                  payload.total_mb > 0 ? payload.total_mb.toFixed(1) + ' MB' : '?? MB'
+                } (${payload.speed_mbps.toFixed(1)} MB/s)`
+              : payload.status,
+        };
+      });
     });
 
     const unlistenProbeProgress = listen('file-probe-progress', (event: any) => {

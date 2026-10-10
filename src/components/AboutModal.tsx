@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Heart, Coffee, ExternalLink, Folder, Bug, Cpu, Zap, RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ArrowUpCircle } from 'lucide-react';
+import { X, Heart, Coffee, ExternalLink, Folder, Bug, Cpu, Zap, RefreshCw, Download, CheckCircle2, AlertCircle, Loader2, ArrowUpCircle, Globe, Github } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import { APP_VERSION, APP_VERSION_TITLE } from '../utils/version';
@@ -459,7 +459,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
               <span>{updateError}</span>
             </div>
             <button
-              onClick={() => handleOpenLink('https://github.com/kaleksanan/Alitken-GUI/releases')}
+              onClick={() => handleOpenLink('https://github.com/Crlyzd/Alitken-GUI/releases')}
               style={{
                 background: 'rgba(244, 63, 94, 0.12)',
                 border: '1px solid rgba(244, 63, 94, 0.3)',
@@ -476,13 +476,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({
           </div>
         )}
 
-        {/* Action Utility Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        {/* Action & Resource Grid (2x2) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <button
-            onClick={() => handleOpenLink('https://forms.gle/rvASPHTJc9f9R24g8')}
+            onClick={() => handleOpenLink('https://alitken.kaleksananbagus.com/')}
             style={{
-              flex: 1,
-              padding: '7px 12px',
+              padding: '7px 10px',
               borderRadius: '8px',
               border: '1px solid var(--border-glass)',
               background: 'var(--bg-glass-card)',
@@ -498,15 +497,69 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-glass-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-glass-card)')}
+            title="Visit Official Website"
+          >
+            <Globe size={13} color="var(--accent-cyan)" />
+            <span>Website</span>
+            <ExternalLink size={9} style={{ opacity: 0.65, marginLeft: '1px' }} />
+          </button>
+
+          <button
+            onClick={() => handleOpenLink('https://github.com/Crlyzd/Alitken-GUI')}
+            style={{
+              padding: '7px 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-glass)',
+              background: 'var(--bg-glass-card)',
+              color: 'var(--text-main)',
+              fontSize: '11.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-glass-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-glass-card)')}
+            title="Visit GitHub Repository"
+          >
+            <Github size={13} />
+            <span>GitHub Repo</span>
+            <ExternalLink size={9} style={{ opacity: 0.65, marginLeft: '1px' }} />
+          </button>
+
+          <button
+            onClick={() => handleOpenLink('https://forms.gle/rvASPHTJc9f9R24g8')}
+            style={{
+              padding: '7px 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-glass)',
+              background: 'var(--bg-glass-card)',
+              color: 'var(--text-main)',
+              fontSize: '11.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-glass-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-glass-card)')}
+            title="Report Bug / Request Feature"
           >
             <Bug size={13} color="#f59e0b" />
-            <span>Report Bug / Request Feature</span>
+            <span>Report Bug</span>
+            <ExternalLink size={9} style={{ opacity: 0.65, marginLeft: '1px' }} />
           </button>
 
           <button
             onClick={handleOpenLogFolder}
             style={{
-              padding: '7px 12px',
+              padding: '7px 10px',
               borderRadius: '8px',
               border: '1px solid var(--border-glass)',
               background: 'var(--bg-glass-card)',

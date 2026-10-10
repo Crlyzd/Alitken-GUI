@@ -151,7 +151,7 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
                     title="Open AppData folder in Windows File Explorer"
                   >
                     AppData
-                  </span>. Click uninstall to delete all binaries, logs, and AppData folder.
+                  </span>. Click uninstall to remove FFmpeg, ImageMagick, and Alitken logs.
                 </div>
               </>
             );

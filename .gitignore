@@ -26,10 +26,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Agent Customizations (Local only)
-.agents/
-AGENTS.md
-GEMINI.md
+# Agent Customizations (Local root files only)
+/AGENTS.md
+/GEMINI.md
 
 # Temporary test files & auxiliary build targets
 src-tauri/test_*

@@ -6,9 +6,11 @@ mod image;
 mod updater;
 mod utils;
 mod win_integration;
+mod window;
 mod wmf;
 
 use commands::*;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,7 +19,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .setup(|_app| {
+        .setup(|app| {
+            // Enforce startup 500x500 clamp and install Win32 subclassing for edge hit-test suppression
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.set_min_size(Some(tauri::LogicalSize::new(500u32, 500u32)));
+                let _ = main_window.set_max_size(Some(tauri::LogicalSize::new(500u32, 500u32)));
+                window::install_window_subclass(&main_window.as_ref().window());
+            }
+
             // Migrate any legacy %LOCALAPPDATA%\Alitken folder to shared %LOCALAPPDATA%\curlyzed
             utils::migrate_legacy_alitken_folder();
             // Clean up lingering ALITKEN.exe.old from previous 1-click update

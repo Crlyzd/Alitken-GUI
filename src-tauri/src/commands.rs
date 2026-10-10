@@ -654,45 +654,55 @@ pub fn set_always_on_top(window: tauri::Window, always_on_top: bool) -> Result<(
 }
 
 
-/// Expands the fixed startup window (500×500, non-resizable) into the full
-/// working state (1060×720, resizable, min 1040×700). Called from the frontend
-/// exactly once — when the first file batch is loaded via handleAddFiles.
-/// Window expands in-place; position is NOT changed so the user's placement
-/// is respected.
+/// Expands the fixed startup window (500×500) into the full working state
+/// (1060×720, resizable, min 1040×700). Called from the frontend exactly once
+/// when the first file batch is loaded via handleAddFiles.
 #[tauri::command]
 pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
-    // 1. Re-enable resize FIRST so min_size and set_size take effect.
-    window.set_resizable(true).map_err(|e| e.to_string())?;
-    // 2. Apply working-state minimum constraints to prevent control wrapping.
+    // 1. Unlock startup edge hit-test suppression so user can resize working window
+    crate::window::set_startup_resize_locked(&window, false);
+    // 2. Clear startup ceiling constraint
+    window
+        .set_max_size(None::<LogicalSize<u32>>)
+        .map_err(|e| e.to_string())?;
+    // 3. Apply working-state minimum constraints to prevent control wrapping
     window
         .set_min_size(Some(LogicalSize::new(1040u32, 700u32)))
         .map_err(|e| e.to_string())?;
-    // 3. Expand to the full working dimensions in-place.
+    // 4. Expand to the full working dimensions in-place
     window
         .set_size(LogicalSize::new(1060u32, 720u32))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
 
-/// Collapses the working window back to the fixed 1:1 startup state (500×500, non-resizable).
+/// Collapses the working window back to the fixed 1:1 startup state (500×500).
 /// Called from the frontend when the file queue is cleared (via "Clear All" or last-file removal).
-/// Ordering is critical: disable resize → clear min-size → apply startup size,
-/// otherwise Tauri clamps the new size to the existing floor.
 #[tauri::command]
 pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
-    // 1. Lock resize FIRST so the window can shrink below the working min-size.
-    window.set_resizable(false).map_err(|e| e.to_string())?;
-    // 2. Clear the working-state minimum constraints.
+    // 1. Clear working constraints so the window can shrink below 1040x700
     window
         .set_min_size(None::<LogicalSize<u32>>)
         .map_err(|e| e.to_string())?;
-    // 3. Restore fixed 1:1 startup dimensions (500x500).
+    window
+        .set_max_size(None::<LogicalSize<u32>>)
+        .map_err(|e| e.to_string())?;
+    // 2. Restore fixed 1:1 startup dimensions (500x500)
     window
         .set_size(LogicalSize::new(500u32, 500u32))
         .map_err(|e| e.to_string())?;
-    // 4. Reclaim memory after returning to idle startup state.
+    // 3. Clamp startup floor & ceiling to 500x500
+    window
+        .set_min_size(Some(LogicalSize::new(500u32, 500u32)))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_max_size(Some(LogicalSize::new(500u32, 500u32)))
+        .map_err(|e| e.to_string())?;
+    // 4. Lock edge hit-test suppression (prevents resize cursor on edges/top)
+    crate::window::set_startup_resize_locked(&window, true);
+    // 5. Reclaim memory after returning to idle startup state
     utils::trim_working_set();
     Ok(())
 }

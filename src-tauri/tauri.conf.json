@@ -15,7 +15,7 @@
         "title": "ALITKEN v0.8.4",
         "width": 500,
         "height": 500,
-        "resizable": false,
+        "resizable": true,
         "decorations": false,
         "transparent": true,
         "shadow": true,

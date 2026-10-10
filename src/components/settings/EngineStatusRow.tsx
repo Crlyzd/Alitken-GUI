@@ -13,6 +13,7 @@ interface EngineStatusRowProps {
   minVersionLabel: string;
   defaultLatestVersion: string;
   theme: 'dark' | 'light';
+  missingComponent?: string;
   onBadgeClick: () => void;
 }
 
@@ -27,12 +28,15 @@ export const EngineStatusRow: React.FC<EngineStatusRowProps> = ({
   minVersionLabel,
   defaultLatestVersion,
   theme,
+  missingComponent,
   onBadgeClick,
 }) => {
-  const isActionable = !exists || !valid || hasUpdate;
+  const isActionable = !exists || !valid || Boolean(missingComponent) || hasUpdate;
 
   const tooltipTitle = !exists
     ? `Click to download and install ${engineName} binary`
+    : missingComponent
+    ? `Missing ${missingComponent} binary in AppData. Click to repair ${engineName} suite.`
     : hasUpdate
     ? `Click to download & install ${engineName} v${formatEngineVersion(latestVersion || defaultLatestVersion)} update`
     : valid
@@ -41,11 +45,79 @@ export const EngineStatusRow: React.FC<EngineStatusRowProps> = ({
 
   const badgeText = !exists
     ? 'Not Installed'
+    : missingComponent
+    ? `Missing ${missingComponent}`
     : !valid
     ? `Outdated (< ${minVersionLabel})`
     : hasUpdate
     ? `Update → v${formatEngineVersion(latestVersion || defaultLatestVersion)}`
     : `Valid (≥ ${minVersionLabel})`;
+
+  const badgeBg = missingComponent
+    ? theme === 'light'
+      ? 'rgba(245, 158, 11, 0.12)'
+      : 'rgba(245, 158, 11, 0.18)'
+    : valid
+    ? hasUpdate
+      ? 'var(--warning-bg)'
+      : theme === 'light'
+      ? 'rgba(16, 185, 129, 0.12)'
+      : 'rgba(16, 185, 129, 0.15)'
+    : theme === 'light'
+    ? 'rgba(244, 63, 94, 0.12)'
+    : 'rgba(244, 63, 94, 0.15)';
+
+  const badgeColor = missingComponent
+    ? theme === 'light'
+      ? '#b45309'
+      : '#fbbf24'
+    : valid
+    ? hasUpdate
+      ? 'var(--warning-text)'
+      : theme === 'light'
+      ? '#047857'
+      : '#34d399'
+    : theme === 'light'
+    ? '#e11d48'
+    : '#fb7185';
+
+  const badgeBorder = missingComponent
+    ? theme === 'light'
+      ? '1px solid rgba(245, 158, 11, 0.35)'
+      : '1px solid rgba(245, 158, 11, 0.3)'
+    : valid
+    ? hasUpdate
+      ? '1px solid var(--warning-border)'
+      : theme === 'light'
+      ? '1px solid rgba(16, 185, 129, 0.35)'
+      : '1px solid rgba(16, 185, 129, 0.3)'
+    : theme === 'light'
+    ? '1px solid rgba(244, 63, 94, 0.35)'
+    : '1px solid rgba(244, 63, 94, 0.3)';
+
+  const dotColor = missingComponent
+    ? theme === 'light'
+      ? '#b45309'
+      : '#fbbf24'
+    : valid
+    ? hasUpdate
+      ? theme === 'light'
+        ? '#b45309'
+        : '#fbbf24'
+      : '#10b981'
+    : '#f43f5e';
+
+  const dotShadow = missingComponent
+    ? theme === 'light'
+      ? '0 0 6px rgba(180, 83, 9, 0.7)'
+      : '0 0 6px rgba(251, 191, 36, 0.9)'
+    : valid
+    ? hasUpdate
+      ? theme === 'light'
+        ? '0 0 6px rgba(180, 83, 9, 0.7)'
+        : '0 0 6px rgba(251, 191, 36, 0.9)'
+      : '0 0 6px rgba(16, 185, 129, 0.8)'
+    : '0 0 6px rgba(244, 63, 94, 0.8)';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', minWidth: 0 }}>
@@ -89,23 +161,9 @@ export const EngineStatusRow: React.FC<EngineStatusRowProps> = ({
             cursor: isActionable ? 'pointer' : 'default',
             userSelect: 'none',
             transition: 'all 0.2s ease',
-            background: valid
-              ? (hasUpdate
-                ? 'var(--warning-bg)'
-                : (theme === 'light' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.15)'))
-              : (theme === 'light' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(244, 63, 94, 0.15)'),
-            color: valid
-              ? (hasUpdate
-                ? 'var(--warning-text)'
-                : (theme === 'light' ? '#047857' : '#34d399'))
-              : (theme === 'light' ? '#e11d48' : '#fb7185'),
-            border: `1px solid ${
-              valid
-                ? (hasUpdate
-                  ? 'var(--warning-border)'
-                  : (theme === 'light' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.3)'))
-                : (theme === 'light' ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.3)')
-            }`,
+            background: badgeBg,
+            color: badgeColor,
+            border: badgeBorder,
           }}
         >
           <span
@@ -114,14 +172,8 @@ export const EngineStatusRow: React.FC<EngineStatusRowProps> = ({
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              backgroundColor: valid
-                ? (hasUpdate ? (theme === 'light' ? '#b45309' : '#fbbf24') : '#10b981')
-                : '#f43f5e',
-              boxShadow: valid
-                ? (hasUpdate
-                  ? (theme === 'light' ? '0 0 6px rgba(180, 83, 9, 0.7)' : '0 0 6px rgba(251, 191, 36, 0.9)')
-                  : '0 0 6px rgba(16, 185, 129, 0.8)')
-                : '0 0 6px rgba(244, 63, 94, 0.8)',
+              backgroundColor: dotColor,
+              boxShadow: dotShadow,
               display: 'inline-block',
               flexShrink: 0,
             }}

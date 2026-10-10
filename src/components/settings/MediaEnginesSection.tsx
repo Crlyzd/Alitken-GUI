@@ -24,8 +24,16 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
   handleUninstallDeps,
   handleOpenAppDataFolder,
 }) => {
+  const ffmpegMissingComponent =
+    deps?.ffmpeg_exists && !deps?.ffprobe_exists
+      ? 'ffprobe'
+      : !deps?.ffmpeg_exists && deps?.ffprobe_exists
+      ? 'ffmpeg'
+      : undefined;
+
   const isAllInstalledAndValid =
     deps?.ffmpeg_exists &&
+    deps?.ffprobe_exists &&
     deps?.magick_exists &&
     deps?.ffmpeg_valid &&
     deps?.magick_valid &&
@@ -35,7 +43,8 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
   const isAnyOutdated =
     deps?.has_update ||
     deps?.magick_has_update ||
-    (!deps?.ffmpeg_valid && deps?.ffmpeg_exists) ||
+    Boolean(ffmpegMissingComponent) ||
+    (!deps?.ffmpeg_valid && (deps?.ffmpeg_exists || deps?.ffprobe_exists)) ||
     (!deps?.magick_valid && deps?.magick_exists);
 
   const handleEngineClick = (engine: 'ffmpeg' | 'magick') => {
@@ -96,6 +105,7 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
             minVersionLabel="5.0"
             defaultLatestVersion="7.1"
             theme={theme}
+            missingComponent={ffmpegMissingComponent}
             onBadgeClick={() => handleEngineClick('ffmpeg')}
           />
 
@@ -158,6 +168,19 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
           }
 
           if (isAnyOutdated) {
+            const hasMissingBinary =
+              !deps?.ffmpeg_exists || !deps?.ffprobe_exists || !deps?.magick_exists;
+            const buttonLabel = loadingDeps
+              ? hasMissingBinary
+                ? 'Repairing...'
+                : 'Updating...'
+              : hasMissingBinary
+              ? 'Repair Binaries'
+              : 'Update Binaries';
+            const descLabel = hasMissingBinary
+              ? 'Downloads missing portable binaries directly into '
+              : 'Updates binaries in ';
+
             return (
               <>
                 <button
@@ -180,17 +203,18 @@ export const MediaEnginesSection: React.FC<MediaEnginesSectionProps> = ({
                   }}
                 >
                   {loadingDeps ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
-                  <span>{loadingDeps ? 'Updating...' : 'Update Binaries'}</span>
+                  <span>{buttonLabel}</span>
                 </button>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4', marginTop: '4px' }}>
-                  Updates binaries in{' '}
+                  {descLabel}
                   <span
                     onClick={handleOpenAppDataFolder}
                     style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
                     title="Open AppData folder in Windows File Explorer"
                   >
                     AppData
-                  </span> to the latest releases.
+                  </span>
+                  {hasMissingBinary ? '.' : ' to the latest releases.'}
                 </div>
               </>
             );

@@ -215,7 +215,9 @@ fn compute_dependencies() -> DependencyStatus {
     let ffprobe_exists = !ffprobe_path.is_empty();
     let magick_exists = !magick_path.is_empty();
 
-    let ffmpeg_valid = ffmpeg_exists && (ffmpeg_maj >= 5 || ffmpeg_maj == 0 || ffmpeg_maj == 999);
+    let ffmpeg_valid = ffmpeg_exists
+        && ffprobe_exists
+        && (ffmpeg_maj >= 5 || ffmpeg_maj == 0 || ffmpeg_maj == 999);
     let magick_valid = magick_exists && (magick_maj >= 7 || magick_maj == 0 || magick_maj == 999);
 
     let mut ffmpeg_latest_version = "7.1".to_string();

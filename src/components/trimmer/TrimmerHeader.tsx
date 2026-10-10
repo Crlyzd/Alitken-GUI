@@ -1,7 +1,8 @@
-import React from 'react';
-import { ArrowLeft, Film, Clock, HardDrive, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Film, Clock, HardDrive, Activity, Info } from 'lucide-react';
 import { FileItem, formatBitrate } from '../Dropzone';
 import { formatTimeWithMs } from '../TimelineSlider';
+import { MediaDetailsModal } from './MediaDetailsModal';
 
 interface TrimmerHeaderProps {
   file: FileItem;
@@ -9,140 +10,181 @@ interface TrimmerHeaderProps {
 }
 
 export const TrimmerHeader: React.FC<TrimmerHeaderProps> = ({ file, onSaveAndBack }) => {
-  return (
-    <div
-      className="glass-card"
-      style={{
-        padding: '10px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '12px',
-        borderRadius: '14px',
-        flexShrink: 0,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-        <button
-          type="button"
-          onClick={onSaveAndBack}
-          title="Return to File Queue (Saves Trim Markers)"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid var(--border-glass)',
-            color: 'var(--text-main)',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-cyan)';
-            e.currentTarget.style.color = 'var(--accent-cyan)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-glass)';
-            e.currentTarget.style.color = 'var(--text-main)';
-          }}
-        >
-          <ArrowLeft size={14} /> Back to Queue
-        </button>
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-        <div style={{ overflow: 'hidden', minWidth: 0 }}>
-          <h3
+  return (
+    <>
+      <div
+        className="glass-card"
+        style={{
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          borderRadius: '14px',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={onSaveAndBack}
+            title="Return to File Queue (Saves Trim Markers)"
             style={{
-              fontSize: '13px',
-              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid var(--border-glass)',
               color: 'var(--text-main)',
-              margin: 0,
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
               whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
             }}
-            title={file.name}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+              e.currentTarget.style.color = 'var(--accent-cyan)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.color = 'var(--text-main)';
+            }}
           >
-            {file.name}
-          </h3>
+            <ArrowLeft size={14} /> Back to Queue
+          </button>
+
+          <div style={{ overflow: 'hidden', minWidth: 0 }}>
+            <h3
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: 'var(--text-main)',
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+              title={file.name}
+            >
+              {file.name}
+            </h3>
+          </div>
+        </div>
+
+        {/* Metadata Badges */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {file.resolution && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontSize: '11px',
+                color: 'var(--text-dim)',
+              }}
+            >
+              <Film size={11} /> {file.resolution}
+            </span>
+          )}
+          {Boolean(file.durationSec && file.durationSec > 0) && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontSize: '11px',
+                color: 'var(--text-dim)',
+              }}
+            >
+              <Clock size={11} /> {formatTimeWithMs(file.durationSec || 0)}
+            </span>
+          )}
+          {file.sizeMb > 0 && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontSize: '11px',
+                color: 'var(--text-dim)',
+              }}
+            >
+              <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
+            </span>
+          )}
+          {file.bitrateKbps !== undefined && file.bitrateKbps > 0 && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontSize: '11px',
+                color: 'var(--text-dim)',
+              }}
+            >
+              <Activity size={11} /> {formatBitrate(file.bitrateKbps)}
+            </span>
+          )}
+
+          {/* Detailed Specifications Button */}
+          <button
+            type="button"
+            onClick={() => setIsDetailsOpen(true)}
+            title="View Complete Media & Stream Specifications"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              background: 'rgba(6, 182, 212, 0.08)',
+              border: '1px solid rgba(6, 182, 212, 0.25)',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: 'var(--accent-cyan)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(6, 182, 212, 0.18)';
+              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(6, 182, 212, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.25)';
+            }}
+          >
+            <Info size={11} /> Details
+          </button>
         </div>
       </div>
 
-      {/* Metadata Badges */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        {file.resolution && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '11px',
-              color: 'var(--text-dim)',
-            }}
-          >
-            <Film size={11} /> {file.resolution}
-          </span>
-        )}
-        {Boolean(file.durationSec && file.durationSec > 0) && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '11px',
-              color: 'var(--text-dim)',
-            }}
-          >
-            <Clock size={11} /> {formatTimeWithMs(file.durationSec || 0)}
-          </span>
-        )}
-        {file.sizeMb > 0 && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '11px',
-              color: 'var(--text-dim)',
-            }}
-          >
-            <HardDrive size={11} /> {file.sizeMb.toFixed(1)} MB
-          </span>
-        )}
-        {file.bitrateKbps !== undefined && file.bitrateKbps > 0 && (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '11px',
-              color: 'var(--text-dim)',
-            }}
-          >
-            <Activity size={11} /> {formatBitrate(file.bitrateKbps)}
-          </span>
-        )}
-      </div>
-    </div>
+      <MediaDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        file={file}
+      />
+    </>
   );
 };

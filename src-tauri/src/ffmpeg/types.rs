@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MediaMetadata {
     pub file_name: String,
     pub file_path: String,
@@ -15,6 +15,15 @@ pub struct MediaMetadata {
     pub is_corrupted: bool,
     pub error_message: Option<String>,
     pub bitrate_kbps: Option<f64>,
+    pub fps: Option<f64>,
+    pub pixel_format: Option<String>,
+    pub profile: Option<String>,
+    pub color_space: Option<String>,
+    pub audio_channels: Option<u32>,
+    pub audio_sample_rate: Option<u32>,
+    pub audio_bitrate_kbps: Option<f64>,
+    pub format_name: Option<String>,
+    pub encoder: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -51,6 +51,7 @@ pub fn run() {
             update_engine,
             detect_gpu_hardware,
             probe_media_file,
+            get_full_media_info,
             probe_video_batch,
             probe_image_batch,
             start_video_pipeline,

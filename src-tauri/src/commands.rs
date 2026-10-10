@@ -123,6 +123,12 @@ pub async fn probe_media_file(ffprobe_path: String, file_path: String) -> Result
     ffmpeg::probe_file(&path, &file_path).await
 }
 
+#[tauri::command]
+pub async fn get_full_media_info(file_path: String) -> Result<ffmpeg::FullMediaInfoPayload, String> {
+    let path = dependencies::check_dependencies().ffprobe_path;
+    ffmpeg::probe_full_media_info(&path, &file_path).await
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ProbeBatchProgress {
     pub loaded: usize,
@@ -273,6 +279,7 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
                 is_corrupted,
                 error_message,
                 bitrate_kbps: None,
+                ..Default::default()
             };
 
             let finished = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -293,19 +300,8 @@ pub async fn probe_image_batch<R: tauri::Runtime>(
     }
 
     let dummy_meta = MediaMetadata {
-        file_name: String::new(),
-        file_path: String::new(),
-        duration_sec: 0.0,
-        total_frames: 0.0,
         codec_name: "image".to_string(),
-        audio_codec: String::new(),
-        width: 0,
-        height: 0,
-        file_size_mb: 0.0,
-        is_video: false,
-        is_corrupted: false,
-        error_message: None,
-        bitrate_kbps: None,
+        ..Default::default()
     };
     let mut results = vec![dummy_meta; count];
     while let Some(res) = set.join_next().await {

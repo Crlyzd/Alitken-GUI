@@ -58,6 +58,16 @@ export interface FileItem {
   crop_w?: number;
   crop_h?: number;
   crop_filter?: string;
+  fps?: number;
+  pixelFormat?: string;
+  profile?: string;
+  colorSpace?: string;
+  audioCodec?: string;
+  audioChannels?: number;
+  audioSampleRate?: number;
+  audioBitrateKbps?: number;
+  formatName?: string;
+  encoder?: string;
 }
 
 export function formatBitrate(kbps?: number): string {

@@ -138,5 +138,39 @@ export interface ExtractFramesPayload {
   custom_output_dir: string | null;
 }
 
+export interface DetailedMediaMetadata {
+  file_name: string;
+  file_path: string;
+  duration_sec: number;
+  total_frames: number;
+  codec_name: string;
+  audio_codec: string;
+  width: number;
+  height: number;
+  file_size_mb: number;
+  is_video: boolean;
+  is_corrupted: boolean;
+  error_message?: string | null;
+  bitrate_kbps?: number | null;
+  fps?: number | null;
+  pixel_format?: string | null;
+  profile?: string | null;
+  color_space?: string | null;
+  audio_channels?: number | null;
+  audio_sample_rate?: number | null;
+  audio_bitrate_kbps?: number | null;
+  format_name?: string | null;
+  encoder?: string | null;
+}
 
-
+export interface FullMediaInfoPayload {
+  file_name: string;
+  file_path: string;
+  file_size_bytes: number;
+  mediainfo_text: string;
+  raw_json: string;
+  general: Record<string, string>;
+  video: Record<string, string>;
+  audio: Record<string, string>;
+  other_tracks: Record<string, string>[];
+}

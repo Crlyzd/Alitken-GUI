@@ -200,6 +200,16 @@ export function useMediaQueue(
                 crop_x: trimPreset?.crop_x,
                 crop_y: trimPreset?.crop_y,
                 crop_filter: trimPreset?.crop_filter,
+                fps: meta.fps ?? undefined,
+                pixelFormat: meta.pixel_format ?? undefined,
+                profile: meta.profile ?? undefined,
+                colorSpace: meta.color_space ?? undefined,
+                audioCodec: meta.audio_codec || undefined,
+                audioChannels: meta.audio_channels ?? undefined,
+                audioSampleRate: meta.audio_sample_rate ?? undefined,
+                audioBitrateKbps: meta.audio_bitrate_kbps ?? undefined,
+                formatName: meta.format_name ?? undefined,
+                encoder: meta.encoder ?? undefined,
               });
             } else {
               const name = p.split(/[\\/]/).pop() || p;
@@ -382,6 +392,16 @@ export function useMediaQueue(
           crop_x: trimPreset?.crop_x,
           crop_y: trimPreset?.crop_y,
           crop_filter: trimPreset?.crop_filter,
+          fps: meta.fps ?? undefined,
+          pixelFormat: meta.pixel_format ?? undefined,
+          profile: meta.profile ?? undefined,
+          colorSpace: meta.color_space ?? undefined,
+          audioCodec: meta.audio_codec || undefined,
+          audioChannels: meta.audio_channels ?? undefined,
+          audioSampleRate: meta.audio_sample_rate ?? undefined,
+          audioBitrateKbps: meta.audio_bitrate_kbps ?? undefined,
+          formatName: meta.format_name ?? undefined,
+          encoder: meta.encoder ?? undefined,
         };
 
         setFiles((prev) => {

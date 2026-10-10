@@ -61,6 +61,14 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
     let mut height = 0;
     let mut is_video = false;
 
+    let mut fps: Option<f64> = None;
+    let mut pixel_format: Option<String> = None;
+    let mut profile: Option<String> = None;
+    let mut color_space: Option<String> = None;
+    let mut audio_channels: Option<u32> = None;
+    let mut audio_sample_rate: Option<u32> = None;
+    let mut audio_bitrate_kbps: Option<f64> = None;
+
     if let Some(streams) = parsed["streams"].as_array() {
         for stream in streams {
             let codec_type = stream["codec_type"].as_str().unwrap_or("");
@@ -69,6 +77,29 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
                 codec_name = stream["codec_name"].as_str().unwrap_or("unknown").to_string();
                 width = stream["width"].as_u64().unwrap_or(0) as u32;
                 height = stream["height"].as_u64().unwrap_or(0) as u32;
+
+                if let Some(r_fps) = stream["r_frame_rate"].as_str().or_else(|| stream["avg_frame_rate"].as_str()) {
+                    if let Some(val) = parse_frame_rate_str(r_fps) {
+                        if val > 0.0 {
+                            fps = Some(val);
+                        }
+                    }
+                }
+                if let Some(pix) = stream["pix_fmt"].as_str() {
+                    if !pix.is_empty() {
+                        pixel_format = Some(pix.to_string());
+                    }
+                }
+                if let Some(prof) = stream["profile"].as_str() {
+                    if !prof.is_empty() && prof != "unknown" {
+                        profile = Some(prof.to_string());
+                    }
+                }
+                if let Some(cs) = stream["color_space"].as_str().or_else(|| stream["color_primaries"].as_str()) {
+                    if !cs.is_empty() && cs != "unknown" {
+                        color_space = Some(cs.to_string());
+                    }
+                }
 
                 if let Some(nb_frames) = stream["nb_frames"].as_str() {
                     if let Ok(f) = nb_frames.parse::<f64>() {
@@ -90,8 +121,31 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
                         }
                     }
                 }
-            } else if codec_type == "audio" && audio_codec.is_empty() {
-                audio_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
+            } else if codec_type == "audio" {
+                if audio_codec.is_empty() {
+                    audio_codec = stream["codec_name"].as_str().unwrap_or("").to_string();
+                }
+                if audio_channels.is_none() {
+                    if let Some(ch) = stream["channels"].as_u64() {
+                        audio_channels = Some(ch as u32);
+                    }
+                }
+                if audio_sample_rate.is_none() {
+                    if let Some(sr_str) = stream["sample_rate"].as_str() {
+                        if let Ok(sr) = sr_str.parse::<u32>() {
+                            audio_sample_rate = Some(sr);
+                        }
+                    }
+                }
+                if audio_bitrate_kbps.is_none() {
+                    if let Some(br_str) = stream["bit_rate"].as_str() {
+                        if let Ok(br) = br_str.parse::<f64>() {
+                            if br > 0.0 {
+                                audio_bitrate_kbps = Some((br / 1000.0).round());
+                            }
+                        }
+                    }
+                }
             }
 
             // Stream-level duration fallback if format.duration was missing/N/A
@@ -159,9 +213,18 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         None
     };
 
+    let format_name = parsed["format"]["format_long_name"]
+        .as_str()
+        .or_else(|| parsed["format"]["format_name"].as_str())
+        .map(|s| s.to_string());
+
+    let encoder = parsed["format"]["tags"]["encoder"]
+        .as_str()
+        .map(|s| s.to_string());
+
     log_info(&format!(
-        "Probed {}: v_codec={}, a_codec={}, duration={}s, res={}x{}, bitrate={:?} kbps",
-        file_name, codec_name, audio_codec, duration_sec, width, height, bitrate_kbps
+        "Probed {}: v_codec={}, a_codec={}, duration={}s, res={}x{}, bitrate={:?} kbps, fps={:?}",
+        file_name, codec_name, audio_codec, duration_sec, width, height, bitrate_kbps, fps
     ));
 
     let is_corrupted = file_size == 0.0 || (width == 0 && height == 0 && duration_sec == 0.0);
@@ -187,7 +250,31 @@ pub async fn probe_file(ffprobe_path: &str, file_path: &str) -> Result<MediaMeta
         is_corrupted,
         error_message,
         bitrate_kbps,
+        fps,
+        pixel_format,
+        profile,
+        color_space,
+        audio_channels,
+        audio_sample_rate,
+        audio_bitrate_kbps,
+        format_name,
+        encoder,
     })
+}
+
+pub fn parse_frame_rate_str(s: &str) -> Option<f64> {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() == 2 {
+        let num: f64 = parts[0].trim().parse().ok()?;
+        let den: f64 = parts[1].trim().parse().ok()?;
+        if den > 0.0 {
+            let val = num / den;
+            return Some((val * 1000.0).round() / 1000.0);
+        }
+    } else if let Ok(val) = s.parse::<f64>() {
+        return Some(val);
+    }
+    None
 }
 
 fn parse_timecode_str(tc: &str) -> Option<f64> {

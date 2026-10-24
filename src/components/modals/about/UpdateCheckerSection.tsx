@@ -54,7 +54,7 @@ export const UpdateCheckerSection: React.FC<UpdateCheckerSectionProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-main)' }}>
-            <CheckCircle2 size={14} color="#10b981" />
+            <CheckCircle2 size={14} color="var(--accent-emerald)" />
             <span>
               ALITKEN v{updateInfo ? updateInfo.current_version : APP_VERSION}{' '}
               <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>(MS Store Build)</span>
@@ -78,8 +78,8 @@ export const UpdateCheckerSection: React.FC<UpdateCheckerSectionProps> = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowUpCircle size={16} color="#10b981" />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#10b981' }}>
+              <ArrowUpCircle size={16} color="var(--accent-emerald)" />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-emerald)' }}>
                 Update Available: v{updateInfo.latest_version}
               </span>
             </div>
@@ -173,7 +173,7 @@ export const UpdateCheckerSection: React.FC<UpdateCheckerSectionProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text-main)' }}>
-            <CheckCircle2 size={14} color="#10b981" />
+            <CheckCircle2 size={14} color="var(--accent-emerald)" />
             <span>
               ALITKEN v{updateInfo ? updateInfo.current_version : APP_VERSION}{' '}
               <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>(Latest Version)</span>

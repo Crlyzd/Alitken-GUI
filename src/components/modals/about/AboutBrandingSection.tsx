@@ -142,7 +142,7 @@ export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onCl
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Coffee size={13} color="#f59e0b" />
+            <Coffee size={13} color="var(--accent-amber)" />
             <span>Buy me a coffee:</span>
           </div>
           <button
@@ -174,11 +174,11 @@ export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onCl
           </button>
           <span style={{ color: 'var(--border-glass)' }}>/</span>
           <button
-            onClick={() => handleOpenLink('https://paypal.me/BagusMassani')}
+            onClick={() => handleOpenLink('https://ko-fi.com/curlyzed')}
             style={{
-              background: 'rgba(6, 182, 212, 0.12)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
-              color: 'var(--accent-cyan)',
+              background: 'var(--kofi-bg)',
+              border: '1px solid var(--kofi-border)',
+              color: 'var(--accent-kofi)',
               borderRadius: '5px',
               padding: '2px 8px',
               fontSize: '11px',
@@ -190,15 +190,15 @@ export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onCl
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--accent-cyan)';
+              e.currentTarget.style.background = 'var(--accent-kofi)';
               e.currentTarget.style.color = '#fff';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(6, 182, 212, 0.12)';
-              e.currentTarget.style.color = 'var(--accent-cyan)';
+              e.currentTarget.style.background = 'var(--kofi-bg)';
+              e.currentTarget.style.color = 'var(--accent-kofi)';
             }}
           >
-            PayPal <ExternalLink size={10} />
+            Ko-fi <ExternalLink size={10} />
           </button>
         </div>
       </div>

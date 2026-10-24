@@ -90,7 +90,7 @@ export const AboutLinksGrid: React.FC<AboutLinksGridProps> = ({ onOpenLink }) =>
         onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-glass-card)')}
         title="Report Bug / Request Feature"
       >
-        <Bug size={13} color="#f59e0b" />
+        <Bug size={13} color="var(--accent-amber)" />
         <span>Report Bug</span>
         <ExternalLink size={9} style={{ opacity: 0.65, marginLeft: '1px' }} />
       </button>
@@ -116,7 +116,7 @@ export const AboutLinksGrid: React.FC<AboutLinksGridProps> = ({ onOpenLink }) =>
         onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-glass-card)')}
         title="Open Application Log Folder"
       >
-        <Folder size={13} color="#38bdf8" />
+        <Folder size={13} color="var(--accent-cyan)" />
         <span>Open Logs</span>
       </button>
     </div>

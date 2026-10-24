@@ -195,7 +195,7 @@ Alitken is completely free, open source, and built with love by **Kaleksanan Bag
 <p align="center">
   <a href="https://saweria.co/curlyzed"><img src="https://img.shields.io/badge/Saweria%20(Indonesia)-Support%20Creator-ff4757?style=for-the-badge&logo=coffee" alt="Saweria Donate" /></a>
   &nbsp;&nbsp;
-  <a href="https://paypal.me/BagusMassani"><img src="https://img.shields.io/badge/PayPal%20(Global)-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Donate" /></a>
+  <a href="https://ko-fi.com/curlyzed"><img src="https://img.shields.io/badge/Ko--fi%20(Global)-Donate-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi Donate" /></a>
 </p>
 
 ---

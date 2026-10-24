@@ -65,6 +65,16 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-10-24] v0.9.1 - Light Mode Icon Contrast & Theme Token Enhancements
+- **`src/index.css`**: Tuned light mode `--accent-amber` to `#b45309` for WCAG AA compliant contrast (> 4.5:1) against frosted glass backdrops; defined theme-aware `--accent-kofi`, `--kofi-bg`, and `--kofi-border` tokens for dark and light modes.
+- **`src/components/modals/about/AboutLinksGrid.tsx`**: Replaced hardcoded `#f59e0b` on `<Bug>` with `var(--accent-amber)` and `#38bdf8` on `<Folder>` with `var(--accent-cyan)`, eliminating washed-out icons in light mode.
+- **`src/components/modals/about/AboutBrandingSection.tsx`**: Replaced hardcoded `#f59e0b` on `<Coffee>` with `var(--accent-amber)`; wired Ko-fi button to theme-aware `var(--kofi-bg)`, `var(--kofi-border)`, and `var(--accent-kofi)` for high-contrast presentation.
+- **`src/components/modals/about/UpdateCheckerSection.tsx`**: Replaced hardcoded `#10b981` on `<CheckCircle2>` and `<ArrowUpCircle>` with `var(--accent-emerald)`, rendering deep legible green in light mode and vibrant emerald in dark mode.
+
+### [2026-10-24] v0.9.1 - Replace PayPal Donation Link with Ko-fi
+- **`src/components/modals/about/AboutBrandingSection.tsx`**: Replaced PayPal donation link (`https://paypal.me/BagusMassani`) with Ko-fi (`https://ko-fi.com/curlyzed`), updated button label to `Ko-fi`, and styled with frosted-glass coral accent (`#ff5e5b`).
+- **`README.md`**: Replaced PayPal global donation shield badge with Ko-fi badge linking to `https://ko-fi.com/curlyzed`.
+
 ### [2026-10-24] v0.9.1 - Disable Maximize Button & Windows Snap in Startup Mode
 - **`src-tauri/tauri.conf.json`**: Added `"maximizable": false` to main window config to prevent native maximization and snap layout assists on initial launch.
 - **`src-tauri/src/lib.rs`**: Explicitly enforced `main_window.set_maximizable(false)` during `setup()`.

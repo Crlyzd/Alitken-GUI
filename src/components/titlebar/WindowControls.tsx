@@ -7,6 +7,7 @@ import { APP_VERSION_TITLE } from '../../utils/version';
 export interface WindowControlsProps {
   hasUpdate?: boolean;
   latestVersion?: string;
+  isMaximizable?: boolean;
   onOpenAbout?: () => void;
   onOpenSettings?: () => void;
 }
@@ -14,6 +15,7 @@ export interface WindowControlsProps {
 export const WindowControls: React.FC<WindowControlsProps> = ({
   hasUpdate,
   latestVersion,
+  isMaximizable = true,
   onOpenAbout,
   onOpenSettings,
 }) => {
@@ -214,9 +216,10 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
         </button>
         <button
           data-tauri-drag-region={false}
-          onClick={handleMaximize}
+          onClick={isMaximizable ? handleMaximize : undefined}
           onMouseDown={(e) => e.stopPropagation()}
-          title="Maximize / Restore"
+          disabled={!isMaximizable}
+          title={isMaximizable ? 'Maximize / Restore' : 'Maximize (Disabled in startup mode)'}
           className="no-drag"
           style={{
             width: '28px',
@@ -225,14 +228,20 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
             border: 'none',
             background: 'transparent',
             color: 'var(--text-muted)',
+            opacity: isMaximizable ? 1 : 0.35,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
+            cursor: isMaximizable ? 'pointer' : 'not-allowed',
             WebkitAppRegion: 'no-drag',
+            transition: 'all 0.2s ease',
           } as React.CSSProperties}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--border-glass)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          onMouseEnter={(e) => {
+            if (isMaximizable) e.currentTarget.style.background = 'var(--border-glass)';
+          }}
+          onMouseLeave={(e) => {
+            if (isMaximizable) e.currentTarget.style.background = 'transparent';
+          }}
         >
           <Square size={12} />
         </button>

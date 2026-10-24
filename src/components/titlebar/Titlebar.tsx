@@ -9,6 +9,7 @@ export interface TitlebarProps {
   hardwareDetails?: string;
   hasUpdate?: boolean;
   latestVersion?: string;
+  isMaximizable?: boolean;
   onOpenAbout?: () => void;
   onOpenSettings?: () => void;
 }
@@ -19,6 +20,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
   hardwareDetails,
   hasUpdate,
   latestVersion,
+  isMaximizable,
   onOpenAbout,
   onOpenSettings,
 }) => {
@@ -55,6 +57,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
         <WindowControls
           hasUpdate={hasUpdate}
           latestVersion={latestVersion}
+          isMaximizable={isMaximizable}
           onOpenAbout={onOpenAbout}
           onOpenSettings={onOpenSettings}
         />

@@ -284,6 +284,7 @@ export function App() {
         hardwareDetails={hardwareInfo.details}
         hasUpdate={!!updateInfo?.available}
         latestVersion={updateInfo?.latest_version}
+        isMaximizable={files.length > 0 || activeView === 'trimmer'}
         onOpenAbout={() => setIsAboutOpen(true)}
         onOpenSettings={() => {
           checkDepsAndGpu(videoConfig.codecChoice);

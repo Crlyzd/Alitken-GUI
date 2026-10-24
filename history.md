@@ -65,6 +65,15 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-10-24] v0.9.1 - Video Trimmer Seekbar Zoom & Current Timestamp
+- **`src/components/trimmer/timeline/useTimelineZoom.ts`**: Created modular custom hook for seekbar zoom scaling (1.0x to 10.0x), cursor-anchored wheel zooming (`Ctrl + Wheel` / trackpad pinch), interactive `Ctrl + Drag` seekbar panning with boundary clamping, global Ctrl key tracking, and playhead auto-tracking restricted strictly to active playback. Fixed sling-back snap bug by preventing auto-scroll when paused or user-panned, and added `centerOnTime` convenience re-center helper.
+- **`src/components/trimmer/timeline/TimelineZoomControls.tsx`**: Created sleek frosted-glass zoom controls (`-`, `+`, `1.0x Reset`) with hover effects and descriptive gesture tooltips matching the Windows 11 acrylic/mica design system.
+- **`src/components/trimmer/timeline/TimelineSlider.tsx`**: Integrated real-time playback position display (`Current: HH:MM:SS.mmm • Selected: HH:MM:SS.mmm`), clickable `Current` timestamp badge to re-center on playhead, embedded zoom controls, eliminated visible scrollbars via `.no-scrollbar`, and wired `Ctrl + Drag` pan interaction with dynamic `grab`/`grabbing` cursor states.
+- **`src/components/VideoTrimmer.tsx`**: Forwarded `isPlaying` state to `TimelineSlider` to prevent auto-scroll from overriding manual pans when paused.
+- **`src/components/trimmer/timeline/useTimelineScrubber.ts`**: Refined hover thumbnail tooltip positioning to clamp against the visible scroll viewport, and bypassed handle dragging when Ctrl or middle click is pressed.
+- **`src/index.css`**: Added `.no-scrollbar` utility eliminating scrollbars across Chromium/WebView2 and Firefox while retaining smooth programmatic and gesture panning.
+- **`src/components/trimmer/timeline/index.ts`**: Exported `TimelineZoomControls` and `useTimelineZoom`.
+
 ### [2026-10-22] v0.9.1 - Agent Architecture & History System Update
 - **`.agents/AGENTS.md`**: Updated project version to v0.9.1. Added mandatory rules for `history.md` tracking, multi-file commit grouping & automated execution, and strict release notes generation (artifacts-only, no quotes `>`, no emojis, delta-only, mandatory structure).
 - **`.agents/skills/alitken-expert/SKILL.md`**: Updated codebase references to v0.9.1, incorporated MediaInfo inspector, unified `build.ps1`, updater cancellation, and commit/release note policies.

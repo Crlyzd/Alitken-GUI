@@ -65,6 +65,15 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-10-24] v0.9.1 - Disable Maximize Button & Windows Snap in Startup Mode
+- **`src-tauri/tauri.conf.json`**: Added `"maximizable": false` to main window config to prevent native maximization and snap layout assists on initial launch.
+- **`src-tauri/src/lib.rs`**: Explicitly enforced `main_window.set_maximizable(false)` during `setup()`.
+- **`src-tauri/src/window.rs`**: Intercepted `SC_MAXIMIZE` alongside `SC_SIZE` in `WM_SYSCOMMAND` within Win32 subclass proc while `IS_STARTUP_RESIZE_LOCKED` is true, blocking Windows 11 Aero Snap / Snap Assist when dragging the window to the top monitor edge or pressing `Win + Up`.
+- **`src-tauri/src/commands/system.rs`**: Unmaximized and disabled maximizability (`window.set_maximizable(false)`) in `collapse_to_startup_window`, restored maximizability (`window.set_maximizable(true)`) in `expand_to_working_window`, and guarded `toggle_maximize_window` against execution when startup resize is locked.
+- **`src/components/titlebar/WindowControls.tsx`**: Added `isMaximizable` prop support; styled disabled maximize button with dimmed opacity (`0.35`), `not-allowed` cursor, disabled attribute, descriptive tooltip, and suppressed hover highlights.
+- **`src/components/titlebar/Titlebar.tsx`**: Added `isMaximizable` prop and forwarded down to `WindowControls`.
+- **`src/App.tsx`**: Calculated `isMaximizable={files.length > 0 || activeView === 'trimmer'}` and passed to `Titlebar`.
+
 ### [2026-10-24] v0.9.1 - Video Trimmer Seekbar Zoom & Current Timestamp
 - **`src/components/trimmer/timeline/useTimelineZoom.ts`**: Created modular custom hook for seekbar zoom scaling (1.0x to 10.0x), cursor-anchored wheel zooming (`Ctrl + Wheel` / trackpad pinch), interactive `Ctrl + Drag` seekbar panning with boundary clamping, global Ctrl key tracking, and playhead auto-tracking restricted strictly to active playback. Fixed sling-back snap bug by preventing auto-scroll when paused or user-panned, and added `centerOnTime` convenience re-center helper.
 - **`src/components/trimmer/timeline/TimelineZoomControls.tsx`**: Created sleek frosted-glass zoom controls (`-`, `+`, `1.0x Reset`) with hover effects and descriptive gesture tooltips matching the Windows 11 acrylic/mica design system.

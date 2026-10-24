@@ -70,6 +70,14 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-10-24] v0.9.2 - Trimmer Seekbar Cursors, Shift+Drag Guard, Single-Click Summon & Zoom Edge Helper
+- **`src/components/trimmer/timeline/useTimelineZoom.ts`**: Replaced indefinite boolean `wasPanningRef` with timestamp-based window (`lastPanEndTimeRef`) in `checkWasPanning()`, eliminating the two-click playhead summon bug caused by browser-suppressed trailing click events after pointer-captured pan drags; added global `Shift` key tracking and exported `isShiftPressed`.
+- **`src/components/trimmer/timeline/useTimelineScrubber.ts`**: Guarded selected range dragging behind `e.shiftKey`, falling back to immediate playhead seek and scrub navigation when Shift is not held; added instant `onSeek` execution on playhead `pointerdown`.
+- **`src/components/trimmer/timeline/TimelineSlider.tsx`**: Standardized default track cursor to hand pointer 👆 (`pointer`); wired `isShiftPressed` down to `RangeHandles`; added industry-standard timeline gesture tooltips; wired track pointerdown to initiate instant playhead scrubbing.
+- **`src/components/trimmer/timeline/RangeHandles.tsx`**: Set default cursor on selected range to hand pointer 👆 (`pointer`), switching dynamically to `grab` / `grabbing` only when Shift is held; updated tooltips to industry standard (`Selected Range (Click to seek • Shift + Drag to move range)`, in/out trim hints, playhead scrub hint).
+- **`src/components/trimmer/VideoCanvasRenderer.tsx`**: Decomposed the crop border into 4 discrete edge lines applying GPU matrix counter-scaling (`scaleY(${invScale})` on top/bottom and `scaleX(${invScale})` on left/right), mathematically canceling parent `scale(${cropScale})` and locking screen line thickness to exactly 1.5px across all zoom levels; fixed CSS `transformOrigin` on Left Edge (`left center`) and Right Edge (`right center`); anchored `<video>` and fallback `<img>` with `position: absolute; inset: 0; width: 100%; height: 100%; objectFit: fill`, taking them out of flexbox centering and eliminating video protrusion past wireframe lines so the white border and corner handles sit precisely on the perimeter of the video; refined corner handles to 8px circles with crisp dark border matching CapCut wireframe proportions.
+- **`src/components/trimmer/VideoPlayerViewport.tsx`**: Integrated `ResizeObserver` on `viewportRef` to dynamically set `width: 100%, height: auto` vs `width: auto, height: 100%` on `containerRef`, guaranteeing that the black canvas container strictly preserves `canvasAspect` without distorting when the viewport aspect ratio is narrower than 16:9; added `margin: '0 auto'` on `containerRef` to ensure portrait and square canvases center horizontally; set `background: aspectRatio === 'ORIGINAL' ? 'transparent' : '#000000'` on `containerRef` so no black container background is exposed in Light Mode; streamlined overlay styles keeping file under 285 lines.
+
 ### [2026-10-24] v0.9.2 - Bump Application Version to v0.9.2
 - **`package.json` & `package-lock.json`**: Bumped patch version from `0.9.1` to `0.9.2`.
 - **`src-tauri/tauri.conf.json`**: Synchronized package version to `0.9.2` and main window title to `ALITKEN v0.9.2`.
@@ -171,3 +179,14 @@ All AI agents working on this repository MUST strictly follow these rules:
 - **Root Cause**: Breaking the Windows 11 acrylic/mica glassmorphism aesthetic.
 - **Strict Invariants**:
   1. All dropdowns, selectors, and pickers **MUST** use `GlassSelect.tsx` or apply the frosted glass tokens (`backdrop-filter: blur(20px)`, `border: 1px solid var(--border-glass)`).
+
+### 5. CSS Transform-Origin Keyword Order & Container Aspect Distortion
+- **Tag**: `[MISTAKE]` / `[CORRECTION]`
+- **Context & Objection**: Vertical edge wireframe lines disappeared when video was edge-snapped to a 16:9 canvas because left and right lines were clipped by `overflow: hidden`, while top and bottom lines remained visible.
+- **Root Cause**:
+  1. CSS `transform-origin` expects `<horizontal> <vertical>` keyword syntax (e.g., `left center`, `right center`). Supplying `center left` or `center right` was rejected as invalid CSS by Chromium's parser, causing fallback to `50% 50%` (center center) which pushed 50% of the 1.5px border outside the container boundary into the `overflow: hidden` clip plane.
+  2. The black canvas container (`containerRef`) had hardcoded `height: 100%`, which distorted the canvas aspect ratio whenever the window viewport was narrower than `canvasAspect`, leaving black letterboxing at the top/bottom while clamping the video width flush to the container boundary.
+- **Strict Invariants**:
+  1. Always use valid CSS `transform-origin` keyword syntax (`left center`, `right center`, `top center`, `bottom center`) when scaling wireframes and handles.
+  2. Never hardcode `height: 100%` on aspect-ratio canvas containers without accounting for narrow viewports (`width: 100%, height: auto` when `viewportAspect < canvasAspect`).
+

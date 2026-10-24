@@ -731,14 +731,63 @@ function Invoke-ReleasePipeline {
             Invoke-BuildNsisTarget -Target "aarch64-pc-windows-msvc" -FlavorName "GitHub Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_GitHub_ARM64"
         }
 
+        $msix64Prefix = "Alitken_v${curVer}_MSStore_64"
+        $msixArmPrefix = "Alitken_v${curVer}_MSStore_ARM64"
+
         # 3. MS Store Build (64) -> .msix
         if ($Scope -eq "all" -or $Scope -eq "x64" -or $Scope -eq "64" -or $Scope -eq "store") {
-            Invoke-BuildMsixTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix "Alitken_v${curVer}_MSStore_64" -Features "store-build"
+            Invoke-BuildMsixTarget -Target "x86_64-pc-windows-msvc" -FlavorName "MS Store Release (64)" -OutputPrefix $msix64Prefix -Features "store-build"
         }
 
         # 4. MS Store Build (ARM64) -> .msix
         if ($isArm64 -and ($Scope -eq "all" -or $Scope -eq "arm64" -or $Scope -eq "store")) {
-            Invoke-BuildMsixTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix "Alitken_v${curVer}_MSStore_ARM64" -Features "store-build"
+            Invoke-BuildMsixTarget -Target "aarch64-pc-windows-msvc" -FlavorName "MS Store Release (ARM64)" -OutputPrefix $msixArmPrefix -Features "store-build"
+        }
+
+        # 5. MS Store Bundle (.msixbundle) -> combines multi-architecture packages for 1-file upload
+        if ($Scope -eq "all" -or $Scope -eq "store" -or $Scope -eq "x64" -or $Scope -eq "64") {
+            $msix64File = Join-Path $OutputDistFolder "${msix64Prefix}.msix"
+            $msixArmFile = Join-Path $OutputDistFolder "${msixArmPrefix}.msix"
+
+            $msixToBundle = @()
+            if (Test-Path $msix64File) { $msixToBundle += $msix64File }
+            if (Test-Path $msixArmFile) { $msixToBundle += $msixArmFile }
+
+            if ($msixToBundle.Count -gt 0) {
+                Write-Host ""
+                Write-Host "----------------------------------------------------" -ForegroundColor Green
+                Write-Host " Bundling Microsoft Store Package (.msixbundle)..." -ForegroundColor Green
+                Write-Host "----------------------------------------------------" -ForegroundColor Green
+
+                $MakeAppxExe = Find-MakeAppxExe
+                if (-not $MakeAppxExe) {
+                    throw "'makeappx.exe' from Windows Kits 10/11 SDK was not detected in PATH or Windows Kits directory."
+                }
+
+                $BundleStaging = Join-Path $ScriptDir "src-tauri\target\msix_bundle_staging"
+                if (Test-Path $BundleStaging) { Remove-Item -Path $BundleStaging -Recurse -Force }
+                New-Item -ItemType Directory -Path $BundleStaging -Force | Out-Null
+
+                foreach ($pkg in $msixToBundle) {
+                    Copy-Item -Path $pkg -Destination $BundleStaging -Force
+                }
+
+                $cleanVer = $curVer.Split("-")[0].Split("+")[0]
+                $verParts = $cleanVer.Split(".")
+                $major = if ($verParts.Length -gt 0) { $verParts[0] } else { "0" }
+                $minor = if ($verParts.Length -gt 1) { $verParts[1] } else { "0" }
+                $patch = if ($verParts.Length -gt 2) { $verParts[2] } else { "0" }
+                $quadVersion = "$major.$minor.$patch.0"
+
+                $DestBundlePath = Join-Path $OutputDistFolder "Alitken_v${curVer}_MSStore.msixbundle"
+                Write-Host " Packing multi-architecture bundle into single upload file..." -ForegroundColor Yellow
+                & "$MakeAppxExe" bundle /v /d "$BundleStaging" /p "$DestBundlePath" /bv "$quadVersion" /o
+                if ($LASTEXITCODE -ne 0) { throw "MakeAppx bundle failed with exit code $LASTEXITCODE" }
+
+                Write-Host " Saved MSIX Bundle:   $DestBundlePath" -ForegroundColor Green
+                Write-Host "                      (Ready for 1-file upload to Microsoft Partner Center)" -ForegroundColor DarkCyan
+                Remove-Item -Path $BundleStaging -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
 
         Write-Host ""
@@ -776,6 +825,7 @@ function Invoke-CleanCaches {
     $stagingPaths = @(
         (Join-Path $ScriptDir "src-tauri\target\x86_64-pc-windows-msvc\msix_staging"),
         (Join-Path $ScriptDir "src-tauri\target\aarch64-pc-windows-msvc\msix_staging"),
+        (Join-Path $ScriptDir "src-tauri\target\msix_bundle_staging"),
         (Join-Path $ScriptDir "dist"),
         (Join-Path $ScriptDir "node_modules\.vite")
     )
@@ -835,9 +885,9 @@ if ($IsInteractive) {
         Write-Host "  [5] Ultra-Small LTO Build  (Full LLVM LTO ~4-6 MB binary)" -ForegroundColor Green
         Write-Host ""
         Write-Host "--- Multi-Target Distribution Pipeline ---" -ForegroundColor DarkGray
-        Write-Host "  [6] Full Release Pipeline  (GitHub x64+ARM64, MS Store x64+ARM64 MSIX)" -ForegroundColor Blue
+        Write-Host "  [6] Full Release Pipeline  (GitHub x64+ARM64, MS Store unified .msixbundle)" -ForegroundColor Blue
         Write-Host "  [7] GitHub Releases Only   (x64 + ARM64 setup installers & portables)" -ForegroundColor DarkGreen
-        Write-Host "  [8] MS Store MSIX Only     (Generate .msix packages for Store Center)" -ForegroundColor DarkYellow
+        Write-Host "  [8] MS Store MSIX Only     (Generate unified .msixbundle for Store Center)" -ForegroundColor DarkYellow
         Write-Host ""
         Write-Host "--- Versioning & Utilities ---" -ForegroundColor DarkGray
         Write-Host "  [9] Bump App Version       (Patch, Minor, Major, or Custom semver sync)" -ForegroundColor Yellow

@@ -50,7 +50,19 @@ export function useTimelineScrubber({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     if (type === 'range') {
       const clickTime = getTimeFromEvent(e);
-      rangeOffsetRef.current = clickTime - startSec;
+      if (e.shiftKey) {
+        rangeOffsetRef.current = clickTime - startSec;
+        setDragging('range');
+      } else {
+        onSeek(Math.max(0, Math.min(effectiveDuration, clickTime)));
+        setDragging('playhead');
+      }
+      onScrubStart?.();
+      return;
+    }
+    if (type === 'playhead') {
+      const clickTime = getTimeFromEvent(e);
+      onSeek(Math.max(0, Math.min(effectiveDuration, clickTime)));
     }
     setDragging(type);
     onScrubStart?.();

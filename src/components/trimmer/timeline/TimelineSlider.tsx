@@ -68,6 +68,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     isZoomed,
     isPanning,
     isCtrlPressed,
+    isShiftPressed,
     scrollContainerRef,
     zoomIn,
     zoomOut,
@@ -174,9 +175,16 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
         {/* Scalable Inner Track Container (Supports Ctrl+Drag to pan seekbar) */}
         <div
           ref={trackRef}
+          title={
+            isZoomed
+              ? 'Timeline (Click to seek • Ctrl + Drag to pan • Ctrl + Wheel to zoom)'
+              : 'Timeline (Click to seek • Ctrl + Wheel to zoom)'
+          }
           onPointerDown={(e) => {
             if ((e.ctrlKey || e.button === 1) && isZoomed) {
               handlePanPointerDown(e);
+            } else if (e.button === 0 && !e.ctrlKey) {
+              handlePointerDown('playhead', e);
             }
           }}
           onClick={(e) => {
@@ -225,6 +233,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
             endSec={endSec}
             currentSec={currentSec}
             dragging={dragging}
+            isShiftPressed={isShiftPressed}
             onPointerDown={handlePointerDown}
           />
         </div>

@@ -10,6 +10,7 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
   const [zoom, setZoomState] = useState<number>(1);
   const [isPanning, setIsPanning] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const panStartRef = useRef<{
@@ -18,18 +19,23 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
     hasMoved: boolean;
     pointerId: number;
   } | null>(null);
-  const wasPanningRef = useRef(false);
+  const lastPanEndTimeRef = useRef<number>(0);
   const isUserPannedRef = useRef(false);
 
-  // Track Ctrl key state globally to adjust cursor over the seekbar
+  // Track Ctrl and Shift key states globally to adjust cursor over the seekbar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control') setIsCtrlPressed(true);
+      if (e.key === 'Shift') setIsShiftPressed(true);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Control') setIsCtrlPressed(false);
+      if (e.key === 'Shift') setIsShiftPressed(false);
     };
-    const handleWindowBlur = () => setIsCtrlPressed(false);
+    const handleWindowBlur = () => {
+      setIsCtrlPressed(false);
+      setIsShiftPressed(false);
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -155,7 +161,6 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
     } catch {}
 
     setIsPanning(true);
-    wasPanningRef.current = false;
     return true;
   }, []);
 
@@ -167,7 +172,6 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
     const dx = e.clientX - panStartRef.current.startX;
     if (Math.abs(dx) > 3) {
       panStartRef.current.hasMoved = true;
-      wasPanningRef.current = true;
       isUserPannedRef.current = true;
     }
 
@@ -185,17 +189,17 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
       const hadMoved = panStartRef.current.hasMoved;
       panStartRef.current = null;
       setIsPanning(false);
+      if (hadMoved) {
+        lastPanEndTimeRef.current = Date.now();
+      }
       return hadMoved;
     }
     return false;
   }, []);
 
   const checkWasPanning = useCallback(() => {
-    if (wasPanningRef.current) {
-      wasPanningRef.current = false;
-      return true;
-    }
-    return false;
+    // Only swallow click if it fired within 150ms of a pan drag ending
+    return Date.now() - lastPanEndTimeRef.current < 150;
   }, []);
 
   // Auto-scroll ONLY during active playback and when user hasn't explicitly panned away
@@ -234,6 +238,7 @@ export function useTimelineZoom({ effectiveDuration, currentSec, isPlaying = fal
     isZoomed: zoom > 1,
     isPanning,
     isCtrlPressed,
+    isShiftPressed,
     scrollContainerRef,
     zoomIn,
     zoomOut,

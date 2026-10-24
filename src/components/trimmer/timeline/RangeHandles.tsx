@@ -9,6 +9,7 @@ export interface RangeHandlesProps {
   endSec: number;
   currentSec: number;
   dragging: 'start' | 'end' | 'playhead' | 'range' | null;
+  isShiftPressed?: boolean;
   onPointerDown: (type: 'start' | 'end' | 'playhead' | 'range', e: React.PointerEvent) => void;
 }
 
@@ -20,6 +21,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
   endSec,
   currentSec,
   dragging,
+  isShiftPressed = false,
   onPointerDown,
 }) => {
   return (
@@ -27,7 +29,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
       {/* Selected Clip Highlight Track */}
       <div
         onPointerDown={(e) => onPointerDown('range', e)}
-        title="Selected export area (Drag to move range)"
+        title="Selected Range (Click to seek • Shift + Drag to move range)"
         style={{
           position: 'absolute',
           left: `${startPercent}%`,
@@ -37,7 +39,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
           borderTop: '2px solid var(--accent-cyan)',
           borderBottom: '2px solid var(--accent-cyan)',
           boxShadow: '0 0 16px rgba(6, 182, 212, 0.35)',
-          cursor: dragging === 'range' ? 'grabbing' : 'grab',
+          cursor: dragging === 'range' ? 'grabbing' : isShiftPressed ? 'grab' : 'pointer',
           zIndex: 5,
         }}
       />
@@ -45,7 +47,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
       {/* In-Point (Start) Handle */}
       <div
         onPointerDown={(e) => onPointerDown('start', e)}
-        title={`In-Point: ${formatTimeWithMs(startSec)}`}
+        title={`In-Point: ${formatTimeWithMs(startSec)} (Drag to trim start)`}
         style={{
           position: 'absolute',
           left: `calc(${startPercent}% - 8px)`,
@@ -70,7 +72,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
       {/* Out-Point (End) Handle */}
       <div
         onPointerDown={(e) => onPointerDown('end', e)}
-        title={`Out-Point: ${formatTimeWithMs(endSec)}`}
+        title={`Out-Point: ${formatTimeWithMs(endSec)} (Drag to trim end)`}
         style={{
           position: 'absolute',
           left: `calc(${endPercent}% - 8px)`,
@@ -95,7 +97,7 @@ export const RangeHandles: React.FC<RangeHandlesProps> = ({
       {/* Playhead Needle */}
       <div
         onPointerDown={(e) => onPointerDown('playhead', e)}
-        title={`Playhead: ${formatTimeWithMs(currentSec)}`}
+        title={`Playhead: ${formatTimeWithMs(currentSec)} (Drag to scrub)`}
         style={{
           position: 'absolute',
           left: `calc(${currentPercent}% - 6px)`,

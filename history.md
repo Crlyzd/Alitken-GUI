@@ -42,7 +42,12 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 ## 📜 Version Milestones & Key Highlights
 
-### v0.9.1 (Current Version)
+### v0.9.2 (Current Version)
+- **Unified Master Build Engine**: Consolidated all separate forwarders (`bump-version.ps1`, `scripts/build-releases.ps1`, `scripts/generate-msix-assets.ps1`) into a single all-in-one developer tool (`build.ps1`). Hardened version bump interactive workflow with strict input validation, direct `-Bump` execution, and cancellation handling.
+- **UI Light Mode Accessibility**: Refined theme-aware accent tokens (`--accent-amber`, `--accent-kofi`, `--accent-cyan`, `--accent-emerald`), eliminating washed-out icons in the About modal and related views.
+- **Donation Provider Update**: Replaced PayPal donation links with Ko-fi across frontend modal actions and project documentation.
+
+### v0.9.1
 - **MediaInfo-Grade Stream Inspector**: Added deep stream specifications inspector (`MediaDetailsModal.tsx`, `MediaSpecsVisualView.tsx`, stream specs probe) displaying comprehensive audio/video codecs, color spaces, bit depths, chroma subsampling, sample rates, channels, and container specs with visual badge views.
 - **Dependency Toolchain Robustness**: Enforced complete toolchain validation checking both `ffmpeg.exe` and `ffprobe.exe` (plus `magick.exe`); added incomplete toolchain status handling and selective binary pruning upon uninstall so third-party user binaries in `%LOCALAPPDATA%\curlyzed\bin\` are never wiped out.
 - **Updater Resilience**: Added download cancellation support, GitHub API rate-limit fallback handling, and modal state cleanup preventing UI hangs or flashing.
@@ -64,6 +69,18 @@ All AI agents working on this repository MUST strictly follow these rules:
 ## 📝 Code Evolution & Change Gist Log
 
 *Record high-level summaries of changes here whenever code is modified:*
+
+### [2026-10-24] v0.9.2 - Bump Application Version to v0.9.2
+- **`package.json` & `package-lock.json`**: Bumped patch version from `0.9.1` to `0.9.2`.
+- **`src-tauri/tauri.conf.json`**: Synchronized package version to `0.9.2` and main window title to `ALITKEN v0.9.2`.
+- **`src-tauri/Cargo.toml`**: Synchronized Rust package version to `0.9.2`.
+- **`index.html`**: Updated document title to `ALITKEN v0.9.2`.
+- **`build.ps1`**: Updated fallback version string to `0.9.2`.
+
+### [2026-10-24] v0.9.1 - Consolidate Scripts into All-In-One build.ps1 & Fix Version Bump
+- **`build.ps1`**: Converted `-Bump` into a dedicated switch parameter and added `-BumpType` for direct invocation (`./build.ps1 -Bump` or via `npm run bump`); hardened `Invoke-VersionBumpWorkflow` with strict input validation to prevent accidental patch increments on input typo; added custom version prompt handling; resolved double-pause return bug on cancellation (`B`).
+- **`package.json`**: Updated `"bump"` script to invoke `./build.ps1 -Bump` directly.
+- **Removed Forwarders**: Deleted redundant single-line forwarders `bump-version.ps1`, `scripts/build-releases.ps1`, and `scripts/generate-msix-assets.ps1`, centralizing all build, dev, release packaging, asset generation, and version synchronization into `build.ps1`.
 
 ### [2026-10-24] v0.9.1 - Light Mode Icon Contrast & Theme Token Enhancements
 - **`src/index.css`**: Tuned light mode `--accent-amber` to `#b45309` for WCAG AA compliant contrast (> 4.5:1) against frosted glass backdrops; defined theme-aware `--accent-kofi`, `--kofi-bg`, and `--kofi-border` tokens for dark and light modes.

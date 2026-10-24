@@ -70,6 +70,9 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-10-24] v0.9.2 - Automated Microsoft Store MSIX Bundle (.msixbundle) Packaging
+- **`build.ps1`**: Integrated automated multi-architecture bundle packaging (`MakeAppx.exe bundle`) in `Invoke-ReleasePipeline` under MS Store targets; combines `_MSStore_64.msix` and `_MSStore_ARM64.msix` into a single `Alitken_v<ver>_MSStore.msixbundle` ready for 1-file upload to Microsoft Partner Center; updated `Invoke-CleanCaches` to purge `msix_bundle_staging`; updated menu descriptions for options `[6]` and `[8]` to reflect unified `.msixbundle` generation.
+
 ### [2026-10-24] v0.9.2 - Trimmer Seekbar Cursors, Shift+Drag Guard, Single-Click Summon & Zoom Edge Helper
 - **`src/components/trimmer/timeline/useTimelineZoom.ts`**: Replaced indefinite boolean `wasPanningRef` with timestamp-based window (`lastPanEndTimeRef`) in `checkWasPanning()`, eliminating the two-click playhead summon bug caused by browser-suppressed trailing click events after pointer-captured pan drags; added global `Shift` key tracking and exported `isShiftPressed`.
 - **`src/components/trimmer/timeline/useTimelineScrubber.ts`**: Guarded selected range dragging behind `e.shiftKey`, falling back to immediate playhead seek and scrub navigation when Shift is not held; added instant `onSeek` execution on playhead `pointerdown`.

@@ -61,6 +61,9 @@ pub fn minimize_window(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 pub fn toggle_maximize_window(window: tauri::Window) -> Result<(), String> {
+    if crate::window::IS_STARTUP_RESIZE_LOCKED.load(std::sync::atomic::Ordering::Relaxed) {
+        return Ok(());
+    }
     if window.is_maximized().unwrap_or(false) {
         window.unmaximize().map_err(|e| e.to_string())
     } else {
@@ -85,6 +88,7 @@ pub fn set_always_on_top(window: tauri::Window, always_on_top: bool) -> Result<(
 pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
     crate::window::set_startup_resize_locked(&window, false);
+    let _ = window.set_maximizable(true);
     window
         .set_max_size(None::<LogicalSize<u32>>)
         .map_err(|e| e.to_string())?;
@@ -102,6 +106,10 @@ pub fn expand_to_working_window(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 pub fn collapse_to_startup_window(window: tauri::Window) -> Result<(), String> {
     use tauri::LogicalSize;
+    if window.is_maximized().unwrap_or(false) {
+        let _ = window.unmaximize();
+    }
+    let _ = window.set_maximizable(false);
     window
         .set_min_size(None::<LogicalSize<u32>>)
         .map_err(|e| e.to_string())?;

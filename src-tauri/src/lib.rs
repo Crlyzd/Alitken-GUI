@@ -24,6 +24,7 @@ pub fn run() {
             if let Some(main_window) = app.get_webview_window("main") {
                 let _ = main_window.set_min_size(Some(tauri::LogicalSize::new(500u32, 500u32)));
                 let _ = main_window.set_max_size(Some(tauri::LogicalSize::new(500u32, 500u32)));
+                let _ = main_window.set_maximizable(false);
                 window::install_window_subclass(&main_window.as_ref().window());
             }
 

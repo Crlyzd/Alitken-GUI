@@ -60,8 +60,9 @@ unsafe extern "system" fn startup_window_subclass_proc(
                 }
             }
             WM_SYSCOMMAND => {
-                // Block native modal resizing command
-                if (wparam & 0xFFF0) == SC_SIZE as usize {
+                let cmd = (wparam & 0xFFF0) as u32;
+                // Block native modal resizing and maximize/snap commands when locked
+                if cmd == SC_SIZE || cmd == SC_MAXIMIZE {
                     return 0;
                 }
             }

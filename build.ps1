@@ -15,8 +15,9 @@ param (
     [ValidateSet("all", "x64", "64", "arm64", "github", "store", "")]
     [string]$ReleaseScope = "",
     [switch]$SkipArm64 = $false,
+    [switch]$Bump = $false,
     [ValidateSet("patch", "minor", "major", "custom", "")]
-    [string]$Bump = "",
+    [string]$BumpType = "",
     [string]$Version = "",
     [switch]$GenerateAssets = $false,
     [switch]$Clean = $false,
@@ -36,10 +37,10 @@ function Get-AppVersion {
         try {
             (Get-Content $PackageJsonPath -Raw | ConvertFrom-Json).version
         } catch {
-            "0.9.1"
+            "0.9.2"
         }
     } else {
-        "0.9.1"
+        "0.9.2"
     }
 }
 
@@ -305,23 +306,40 @@ function Invoke-VersionBumpWorkflow {
         Write-Host "  [B] Back to Main Menu" -ForegroundColor Gray
         Write-Host ""
         $c = Read-Host "Enter choice [1-4, B] (Default: 1 - Patch)"
-        switch ($c) {
+        $choiceTrimmed = if ($c) { $c.Trim() } else { "" }
+        switch ($choiceTrimmed) {
+            "1" { $targetArg = "patch" }
+            ""  { $targetArg = "patch" }
             "2" { $targetArg = "minor" }
             "3" { $targetArg = "major" }
             "4" {
-                $customVal = Read-Host "Enter custom version (e.g. 0.9.0 or 1.0.0-beta.1)"
+                $customVal = Read-Host "Enter custom version (e.g. 0.9.2 or 1.0.0-beta.1)"
                 if ([string]::IsNullOrWhitespace($customVal)) {
                     Write-Host "ERROR: Custom version string cannot be empty." -ForegroundColor Red
-                    return
+                    return $false
                 }
                 $targetArg = $customVal.Trim()
             }
-            "B" { return }
-            "b" { return }
-            default { $targetArg = "patch" }
+            "B" { return $false }
+            "b" { return $false }
+            default {
+                Write-Host "Invalid choice '$choiceTrimmed'. Version bump cancelled." -ForegroundColor Yellow
+                return $false
+            }
         }
     } elseif (-not [string]::IsNullOrEmpty($SpecificVersion)) {
         $targetArg = $SpecificVersion.Trim()
+    } elseif ($BumpType -eq "custom") {
+        if (-not [string]::IsNullOrEmpty($SpecificVersion)) {
+            $targetArg = $SpecificVersion.Trim()
+        } else {
+            $customVal = Read-Host "Enter custom version (e.g. 0.9.2 or 1.0.0-beta.1)"
+            if ([string]::IsNullOrWhitespace($customVal)) {
+                Write-Host "ERROR: Custom version string cannot be empty." -ForegroundColor Red
+                return $false
+            }
+            $targetArg = $customVal.Trim()
+        }
     } else {
         $targetArg = $BumpType.Trim()
     }
@@ -334,7 +352,7 @@ function Invoke-VersionBumpWorkflow {
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "ERROR: npm version failed with exit code $LASTEXITCODE" -ForegroundColor Red
-        return
+        return $false
     }
 
     $newVer = Get-AppVersion
@@ -349,6 +367,7 @@ function Invoke-VersionBumpWorkflow {
     Write-Host "Previous Version:             v$currentVer" -ForegroundColor Gray
     Write-Host "New Application Version:      v$newVer" -ForegroundColor Green
     Write-Host ""
+    return $true
 }
 
 # ------------------------------------------------------------------------------
@@ -789,7 +808,8 @@ if ($BuildProfile -eq "MSStore") { $BuildProfile = "Store" }
 $IsInteractive = (-not $Dev -and -not $StoreDev -and -not $Fast `
     -and [string]::IsNullOrEmpty($BuildProfile) `
     -and [string]::IsNullOrEmpty($ReleaseScope) `
-    -and [string]::IsNullOrEmpty($Bump) `
+    -and -not $Bump `
+    -and [string]::IsNullOrEmpty($BumpType) `
     -and [string]::IsNullOrEmpty($Version) `
     -and -not $GenerateAssets `
     -and -not $Clean)
@@ -843,9 +863,11 @@ if ($IsInteractive) {
             "7" { Invoke-ReleasePipeline -Scope "github" -SkipArm $SkipArm64 -Interactive $true }
             "8" { Invoke-ReleasePipeline -Scope "store" -SkipArm $SkipArm64 -Interactive $true }
             "9" {
-                Invoke-VersionBumpWorkflow
-                Write-Host "Press Enter to return to menu..." -ForegroundColor Gray
-                Read-Host | Out-Null
+                $bumped = Invoke-VersionBumpWorkflow
+                if ($bumped) {
+                    Write-Host "Press Enter to return to menu..." -ForegroundColor Gray
+                    Read-Host | Out-Null
+                }
             }
             "10" {
                 Invoke-GenerateMsixAssets
@@ -872,8 +894,8 @@ if ($IsInteractive) {
         Invoke-CleanCaches
     } elseif ($GenerateAssets) {
         Invoke-GenerateMsixAssets
-    } elseif (-not [string]::IsNullOrEmpty($Bump) -or -not [string]::IsNullOrEmpty($Version)) {
-        Invoke-VersionBumpWorkflow -BumpType $Bump -SpecificVersion $Version
+    } elseif ($Bump -or -not [string]::IsNullOrEmpty($BumpType) -or -not [string]::IsNullOrEmpty($Version)) {
+        Invoke-VersionBumpWorkflow -BumpType $BumpType -SpecificVersion $Version
     } elseif (-not [string]::IsNullOrEmpty($ReleaseScope)) {
         Invoke-ReleasePipeline -Scope $ReleaseScope -SkipArm $SkipArm64 -Interactive $false
     } else {

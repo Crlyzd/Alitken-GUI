@@ -53,12 +53,8 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
   onPause,
   onEnded,
 }) => {
-  // Counter-scaling for overlay elements (crop border & corner handles) so they maintain constant pixel size across all zoom scales
+  // Counter-scaling for overlay corner handles so they maintain constant pixel size across all zoom scales
   const invScale = 1 / Math.max(0.01, cropScale || 1.0);
-  const strokeWidth = Math.max(0.75, 1.5 * invScale);
-  const strokeShadow = Math.max(3, 15 * invScale);
-  const handleBorder = Math.max(0.5, 1 * invScale);
-  const handleShadow = Math.max(2, 6 * invScale);
 
   return (
     <div
@@ -92,18 +88,62 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
         boxSizing: 'border-box',
       }}
     >
-      {/* White Border Frame around Video Layer */}
+      {/* 4 Discrete Edge Lines Counter-Scaled with scaleX / scaleY to Lock Screen Thickness to 1.5px */}
       {aspectRatio !== 'ORIGINAL' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            border: `${strokeWidth}px solid rgba(255, 255, 255, 0.85)`,
-            boxShadow: `0 0 ${strokeShadow}px rgba(0, 0, 0, 0.5)`,
-            pointerEvents: 'none',
-            zIndex: 10,
-          }}
-        />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+          {/* Top Edge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '1.5px',
+              background: '#ffffff',
+              transformOrigin: 'top center',
+              transform: `scaleY(${invScale})`,
+            }}
+          />
+          {/* Bottom Edge */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: '1.5px',
+              background: '#ffffff',
+              transformOrigin: 'bottom center',
+              transform: `scaleY(${invScale})`,
+            }}
+          />
+          {/* Left Edge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '1.5px',
+              height: '100%',
+              background: '#ffffff',
+              transformOrigin: 'left center',
+              transform: `scaleX(${invScale})`,
+            }}
+          />
+          {/* Right Edge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '1.5px',
+              height: '100%',
+              background: '#ffffff',
+              transformOrigin: 'right center',
+              transform: `scaleX(${invScale})`,
+            }}
+          />
+        </div>
       )}
 
       {/* Actual HTML5 Video Element */}
@@ -120,9 +160,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
           playsInline
           preload="auto"
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
             cursor: 'default',
           }}
         />
@@ -131,9 +173,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
           src={fallbackFrameSrc}
           alt="Extracted Preview Frame"
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
           }}
         />
       ) : (
@@ -158,7 +202,7 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
         </div>
       )}
 
-      {/* 4 White Corner Handles for Resizing Video Layer */}
+      {/* 4 White Corner Handles for Resizing Video Layer (CapCut-grade 8px circular handles) */}
       {aspectRatio !== 'ORIGINAL' && (
         <>
           {/* Top-Left Handle */}
@@ -168,12 +212,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
               position: 'absolute',
               top: '0px',
               left: '0px',
-              width: '10px',
-              height: '10px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
               background: '#ffffff',
-              border: `${handleBorder}px solid #000000`,
-              boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
+              border: '1px solid rgba(0, 0, 0, 0.65)',
               cursor: 'nwse-resize',
               zIndex: 20,
               transform: `translate(-50%, -50%) scale(${invScale})`,
@@ -187,12 +230,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
               position: 'absolute',
               top: '0px',
               right: '0px',
-              width: '10px',
-              height: '10px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
               background: '#ffffff',
-              border: `${handleBorder}px solid #000000`,
-              boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
+              border: '1px solid rgba(0, 0, 0, 0.65)',
               cursor: 'nesw-resize',
               zIndex: 20,
               transform: `translate(50%, -50%) scale(${invScale})`,
@@ -206,12 +248,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
               position: 'absolute',
               bottom: '0px',
               left: '0px',
-              width: '10px',
-              height: '10px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
               background: '#ffffff',
-              border: `${handleBorder}px solid #000000`,
-              boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
+              border: '1px solid rgba(0, 0, 0, 0.65)',
               cursor: 'nesw-resize',
               zIndex: 20,
               transform: `translate(-50%, 50%) scale(${invScale})`,
@@ -225,12 +266,11 @@ export const VideoCanvasRenderer: React.FC<VideoCanvasRendererProps> = ({
               position: 'absolute',
               bottom: '0px',
               right: '0px',
-              width: '10px',
-              height: '10px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
               background: '#ffffff',
-              border: `${handleBorder}px solid #000000`,
-              boxShadow: `0 0 ${handleShadow}px rgba(255, 255, 255, 0.9)`,
+              border: '1px solid rgba(0, 0, 0, 0.65)',
               cursor: 'nwse-resize',
               zIndex: 20,
               transform: `translate(50%, 50%) scale(${invScale})`,

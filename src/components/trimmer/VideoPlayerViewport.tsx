@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Loader2, Scissors } from 'lucide-react';
 import { AspectRatioOption } from '../../types/media';
 import { AspectRatioSelector } from './AspectRatioSelector';
@@ -60,10 +60,12 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   cropScale = 1.0,
   onCropScaleChange,
 }) => {
+  const viewportRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
 
   const [videoAspect, setVideoAspect] = useState<number>(16 / 9);
+  const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(false);
 
   const handleMetadata = useCallback(() => {
     onLoadedMetadata();
@@ -85,6 +87,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
   const targetRatio = RATIO_NUMERICS[aspectRatio];
   const canvasAspect = targetRatio || videoAspect;
   const isVideoWider = videoAspect >= canvasAspect;
+
+  useEffect(() => {
+    if (!viewportRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry && entry.contentRect.height > 0) {
+        setIsNarrowViewport(entry.contentRect.width / entry.contentRect.height < canvasAspect);
+      }
+    });
+    observer.observe(viewportRef.current);
+    return () => observer.disconnect();
+  }, [canvasAspect]);
 
   // Free translation: offset 0.5 = centered; 100 = 1:1 pixel mapping with mouse
   const translateX = (cropOffset.x - 0.5) * 100;
@@ -117,6 +131,7 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
 
   return (
     <div
+      ref={viewportRef}
       style={{
         flex: 1,
         display: 'flex',
@@ -137,16 +152,18 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
         ref={containerRef}
         style={{
           aspectRatio: `${canvasAspect}`,
-          height: '100%',
+          width: isNarrowViewport ? '100%' : 'auto',
+          height: isNarrowViewport ? 'auto' : '100%',
           maxHeight: '100%',
           maxWidth: '100%',
+          margin: '0 auto',
           borderRadius: '0px',
           overflow: 'hidden',
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#000000',
+          background: aspectRatio === 'ORIGINAL' ? 'transparent' : '#000000',
           boxShadow: 'none',
           border: 'none',
           userSelect: 'none',
@@ -163,35 +180,17 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               background: 'rgba(6, 182, 212, 0.25)',
-              backdropFilter: 'blur(16px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+              backdropFilter: 'blur(16px)',
               border: '2px dashed var(--accent-cyan)',
-              borderRadius: '0px',
               zIndex: 40,
               gap: '12px',
               color: '#ffffff',
-              boxShadow: '0 0 30px rgba(6, 182, 212, 0.4), inset 0 0 20px rgba(6, 182, 212, 0.2)',
-              transition: 'all 0.2s ease',
             }}
           >
-            <Scissors
-              size={40}
-              style={{
-                color: 'var(--accent-cyan)',
-                filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.8))',
-              }}
-            />
+            <Scissors size={40} style={{ color: 'var(--accent-cyan)', filter: 'drop-shadow(0 0 10px rgba(6, 182, 212, 0.8))' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.3px' }}>
-                Drop Single Video File
-              </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: 'rgba(255, 255, 255, 0.85)',
-                  marginTop: '2px',
-                }}
-              >
+              <div style={{ fontSize: '15px', fontWeight: 700 }}>Drop Single Video File</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '2px' }}>
                 Replace current video target in Trimmer
               </div>
             </div>
@@ -223,32 +222,16 @@ export const VideoPlayerViewport: React.FC<VideoPlayerViewportProps> = ({
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              textAlign: 'center',
               background: 'rgba(0, 0, 0, 0.75)',
               backdropFilter: 'blur(10px)',
-              borderRadius: '0px',
-              overflow: 'hidden',
               zIndex: 30,
               gap: '12px',
               padding: '0 16px',
-              boxSizing: 'border-box',
               color: '#ffffff',
             }}
           >
-            <Loader2
-              size={32}
-              className="spinning-loader"
-              style={{ color: 'var(--accent-cyan)' }}
-            />
-            <span
-              style={{
-                fontSize: '13px',
-                fontWeight: 600,
-                textAlign: 'center',
-                lineHeight: 1.4,
-                maxWidth: '100%',
-              }}
-            >
+            <Loader2 size={32} className="spinning-loader" style={{ color: 'var(--accent-cyan)' }} />
+            <span style={{ fontSize: '13px', fontWeight: 600, textAlign: 'center', lineHeight: 1.4 }}>
               Preparing Live Preview...
             </span>
           </div>

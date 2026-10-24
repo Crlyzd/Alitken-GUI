@@ -43,6 +43,8 @@ export function useTimelineScrubber({
   );
 
   const handlePointerDown = (type: 'start' | 'end' | 'playhead' | 'range', e: React.PointerEvent) => {
+    if (e.ctrlKey || e.button === 1) return;
+
     e.stopPropagation();
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -110,14 +112,16 @@ export function useTimelineScrubber({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!trackRef.current || dragging) {
+    if (!trackRef.current || dragging || e.ctrlKey) {
       setHoverPos(null);
       onHoverTime?.(null);
       return;
     }
     const rect = trackRef.current.getBoundingClientRect();
+    const parentRect = trackRef.current.parentElement?.getBoundingClientRect() || rect;
     const rawX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const clampedX = Math.max(75, Math.min(rect.width - 75, rawX));
+    const viewportX = Math.max(0, Math.min(parentRect.width, e.clientX - parentRect.left));
+    const clampedX = Math.max(75, Math.min(parentRect.width - 75, viewportX));
     const time = (rawX / rect.width) * effectiveDuration;
     setHoverPos({ x: clampedX, time });
     onHoverTime?.(time);

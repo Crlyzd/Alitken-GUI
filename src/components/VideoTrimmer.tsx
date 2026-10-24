@@ -134,6 +134,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             startSec={trimmer.startSec}
             endSec={trimmer.endSec}
             currentSec={trimmer.currentSec}
+            isPlaying={trimmer.isPlaying}
             isDurationLocked={trimmer.isDurationLocked}
             onRangeChange={trimmer.handleRangeChange}
             onSeek={trimmer.handleSeek}

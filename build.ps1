@@ -30,6 +30,13 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
+if (Test-Path "D:\BuildTools\Rust\.cargo") {
+    if (-not $env:CARGO_HOME) { $env:CARGO_HOME = "D:\BuildTools\Rust\.cargo" }
+    if (-not $env:RUSTUP_HOME) { $env:RUSTUP_HOME = "D:\BuildTools\Rust\.rustup" }
+    if (-not $env:SCCACHE_DIR) { $env:SCCACHE_DIR = "D:\BuildTools\Rust\sccache" }
+    if ($env:PATH -notmatch "BuildTools") { $env:PATH = "D:\BuildTools\Rust\.cargo\bin;$env:PATH" }
+}
+
 # Fetch current application version from package.json
 function Get-AppVersion {
     $PackageJsonPath = Join-Path $ScriptDir "package.json"

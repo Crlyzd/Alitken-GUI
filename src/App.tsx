@@ -59,6 +59,7 @@ export function App() {
     gifFps: '15',
     gifQuality: 'HIGH',
     gifLoop: true,
+    animFormat: 'WEBP',
   });
 
   const [imageConfig, setImageConfig] = useState<ImageConfig>({

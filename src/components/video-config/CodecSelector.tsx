@@ -24,7 +24,7 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
     { id: '1', title: 'H.264', subtitle: 'Universal' },
     { id: '2', title: 'H.265', subtitle: 'HEVC High Comp' },
     { id: '3', title: 'AV1', subtitle: 'Next-Gen Open' },
-    ...(showGifCard ? [{ id: '4', title: 'GIF', subtitle: 'Animated Loop' }] : []),
+    ...(showGifCard ? [{ id: '4', title: 'WEBP / GIF', subtitle: 'Animated Loop' }] : []),
   ];
 
   return (

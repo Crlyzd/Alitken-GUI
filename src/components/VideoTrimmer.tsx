@@ -173,7 +173,9 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
           const isGifExport = videoConfig.codecChoice === '4';
           const isFastCopyTrimDisabled = isSpeedChanged || isCropActive || isGifExport;
           const fastCopyTrimDisabledReason = isGifExport
-            ? 'Animated GIF export requires 256-color palette encoding.'
+            ? videoConfig.animFormat === 'WEBP'
+              ? 'Animated WebP export requires VP8 frame encoding.'
+              : 'Animated GIF export requires 256-color palette encoding.'
             : isSpeedChanged && isCropActive
             ? 'Speed adjustment and crop framing require re-encoding.'
             : isSpeedChanged

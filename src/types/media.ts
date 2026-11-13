@@ -36,8 +36,8 @@ export interface ImageConfig {
   pngScalePercent: number | null; // 30, 50, 80 or null for ORIGINAL
   pngHeight: number | null;
 
-  // Image to Video & Animated GIF options
-  videoOutputFormat: 'MP4' | 'GIF';
+  // Image to Video & Animated WebP / GIF options
+  videoOutputFormat: 'MP4' | 'WEBP' | 'GIF';
   videoMode: ImageToVideoMode; // 'SLIDESHOW' (seconds/photo) or 'SEQUENCE' (1 photo = 1 frame)
   videoDurationSec: number;    // Duration for single image (sec) or per image for slideshow
   videoFps: VideoFpsPreset;
@@ -123,6 +123,7 @@ export interface TrimConfig {
   gif_fps?: string;
   gif_quality?: string;
   gif_loop?: boolean;
+  anim_format?: 'WEBP' | 'GIF';
 }
 
 export interface CacheInfo {

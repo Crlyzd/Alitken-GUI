@@ -698,6 +698,7 @@ export function useTrimmerState({
       gif_fps: videoConfig.gifFps,
       gif_quality: videoConfig.gifQuality,
       gif_loop: videoConfig.gifLoop,
+      anim_format: videoConfig.animFormat,
     };
     onStartTrim(trimConfig);
   }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, isCropApplied, aspectRatio, getCropParams, onStartTrim]);

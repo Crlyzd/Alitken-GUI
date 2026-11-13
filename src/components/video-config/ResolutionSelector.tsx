@@ -19,17 +19,25 @@ export const ResolutionSelector: React.FC<ResolutionSelectorProps> = ({
   setIsCustomHeight,
   PRESET_HEIGHTS,
 }) => {
-  const isGifMode =
+  const isAnimMode =
     config.codecChoice === '4' && config.videoAction !== 'SPLIT' && config.videoAction !== 'COMBINE';
-  const maxCustomHeight = isGifMode ? 720 : 8192;
-  const fallbackCustomHeight = isGifMode ? '720' : '1080';
+  const isWebpAnim = isAnimMode && config.animFormat === 'WEBP';
+  const maxCustomHeight = isAnimMode ? (isWebpAnim ? 1080 : 720) : 8192;
+  const fallbackCustomHeight = isAnimMode ? '720' : '1080';
 
-  const resolutionOptions = isGifMode
-    ? [
-        { value: '720', label: '720p HD' },
-        { value: '480', label: '480p SD' },
-        { value: 'CUSTOM', label: 'Custom Height (px)...' },
-      ]
+  const resolutionOptions = isAnimMode
+    ? isWebpAnim
+      ? [
+          { value: '1080', label: '1080p Full HD' },
+          { value: '720', label: '720p HD' },
+          { value: '480', label: '480p SD' },
+          { value: 'CUSTOM', label: 'Custom Height (px)...' },
+        ]
+      : [
+          { value: '720', label: '720p HD' },
+          { value: '480', label: '480p SD' },
+          { value: 'CUSTOM', label: 'Custom Height (px)...' },
+        ]
     : [
         { value: 'ORIGINAL', label: 'Original Resolution' },
         { value: '2160', label: '4K Ultra HD (2160p)' },

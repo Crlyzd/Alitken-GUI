@@ -18,6 +18,7 @@ export interface ConfigState {
   gifFps: '10' | '15' | '24' | '30' | 'ORIGINAL';
   gifQuality: 'HIGH' | 'BALANCED';
   gifLoop: boolean;
+  animFormat: 'WEBP' | 'GIF';
 }
 
 export const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];

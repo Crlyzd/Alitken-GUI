@@ -488,7 +488,9 @@ export function useMediaQueue(
         currentPart: 1,
         totalParts: 1,
         status: trimConfig.export_gif
-          ? 'Exporting Trimmed Animated GIF...'
+          ? trimConfig.anim_format === 'WEBP'
+            ? 'Exporting Trimmed Animated WebP...'
+            : 'Exporting Trimmed Animated GIF...'
           : trimConfig.fast_copy
           ? 'Exporting Lossless Copy...'
           : 'Re-encoding Trimmed Clip with Hardware Acceleration...',

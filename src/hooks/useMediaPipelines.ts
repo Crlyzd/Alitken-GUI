@@ -250,7 +250,8 @@ export function useMediaPipelines(
     }
 
     // Branch 3: STANDARD TRANSCODE & SPLIT
-    const isGifExport = videoConfig.videoAction === 'CONVERT' && videoConfig.codecChoice === '4';
+    const isAnimExport = videoConfig.videoAction === 'CONVERT' && videoConfig.codecChoice === '4';
+    const isWebpAnim = isAnimExport && videoConfig.animFormat === 'WEBP';
     setProgress({
       isProcessing: true,
       currentFile: files[0].name,
@@ -259,8 +260,10 @@ export function useMediaPipelines(
       percent: 0,
       currentPart: 1,
       totalParts: 1,
-      status: isGifExport
-        ? 'Exporting Animated GIF(s)...'
+      status: isAnimExport
+        ? isWebpAnim
+          ? 'Exporting Animated WebP(s)...'
+          : 'Exporting Animated GIF(s)...'
         : 'Starting FFmpeg transcode pipeline...',
       completed: false,
     });
@@ -302,6 +305,7 @@ export function useMediaPipelines(
           gif_fps: videoConfig.gifFps,
           gif_quality: videoConfig.gifQuality,
           gif_loop: videoConfig.gifLoop,
+          anim_format: videoConfig.animFormat,
         },
       });
 
@@ -384,7 +388,9 @@ export function useMediaPipelines(
       totalParts: 1,
       status:
         imageConfig.outputFormat === 'VIDEO'
-          ? imageConfig.videoOutputFormat === 'GIF'
+          ? imageConfig.videoOutputFormat === 'WEBP'
+            ? 'Rendering Animated WebP...'
+            : imageConfig.videoOutputFormat === 'GIF'
             ? 'Rendering Animated GIF...'
             : 'Converting Image(s) to MP4 Video...'
           : imageConfig.outputFormat === 'PDF' && imageConfig.mergePdf
@@ -396,6 +402,8 @@ export function useMediaPipelines(
     try {
       if (imageConfig.outputFormat === 'VIDEO') {
         const isGif = imageConfig.videoOutputFormat === 'GIF';
+        const isWebp = imageConfig.videoOutputFormat === 'WEBP';
+        const isAnim = isGif || isWebp;
         await invoke('start_image_to_video_pipeline', {
           config: {
             input_files: files.map((f) => f.path),
@@ -403,10 +411,11 @@ export function useMediaPipelines(
             duration_sec: imageConfig.videoDurationSec,
             fps: imageConfig.videoFps,
             resolution: imageConfig.videoResolution,
-            audio_path: isGif ? null : imageConfig.audioPath || null,
+            audio_path: isAnim ? null : imageConfig.audioPath || null,
             codec_choice: videoConfig.codecChoice,
             output_dir: imageConfig.outputDir || null,
             export_gif: isGif,
+            export_webp: isWebp,
             gif_loop: imageConfig.gifLoop,
             gif_transparent: imageConfig.gifTransparent,
           },

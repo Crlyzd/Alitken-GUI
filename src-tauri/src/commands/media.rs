@@ -314,12 +314,10 @@ pub async fn start_image_to_video_pipeline<R: tauri::Runtime>(
         ));
     }
 
-    let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
-    let needs_magick = mode != "SEQUENCE"
-        && config
-            .input_files
-            .iter()
-            .any(|p| !ffmpeg::is_ffmpeg_native_image_format(p));
+    let needs_magick = config
+        .input_files
+        .iter()
+        .any(|p| !ffmpeg::is_ffmpeg_native_image_format(p));
 
     if needs_magick && !deps.magick_exists {
         return Err(

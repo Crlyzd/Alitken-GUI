@@ -8,6 +8,136 @@ use crate::ffmpeg::types::ImageToVideoConfig;
 use crate::utils::{log_error, log_info, resolve_conflict_path};
 use std::path::{Path, PathBuf};
 
+/// Formats paths for ImageMagick so multi-layer/multi-page files select only frame [0].
+pub fn format_magick_input_arg(path: &str) -> String {
+    let ext = Path::new(path)
+        .extension()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    if matches!(ext.as_str(), "psd" | "psb" | "ico" | "gif") {
+        format!("{}[0]", path)
+    } else {
+        path.to_string()
+    }
+}
+
+/// Shared 256-color GIF palettegen/paletteuse filter stage for Image-to-GIF pipelines.
+pub fn gif_palette_filter_stage(transparent: bool) -> &'static str {
+    if transparent {
+        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=1:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle:alpha_threshold=128"
+    } else {
+        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=0:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle"
+    }
+}
+
+async fn resolve_canvas_and_homogeneity(
+    ffprobe_path: &str,
+    inputs: &[String],
+    resolution: &str,
+    has_non_native: bool,
+    export_gif: bool,
+    gif_transparent: bool,
+) -> ((u32, u32), bool) {
+    let mut dims: Vec<(u32, u32)> = Vec::with_capacity(inputs.len());
+    for file_path in inputs {
+        let (mut w, mut h) = crate::utils::get_image_dimensions(file_path);
+        if (w == 0 || h == 0) && !ffprobe_path.is_empty() {
+            if let Ok(meta) = probe_file(ffprobe_path, file_path).await {
+                w = meta.width;
+                h = meta.height;
+            }
+        }
+        dims.push((w, h));
+    }
+
+    let mut portrait_count = 0usize;
+    let mut landscape_count = 0usize;
+    for &(w, h) in &dims {
+        if w > 0 && h > 0 {
+            if h > w {
+                portrait_count += 1;
+            } else {
+                landscape_count += 1;
+            }
+        }
+    }
+    let is_majority_portrait = portrait_count > landscape_count;
+    let effective_res = if export_gif && resolution != "480p" && resolution != "360p" {
+        "720p"
+    } else {
+        resolution
+    };
+
+    let canvas = match effective_res {
+        "4k" => {
+            if is_majority_portrait { (2160, 3840) } else { (3840, 2160) }
+        }
+        "1080p" => {
+            if is_majority_portrait { (1080, 1920) } else { (1920, 1080) }
+        }
+        "720p" => {
+            if is_majority_portrait { (720, 1280) } else { (1280, 720) }
+        }
+        "480p" => {
+            if is_majority_portrait { (480, 854) } else { (854, 480) }
+        }
+        "360p" => {
+            if is_majority_portrait { (360, 640) } else { (640, 360) }
+        }
+        "ORIGINAL" | _ => {
+            let mut max_w = 0u32;
+            let mut max_h = 0u32;
+            for &(w, h) in &dims {
+                if w > 0 && h > 0 && (h > w) == is_majority_portrait {
+                    max_w = max_w.max(w);
+                    max_h = max_h.max(h);
+                }
+            }
+            if max_w == 0 || max_h == 0 {
+                for &(w, h) in &dims {
+                    max_w = max_w.max(w);
+                    max_h = max_h.max(h);
+                }
+            }
+            if max_w > 0 && max_h > 0 {
+                let w = if max_w % 2 != 0 { max_w + 1 } else { max_w };
+                let h = if max_h % 2 != 0 { max_h + 1 } else { max_h };
+                log_info(&format!(
+                    "Probed original resolution canvas ({}): {}x{}",
+                    if is_majority_portrait { "Portrait" } else { "Landscape" },
+                    w,
+                    h
+                ));
+                (w, h)
+            } else {
+                log_info("Could not probe image dimensions; falling back to 1920x1080 canvas.");
+                (1920, 1080)
+            }
+        }
+    };
+
+    let first_ext = inputs
+        .first()
+        .and_then(|p| Path::new(p).extension())
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    let first_dim = dims.first().copied().unwrap_or((0, 0));
+
+    let is_homogeneous = !has_non_native
+        && !gif_transparent
+        && first_dim.0 > 0
+        && first_dim.1 > 0
+        && inputs.iter().enumerate().all(|(i, p)| {
+            let ext = Path::new(p)
+                .extension()
+                .map(|s| s.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            ext == first_ext && dims[i] == first_dim
+        });
+
+    (canvas, is_homogeneous)
+}
+
 pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     ffmpeg_path: &str,
@@ -22,45 +152,16 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
 
     crate::utils::reset_cancel_flag();
 
-    // Pre-flight file existence check
+    // Pre-flight existence and non-empty check
     for file_path in &config.input_files {
-        if !Path::new(file_path).exists() {
+        let p = Path::new(file_path);
+        if !p.exists() {
             let err_msg = format!(
-                "Input image file for video rendering not found: '{}'. Please ensure the file was not deleted or moved.",
+                "Input image file not found: '{}'. Please ensure the file was not deleted or moved.",
                 file_path
             );
             log_error(&err_msg);
             return Err(err_msg);
-        }
-    }
-
-    if let Some(ref audio_path) = config.audio_path {
-        if !audio_path.is_empty() && !Path::new(audio_path).exists() {
-            let err_msg = format!(
-                "Background audio file not found: '{}'. Please ensure the file was not deleted or moved.",
-                audio_path
-            );
-            log_error(&err_msg);
-            return Err(err_msg);
-        }
-    }
-
-    let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
-
-    log_info(&format!(
-        "Starting Image-to-Video pipeline ({}). Inputs: {}, Duration: {}s, FPS: {}",
-        mode,
-        config.input_files.len(),
-        config.duration_sec,
-        config.fps
-    ));
-
-    // Pre-flight validation: Ensure all input files exist and are not 0 bytes
-    for file_path in &config.input_files {
-        let p = Path::new(file_path);
-        if !p.exists() {
-            let fname = p.file_name().unwrap_or_default().to_string_lossy();
-            return Err(format!("Input file '{}' does not exist or was moved.", fname));
         }
         if let Ok(meta) = std::fs::metadata(p) {
             if meta.len() == 0 {
@@ -69,6 +170,32 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
             }
         }
     }
+
+    let export_gif = config.export_gif.unwrap_or(false);
+    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+
+    if !export_gif {
+        if let Some(ref audio_path) = config.audio_path {
+            if !audio_path.is_empty() && !Path::new(audio_path).exists() {
+                let err_msg = format!(
+                    "Background audio file not found: '{}'. Please ensure the file was not deleted or moved.",
+                    audio_path
+                );
+                log_error(&err_msg);
+                return Err(err_msg);
+            }
+        }
+    }
+
+    let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
+    log_info(&format!(
+        "Starting Image-to-{} pipeline ({}). Inputs: {}, Duration: {}s, FPS: {}",
+        if export_gif { "GIF" } else { "Video" },
+        mode,
+        config.input_files.len(),
+        config.duration_sec,
+        config.fps
+    ));
 
     let first_file = Path::new(&config.input_files[0]);
     let out_dir = if let Some(ref d) = config.output_dir {
@@ -85,60 +212,23 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         "Image_Slideshow".to_string()
     };
 
-    let target_file = out_dir.join(format!("{}.mp4", stem));
+    let ext = if export_gif { "gif" } else { "mp4" };
+    let target_file = out_dir.join(format!("{}.{}", stem, ext));
     let resolved_out = resolve_conflict_path(target_file);
 
-    let (scale_w, scale_h) = match config.resolution.as_str() {
-        "4k" => (3840, 2160),
-        "720p" => (1280, 720),
-        "1080p" => (1920, 1080),
-        "ORIGINAL" | _ => {
-            let mut max_w = 0u32;
-            let mut max_h = 0u32;
+    // Preserve explicit UI queue order
+    let sorted_inputs = config.input_files.clone();
+    let has_non_native = sorted_inputs.iter().any(|p| !is_ffmpeg_native_image_format(p));
 
-            // Probe input files using fast binary header reader first
-            for file_path in &config.input_files {
-                let (w, h) = crate::utils::get_image_dimensions(file_path);
-                if w > max_w {
-                    max_w = w;
-                }
-                if h > max_h {
-                    max_h = h;
-                }
-            }
-
-            // Fallback to probe_file (ffprobe) if needed
-            if max_w == 0 || max_h == 0 {
-                let sample_count = std::cmp::min(config.input_files.len(), 10);
-                for file_path in &config.input_files[..sample_count] {
-                    if let Ok(meta) = probe_file(ffprobe_path, file_path).await {
-                        if meta.width > max_w {
-                            max_w = meta.width;
-                        }
-                        if meta.height > max_h {
-                            max_h = meta.height;
-                        }
-                    }
-                }
-            }
-
-            if max_w > 0 && max_h > 0 {
-                let w = if max_w % 2 != 0 { max_w + 1 } else { max_w };
-                let h = if max_h % 2 != 0 { max_h + 1 } else { max_h };
-                log_info(&format!("Probed original resolution canvas for Image-to-Video: {}x{}", w, h));
-                (w, h)
-            } else {
-                log_info("Could not probe image dimensions; falling back to 1920x1080 canvas.");
-                (1920, 1080)
-            }
-        }
-    };
-
-    // Natural sort files if in sequence mode
-    let mut sorted_inputs = config.input_files.clone();
-    if mode == "SEQUENCE" {
-        sorted_inputs.sort();
-    }
+    let ((scale_w, scale_h), is_homogeneous) = resolve_canvas_and_homogeneity(
+        ffprobe_path,
+        &sorted_inputs,
+        config.resolution.as_str(),
+        has_non_native,
+        export_gif,
+        gif_transparent,
+    )
+    .await;
 
     let total_count = sorted_inputs.len();
     let sorted_inputs_for_info = sorted_inputs.clone();
@@ -164,11 +254,14 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         (clamped_idx + 1, name)
     };
 
-    let has_non_native = sorted_inputs.iter().any(|p| !is_ffmpeg_native_image_format(p));
+    let use_pipe = (has_non_native || !is_homogeneous)
+        && !magick_path.is_empty()
+        && Path::new(magick_path).exists()
+        && !(mode == "SEQUENCE" && is_homogeneous);
 
-    // Zero-Disk In-Memory Pipe Streaming for Non-Native Formats (e.g. HEIC/TIFF/RAW)
-    if has_non_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
-        log_info("Non-native images detected (e.g. HEIC/TIFF). Engaging Zero-Disk In-Memory Pipe Stream.");
+    // Zero-Disk In-Memory Pipe Streaming for non-native formats, mixed sequences, or transparent GIFs
+    if use_pipe {
+        log_info("Engaging Zero-Disk In-Memory Pipe Stream for heterogeneous/transparent frames.");
         match pipe::run_pipe_stream(
             app,
             ffmpeg_path,
@@ -192,7 +285,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         }
     }
 
-    // Fallback: Concat demuxer with pre-normalized frames
+    // Concat demuxer (0ms fast path for homogeneous SEQUENCE, 3-stage normalizer otherwise)
     demuxer::run_concat_demuxer(
         app,
         ffmpeg_path,
@@ -205,6 +298,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         scale_h,
         mode,
         &stem,
+        is_homogeneous,
         &get_img_info,
     )
     .await

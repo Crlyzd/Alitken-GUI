@@ -43,6 +43,10 @@ where
         },
     );
 
+    let export_gif = config.export_gif.unwrap_or(false);
+    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+    let gif_loop = config.gif_loop.unwrap_or(true);
+
     let input_fps = if mode == "SEQUENCE" {
         config.fps as f64
     } else {
@@ -60,19 +64,32 @@ where
         "-",
     ]);
 
-    if let Some(ref audio_path) = config.audio_path {
-        if Path::new(audio_path).exists() {
-            ffmpeg_cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+    if !export_gif {
+        if let Some(ref audio_path) = config.audio_path {
+            if Path::new(audio_path).exists() {
+                ffmpeg_cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+            }
+        }
+        ffmpeg_cmd.args(["-c:v", &gpu_caps.encoder]);
+        for arg in gpu_caps.encoder_args.split_whitespace() {
+            ffmpeg_cmd.arg(arg);
         }
     }
 
-    ffmpeg_cmd.args(["-c:v", &gpu_caps.encoder]);
-    for arg in gpu_caps.encoder_args.split_whitespace() {
-        ffmpeg_cmd.arg(arg);
-    }
     ffmpeg_cmd.args(["-r", &config.fps.to_string()]);
     ffmpeg_cmd.args(["-fps_mode", "cfr"]);
-    ffmpeg_cmd.args(["-vf", "setsar=1,format=yuv420p"]);
+
+    if export_gif {
+        let vf = format!(
+            "setsar=1,{}",
+            super::gif_palette_filter_stage(gif_transparent)
+        );
+        let loop_val = if gif_loop { "0" } else { "-1" };
+        ffmpeg_cmd.args(["-vf", &vf, "-an", "-loop", loop_val]);
+    } else {
+        ffmpeg_cmd.args(["-vf", "setsar=1,format=yuv420p"]);
+    }
+
     ffmpeg_cmd.args(["-progress", "pipe:1"]);
     ffmpeg_cmd.arg(resolved_out.to_string_lossy().to_string());
 
@@ -103,18 +120,44 @@ where
                 return false;
             }
 
+            let formatted_input = super::format_magick_input_arg(path);
             let mut magick_cmd = create_tokio_hidden_cmd(&magick_path_clone);
-            magick_cmd
-                .arg(path)
-                .arg("-resize")
-                .arg(format!("{}x{}", scale_w, scale_h))
-                .arg("-background")
-                .arg("black")
-                .arg("-gravity")
-                .arg("center")
-                .arg("-extent")
-                .arg(format!("{}x{}", scale_w, scale_h))
-                .arg("ppm:-");
+            magick_cmd.arg(&formatted_input);
+            if gif_transparent {
+                magick_cmd.args([
+                    "-alpha",
+                    "on",
+                    "-background",
+                    "none",
+                    "-resize",
+                    &format!("{}x{}", scale_w, scale_h),
+                    "-gravity",
+                    "center",
+                    "-extent",
+                    &format!("{}x{}", scale_w, scale_h),
+                    "-colorspace",
+                    "sRGB",
+                    "-depth",
+                    "8",
+                    "pam:-",
+                ]);
+            } else {
+                magick_cmd.args([
+                    "-resize",
+                    &format!("{}x{}", scale_w, scale_h),
+                    "-background",
+                    "black",
+                    "-gravity",
+                    "center",
+                    "-extent",
+                    &format!("{}x{}", scale_w, scale_h),
+                    "-colorspace",
+                    "sRGB",
+                    "-depth",
+                    "8",
+                    "ppm:-",
+                ]);
+            }
 
             magick_cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 

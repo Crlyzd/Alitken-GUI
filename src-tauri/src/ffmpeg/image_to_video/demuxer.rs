@@ -19,12 +19,16 @@ pub async fn run_concat_demuxer<R: tauri::Runtime, F>(
     scale_h: u32,
     mode: &str,
     stem: &str,
+    is_homogeneous: bool,
     get_img_info: F,
 ) -> Result<(), String>
 where
     F: Fn(f64) -> (usize, String),
 {
     let total_count = sorted_inputs.len();
+    let export_gif = config.export_gif.unwrap_or(false);
+    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+    let gif_loop = config.gif_loop.unwrap_or(true);
     let temp_dir = std::env::temp_dir();
     let batch_id = format!(
         "{}_{}",
@@ -48,20 +52,27 @@ where
 
     let mut has_preprocessing = false;
 
-    let manifest_input_paths: Vec<String> = if mode == "SEQUENCE" {
-        // Mode 2: Image Sequence Mode
+    let manifest_input_paths: Vec<String> = if mode == "SEQUENCE" && is_homogeneous {
+        // Homogeneous Sequence Fast Path (0ms preprocessing overhead)
         sorted_inputs.to_vec()
     } else {
-        // Mode 1: Photo Slideshow Mode
         // Pre-normalize EVERY image to uniform (scale_w x scale_h) PNG frames
-        // to prevent FFmpeg concat demuxer dimension lock / frame drop issues
+        // to prevent FFmpeg concat demuxer dimension/format lock & frame drops
         has_preprocessing = true;
         let mut processed_paths = Vec::new();
 
-        let vf_prep = format!(
-            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
-            scale_w, scale_h, scale_w, scale_h
-        );
+        let vf_prep = if gif_transparent {
+            format!(
+                "format=rgba,scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,setsar=1",
+                scale_w, scale_h, scale_w, scale_h
+            )
+        } else {
+            format!(
+                "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
+                scale_w, scale_h, scale_w, scale_h
+            )
+        };
+        let magick_bg = if gif_transparent { "none" } else { "black" };
 
         for (idx, raw_path_str) in sorted_inputs.iter().enumerate() {
             if crate::utils::check_cancel_flag() {
@@ -93,17 +104,21 @@ where
             );
 
             let is_native = is_ffmpeg_native_image_format(raw_path_str);
+            let magick_input = super::format_magick_input_arg(raw_path_str);
             let mut success = false;
 
-            // Non-native formats (e.g. HEIC, TIFF, ICO): Use ImageMagick
+            // Non-native formats (e.g. HEIC, TIFF, PSD, ICO): Use ImageMagick
             if !is_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
                 let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
+                if gif_transparent {
+                    magick_cmd.args(["-alpha", "on"]);
+                }
                 magick_cmd
-                    .arg(raw_path_str)
+                    .arg(&magick_input)
+                    .arg("-background")
+                    .arg(magick_bg)
                     .arg("-resize")
                     .arg(format!("{}x{}", scale_w, scale_h))
-                    .arg("-background")
-                    .arg("black")
                     .arg("-gravity")
                     .arg("center")
                     .arg("-extent")
@@ -141,7 +156,7 @@ where
             // Final fallback: ImageMagick direct convert if FFmpeg prep failed
             if !success && !crate::utils::check_cancel_flag() && !magick_path.is_empty() && Path::new(magick_path).exists() {
                 let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
-                magick_cmd.arg(raw_path_str).arg(&temp_png);
+                magick_cmd.arg(&magick_input).arg(&temp_png);
                 if let Ok(st) = magick_cmd.status().await {
                     if st.success() {
                         success = true;
@@ -196,13 +211,19 @@ where
         config.duration_sec * (total_count as f64)
     };
 
-    let vf_filter = if mode == "SEQUENCE" {
+    let base_vf = if !has_preprocessing {
         format!(
-            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p",
-            scale_w, scale_h, scale_w, scale_h
+            "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color={},setsar=1",
+            scale_w, scale_h, scale_w, scale_h, if gif_transparent { "0x00000000" } else { "black" }
         )
     } else {
-        "setsar=1,format=yuv420p".to_string()
+        "setsar=1".to_string()
+    };
+
+    let vf_filter = if export_gif {
+        format!("{},{}", base_vf, super::gif_palette_filter_stage(gif_transparent))
+    } else {
+        format!("{},format=yuv420p", base_vf)
     };
 
     // FFmpeg Execution with Concat Demuxer
@@ -217,19 +238,25 @@ where
         &manifest_file.to_string_lossy(),
     ]);
 
-    if let Some(ref audio_path) = config.audio_path {
-        if Path::new(audio_path).exists() {
-            cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+    if !export_gif {
+        if let Some(ref audio_path) = config.audio_path {
+            if Path::new(audio_path).exists() {
+                cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+            }
+        }
+        cmd.args(["-c:v", &gpu_caps.encoder]);
+        for arg in gpu_caps.encoder_args.split_whitespace() {
+            cmd.arg(arg);
         }
     }
 
-    cmd.args(["-c:v", &gpu_caps.encoder]);
-    for arg in gpu_caps.encoder_args.split_whitespace() {
-        cmd.arg(arg);
-    }
     cmd.args(["-r", &config.fps.to_string()]);
     cmd.args(["-fps_mode", "cfr"]);
     cmd.args(["-vf", &vf_filter]);
+    if export_gif {
+        let loop_val = if gif_loop { "0" } else { "-1" };
+        cmd.args(["-an", "-loop", loop_val]);
+    }
     cmd.args(["-progress", "pipe:1"]);
     cmd.arg(resolved_out.to_string_lossy().to_string());
 

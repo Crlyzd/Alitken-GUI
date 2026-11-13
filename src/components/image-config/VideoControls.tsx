@@ -18,57 +18,56 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   onBrowseAudio,
 }) => {
   const isGif = config.videoOutputFormat === 'GIF';
-  const fpsPresets = isGif ? [10, 15, 24] : [24, 30, 60];
+  const isWebp = config.videoOutputFormat === 'WEBP';
+  const isAnim = isGif || isWebp;
+  const fpsPresets = isAnim ? [10, 15, 24] : [24, 30, 60];
   const [isCustomFpsMode, setIsCustomFpsMode] = useState<boolean>(
     !fpsPresets.includes(config.videoFps)
   );
 
-  const handleOutputFormatChange = (target: 'MP4' | 'GIF') => {
-    if (target === 'GIF') {
-      setIsCustomFpsMode(false);
-      onChange({
-        ...config,
-        videoOutputFormat: 'GIF',
-        videoFps: [10, 15, 24].includes(config.videoFps) ? config.videoFps : 15,
-        videoResolution:
-          config.videoResolution === '1080p' ||
-          config.videoResolution === '4k' ||
-          config.videoResolution === 'ORIGINAL'
-            ? '720p'
-            : config.videoResolution,
-      });
-    } else {
-      setIsCustomFpsMode(false);
+  const handleOutputFormatChange = (target: 'MP4' | 'WEBP' | 'GIF') => {
+    setIsCustomFpsMode(false);
+    if (target === 'MP4') {
       onChange({
         ...config,
         videoOutputFormat: 'MP4',
         videoFps: [24, 30, 60].includes(config.videoFps) ? config.videoFps : 24,
       });
+      return;
     }
+    const needsClamp =
+      config.videoResolution === '1080p' ||
+      config.videoResolution === '4k' ||
+      config.videoResolution === 'ORIGINAL';
+    onChange({
+      ...config,
+      videoOutputFormat: target,
+      videoFps: [10, 15, 24].includes(config.videoFps) ? config.videoFps : 15,
+      videoResolution: needsClamp ? '720p' : config.videoResolution,
+    });
   };
 
   return (
     <div className="image-config-panel-card">
-      {/* OUTPUT FORMAT TOGGLE: MP4 VIDEO VS ANIMATED GIF */}
+      {/* OUTPUT FORMAT TOGGLE: MP4 VIDEO VS ANIMATED WEBP VS ANIMATED GIF */}
       <div>
         <label className="image-config-section-label">Output Format</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-          <button
-            type="button"
-            data-tauri-drag-region={false}
-            onClick={() => handleOutputFormatChange('MP4')}
-            className={`image-config-scale-btn ${!isGif ? 'active' : ''}`}
-          >
-            MP4 Video
-          </button>
-          <button
-            type="button"
-            data-tauri-drag-region={false}
-            onClick={() => handleOutputFormatChange('GIF')}
-            className={`image-config-scale-btn ${isGif ? 'active' : ''}`}
-          >
-            Animated GIF
-          </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+          {[
+            { id: 'MP4' as const, label: 'MP4 Video' },
+            { id: 'WEBP' as const, label: 'Anim WebP' },
+            { id: 'GIF' as const, label: 'Anim GIF' },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              data-tauri-drag-region={false}
+              onClick={() => handleOutputFormatChange(opt.id)}
+              className={`image-config-scale-btn ${config.videoOutputFormat === opt.id ? 'active' : ''}`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -212,7 +211,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
                 if (isNaN(val)) {
-                  onChange({ ...config, videoFps: isGif ? 15 : 30 });
+                  onChange({ ...config, videoFps: isAnim ? 15 : 30 });
                 } else {
                   const clamped = Math.min(240, Math.max(1, val));
                   onChange({ ...config, videoFps: clamped });
@@ -228,13 +227,20 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       {/* RESOLUTION SELECT */}
       <div>
         <label className="image-config-section-label">
-          {isGif ? 'GIF Resolution' : 'Video Resolution'}
+          {isWebp ? 'WebP Resolution' : isGif ? 'GIF Resolution' : 'Video Resolution'}
         </label>
         <GlassSelect
           value={config.videoResolution}
           onChange={(val) => onChange({ ...config, videoResolution: val as any })}
           options={
-            isGif
+            isWebp
+              ? [
+                  { value: '1080p', label: '1080p Full HD (1920x1080)' },
+                  { value: '720p', label: '720p HD (1280x720)' },
+                  { value: '480p', label: '480p SD (854x480)' },
+                  { value: '360p', label: '360p Compact (640x360)' },
+                ]
+              : isGif
               ? [
                   { value: '720p', label: '720p HD (1280x720)' },
                   { value: '480p', label: '480p SD (854x480)' },
@@ -252,8 +258,8 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         />
       </div>
 
-      {/* BACKGROUND AUDIO OR GIF ANIMATION OPTIONS */}
-      {isGif ? (
+      {/* BACKGROUND AUDIO OR ANIMATION OPTIONS */}
+      {isAnim ? (
         <VideoGifOptions config={config} onChange={onChange} />
       ) : (
         <div>

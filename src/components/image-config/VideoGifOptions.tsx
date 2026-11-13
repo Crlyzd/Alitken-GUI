@@ -32,7 +32,7 @@ export const VideoGifOptions: React.FC<VideoGifOptionsProps> = ({ config, onChan
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <label className="image-config-section-label" style={{ marginBottom: 0 }}>
-        GIF Animation Options
+        {config.videoOutputFormat === 'WEBP' ? 'WebP Animation Options' : 'GIF Animation Options'}
       </label>
 
       <button

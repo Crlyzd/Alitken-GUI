@@ -5,15 +5,22 @@ export interface ImageStartButtonProps {
   onStart: () => void;
   disabled: boolean;
   isVideo: boolean;
-  isGif?: boolean;
+  videoOutputFormat?: 'MP4' | 'WEBP' | 'GIF';
 }
 
 export const ImageStartButton: React.FC<ImageStartButtonProps> = ({
   onStart,
   disabled,
   isVideo,
-  isGif = false,
+  videoOutputFormat = 'MP4',
 }) => {
+  const videoLabel =
+    videoOutputFormat === 'WEBP'
+      ? 'START CONVERT TO WEBP'
+      : videoOutputFormat === 'GIF'
+      ? 'START CONVERT TO GIF'
+      : 'START CONVERT TO VIDEO';
+
   return (
     <div className="image-config-start-wrapper">
       <button
@@ -23,7 +30,7 @@ export const ImageStartButton: React.FC<ImageStartButtonProps> = ({
         className={`image-config-start-btn ${disabled ? 'disabled' : 'enabled'}`}
       >
         <Sparkles size={18} />
-        {isVideo ? (isGif ? 'START CONVERT TO GIF' : 'START CONVERT TO VIDEO') : 'START IMAGE CONVERT'}
+        {isVideo ? videoLabel : 'START IMAGE CONVERT'}
       </button>
     </div>
   );

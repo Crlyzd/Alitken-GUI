@@ -70,6 +70,12 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-14] v0.9.2 - Add Animated WebP Support & O(1) Memory Streaming for WebP/GIF
+- **Video & Trimmer Animated WebP (`src-tauri/src/ffmpeg/video/gif.rs`, `types.rs`)**: Added streaming 24-bit Animated WebP (`-c:v libwebp`, `format=yuv420p`, `-quality 80 -compression_level 3` High Detail / `-quality 65 -compression_level 4` Compact Size, `-loop 0|1`, up to `1080p`) alongside GIF (`720p` max) via `anim_format`; upgraded `build_gif_palette_filter` to `stats_mode=single` + `paletteuse=...:new=1` for O(1) memory streaming.
+- **Image-to-WebP & Input Safety (`src-tauri/src/ffmpeg/image_to_video/mod.rs`, `pipe.rs`, `demuxer.rs`, `src-tauri/src/image/convert.rs`)**: Extended `image_to_video` Tier 1 (`pipe.rs`) and Tier 2 (`demuxer.rs`) with `export_webp` (`.webp`, `1080p` max, `yuva420p` 8-bit smooth alpha when transparent, `-c:v libwebp` streaming); upgraded `gif_palette_filter_stage` to `stats_mode=single` + `new=1`; appended `[0]` first-frame selection for `.webp` (and `.gif`/`.ico` in `image/convert.rs`).
+- **Frontend UI & Hooks (`src/types/`, `src/App.tsx`, `src/hooks/`, `src/components/video-config/`, `src/components/image-config/`, `src/components/config/`, `src/components/trimmer/`, `src/components/VideoTrimmer.tsx`)**: Added `animFormat` (`'WEBP' | 'GIF'`, default `'WEBP'`) with 4-card `WEBP / GIF` selector, `[Animated WebP | Animated GIF]` sub-toggle, `1080p` WebP / `720p` GIF resolution caps (auto-clamping `1080p` -> `720p` on GIF switch), 3-pill `[MP4 Video | Anim WebP | Anim GIF]` selector in Image mode, and dynamic progress/CTA labels.
+- **`.agents/skills/alitken-pipelines/SKILL.md`**: Documented Animated WebP (`libwebp`), O(1) GIF streaming (`stats_mode=single` + `new=1`), and `[0]` `.webp` input handling.
+
 ### [2026-11-13] v0.9.2 - Enforce 720p GIF Ceiling & Clean Target Resolution Labels
 - **`src/components/video-config/ResolutionSelector.tsx` & `src/types/config.ts`**: Removed `360p Compact (GIF / Web)` option and unused `'360'` entry in `PRESET_HEIGHTS`; filtered `Target Resolution` dropdown in GIF mode strictly to `720p HD`, `480p SD`, and `Custom Height (144 - 720 px)` with active clamping on change/blur.
 - **`src/components/video-config/CodecSelector.tsx`**: Auto-clamped `ORIGINAL` and any height `> 720` down to `'720'` when switching into GIF mode.
@@ -226,4 +232,15 @@ All AI agents working on this repository MUST strictly follow these rules:
 - **Strict Invariants**:
   1. **ALWAYS** cap GIF resolution options and custom height inputs strictly at **720p maximum** (`144px–720px`) across both UI controls and backend Rust pipelines.
   2. **NEVER** include codec or file-format names (such as `GIF`) inside `Target Resolution` dropdown option labels.
+
+### 8. Unbounded Frame Buffering in FFmpeg lavfi Benchmarks & Single-Pass Palette/WebP Encoders
+- **Tag**: `[MISTAKE]` / `[CORRECTION]`
+- **Context & Objection**: Running an FFmpeg `lavfi` benchmark (`mandelbrot`) with `-t 3` placed as an output flag after `-i` while piping through `split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`, causing `ffmpeg.exe` to buffer unbounded 1080p frames on `[s1]` (~19.7 GB RAM) until the user intervened (`"stop it bruh"`).
+- **Root Cause**:
+  1. Infinite `lavfi` sources (`mandelbrot`, `testsrc2` without `duration=`) never reach EOF unless `-t` is passed *before* `-i` (or `duration=` is inside the filter string).
+  2. In FFmpeg's `split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse`, `palettegen` does not emit `[p]` until `[s0]` hits EOF, forcing `[s1]` to buffer every uncompressed frame of the entire video in RAM. Similarly, `libwebp_anim` buffers all encoded frames in RAM until `WebPAnimEncoderAssemble()` at EOF and reports `0%` progress until completion.
+- **Strict Invariants**:
+  1. **NEVER** run `lavfi` test generators without an explicit finite `duration=<sec>` inside the filter graph or `-t <sec>` *before* `-i`, and avoid running heavy multi-second 1080p CLI benchmarks unless explicitly requested by the user.
+  2. **ALWAYS** use `-c:v libwebp` (streaming per-frame WebP encoder with real-time `out_time_ms` telemetry and `O(1)` RAM usage) instead of `libwebp_anim` (which buffers all frames in RAM until EOF).
+  3. **ALWAYS** use `palettegen=max_colors=256:stats_mode=single` paired with `paletteuse=new=1` in single-pass GIF filtergraphs so FFmpeg streams frames in `O(1)` memory instead of buffering the entire video in RAM on `[s1]`.
 

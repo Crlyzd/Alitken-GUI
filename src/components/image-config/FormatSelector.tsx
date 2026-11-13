@@ -33,7 +33,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({ format, onChange
           onClick={() => onChange('VIDEO')}
           className={`image-config-category-btn ${isVideo ? 'active' : ''}`}
         >
-          <Video size={15} strokeWidth={2} /> Video (MP4)
+          <Video size={15} strokeWidth={2} /> Video & GIF
         </button>
       </div>
 

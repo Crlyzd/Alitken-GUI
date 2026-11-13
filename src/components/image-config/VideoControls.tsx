@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ImageConfig } from '../../types/media';
 import { FileImage, Film, Music } from 'lucide-react';
 import { GlassSelect } from '../GlassSelect';
+import { VideoGifOptions } from './VideoGifOptions';
 
 export interface VideoControlsProps {
   config: ImageConfig;
@@ -16,12 +17,61 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   fileCount,
   onBrowseAudio,
 }) => {
+  const isGif = config.videoOutputFormat === 'GIF';
+  const fpsPresets = isGif ? [10, 15, 24] : [24, 30, 60];
   const [isCustomFpsMode, setIsCustomFpsMode] = useState<boolean>(
-    ![24, 30, 60].includes(config.videoFps)
+    !fpsPresets.includes(config.videoFps)
   );
+
+  const handleOutputFormatChange = (target: 'MP4' | 'GIF') => {
+    if (target === 'GIF') {
+      setIsCustomFpsMode(false);
+      onChange({
+        ...config,
+        videoOutputFormat: 'GIF',
+        videoFps: [10, 15, 24].includes(config.videoFps) ? config.videoFps : 15,
+        videoResolution:
+          config.videoResolution === '1080p' ||
+          config.videoResolution === '4k' ||
+          config.videoResolution === 'ORIGINAL'
+            ? '720p'
+            : config.videoResolution,
+      });
+    } else {
+      setIsCustomFpsMode(false);
+      onChange({
+        ...config,
+        videoOutputFormat: 'MP4',
+        videoFps: [24, 30, 60].includes(config.videoFps) ? config.videoFps : 24,
+      });
+    }
+  };
 
   return (
     <div className="image-config-panel-card">
+      {/* OUTPUT FORMAT TOGGLE: MP4 VIDEO VS ANIMATED GIF */}
+      <div>
+        <label className="image-config-section-label">Output Format</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+          <button
+            type="button"
+            data-tauri-drag-region={false}
+            onClick={() => handleOutputFormatChange('MP4')}
+            className={`image-config-scale-btn ${!isGif ? 'active' : ''}`}
+          >
+            MP4 Video
+          </button>
+          <button
+            type="button"
+            data-tauri-drag-region={false}
+            onClick={() => handleOutputFormatChange('GIF')}
+            className={`image-config-scale-btn ${isGif ? 'active' : ''}`}
+          >
+            Animated GIF
+          </button>
+        </div>
+      </div>
+
       {/* VIDEO CONVERSION MODE SELECTOR */}
       <div>
         <label className="image-config-section-label">Conversion Mode</label>
@@ -123,12 +173,13 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       <div>
         <label className="image-config-section-label">Frame Rate (FPS)</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-          {[24, 30, 60].map((fps) => {
+          {fpsPresets.map((fps) => {
             const isActive = !isCustomFpsMode && config.videoFps === fps;
             return (
               <button
                 key={fps}
                 type="button"
+                data-tauri-drag-region={false}
                 onClick={() => {
                   setIsCustomFpsMode(false);
                   onChange({ ...config, videoFps: fps });
@@ -141,16 +192,17 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
           })}
           <button
             type="button"
+            data-tauri-drag-region={false}
             onClick={() => setIsCustomFpsMode(true)}
             className={`image-config-scale-btn ${
-              isCustomFpsMode || ![24, 30, 60].includes(config.videoFps) ? 'active' : ''
+              isCustomFpsMode || !fpsPresets.includes(config.videoFps) ? 'active' : ''
             }`}
           >
             Custom
           </button>
         </div>
 
-        {(isCustomFpsMode || ![24, 30, 60].includes(config.videoFps)) && (
+        {(isCustomFpsMode || !fpsPresets.includes(config.videoFps)) && (
           <div>
             <input
               type="number"
@@ -160,7 +212,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
                 if (isNaN(val)) {
-                  onChange({ ...config, videoFps: 30 });
+                  onChange({ ...config, videoFps: isGif ? 15 : 30 });
                 } else {
                   const clamped = Math.min(240, Math.max(1, val));
                   onChange({ ...config, videoFps: clamped });
@@ -175,36 +227,52 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
 
       {/* RESOLUTION SELECT */}
       <div>
-        <label className="image-config-section-label">Video Resolution</label>
+        <label className="image-config-section-label">
+          {isGif ? 'GIF Resolution' : 'Video Resolution'}
+        </label>
         <GlassSelect
           value={config.videoResolution}
           onChange={(val) => onChange({ ...config, videoResolution: val as any })}
-          options={[
-            { value: '1080p', label: '1080p Full HD (1920x1080)' },
-            { value: '4k', label: '4K Ultra HD (3840x2160)' },
-            { value: '720p', label: '720p HD (1280x720)' },
-            { value: 'ORIGINAL', label: 'Original Image Resolution (Padded)' },
-          ]}
+          options={
+            isGif
+              ? [
+                  { value: '720p', label: '720p HD (1280x720)' },
+                  { value: '480p', label: '480p SD (854x480)' },
+                  { value: '360p', label: '360p Compact (640x360)' },
+                ]
+              : [
+                  { value: '1080p', label: '1080p Full HD (1920x1080)' },
+                  { value: '4k', label: '4K Ultra HD (3840x2160)' },
+                  { value: '720p', label: '720p HD (1280x720)' },
+                  { value: '480p', label: '480p SD (854x480)' },
+                  { value: '360p', label: '360p Compact (640x360)' },
+                  { value: 'ORIGINAL', label: 'Original Image Resolution (Padded)' },
+                ]
+          }
         />
       </div>
 
-      {/* BACKGROUND AUDIO */}
-      <div>
-        <label className="image-config-section-label">Background Audio (Optional)</label>
-        <div className="image-config-audio-row">
-          <input
-            type="text"
-            readOnly
-            value={config.audioPath ? config.audioPath.split(/[\\/]/).pop() : 'No audio attached'}
-            className={`image-config-audio-input ${
-              config.audioPath ? 'attached' : 'empty'
-            }`}
-          />
-          <button onClick={onBrowseAudio} className="image-config-btn-secondary">
-            <Music size={13} /> Select
-          </button>
+      {/* BACKGROUND AUDIO OR GIF ANIMATION OPTIONS */}
+      {isGif ? (
+        <VideoGifOptions config={config} onChange={onChange} />
+      ) : (
+        <div>
+          <label className="image-config-section-label">Background Audio (Optional)</label>
+          <div className="image-config-audio-row">
+            <input
+              type="text"
+              readOnly
+              value={config.audioPath ? config.audioPath.split(/[\\/]/).pop() : 'No audio attached'}
+              className={`image-config-audio-input ${
+                config.audioPath ? 'attached' : 'empty'
+              }`}
+            />
+            <button onClick={onBrowseAudio} className="image-config-btn-secondary">
+              <Music size={13} /> Select
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

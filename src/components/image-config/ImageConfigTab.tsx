@@ -85,6 +85,7 @@ export const ImageConfigTab: React.FC<ImageConfigTabProps> = ({
         onStart={onStart}
         disabled={disabled}
         isVideo={config.outputFormat === 'VIDEO'}
+        isGif={config.outputFormat === 'VIDEO' && config.videoOutputFormat === 'GIF'}
       />
     </div>
   );

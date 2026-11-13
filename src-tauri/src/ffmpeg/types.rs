@@ -50,11 +50,14 @@ pub struct ConversionConfig {
     pub combine_fast_copy: Option<bool>,
     pub target_height: String,  // "ORIGINAL", "1080", "720", "480", "2160"
     pub target_bitrate: String, // "ORIGINAL" or kbps e.g. "5000"
-    pub codec_choice: String,   // "1"=H264, "2"=HEVC, "3"=AV1
+    pub codec_choice: String,   // "1"=H264, "2"=HEVC, "3"=AV1, "4"=GIF
     pub custom_output_dir: Option<String>,
     pub audio_path: Option<String>,
     pub audio_fade_in: Option<bool>,
     pub audio_fade_out: Option<bool>,
+    pub gif_fps: Option<String>,
+    pub gif_quality: Option<String>,
+    pub gif_loop: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +96,9 @@ pub struct ImageToVideoConfig {
     pub audio_path: Option<String>,
     pub codec_choice: String,
     pub output_dir: Option<String>,
+    pub export_gif: Option<bool>,
+    pub gif_loop: Option<bool>,
+    pub gif_transparent: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +122,10 @@ pub struct TrimConfig {
     pub audio_path: Option<String>,
     pub audio_fade_in: Option<bool>,
     pub audio_fade_out: Option<bool>,
+    pub export_gif: Option<bool>,
+    pub gif_fps: Option<String>,
+    pub gif_quality: Option<String>,
+    pub gif_loop: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

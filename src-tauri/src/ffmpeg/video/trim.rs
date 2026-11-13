@@ -63,6 +63,44 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "trimmed_video".to_string());
 
+    let mute_audio = config.mute_audio.unwrap_or(false);
+    let raw_speed = config.playback_speed.unwrap_or(1.0);
+    let speed = raw_speed.clamp(0.1, 50.0);
+    let is_speed_changed = (speed - 1.0).abs() > 0.001;
+    let has_crop = (config.crop_w.is_some() && config.crop_h.is_some()) || config.crop_filter.is_some();
+
+    let start_sec = config.start_sec.max(0.0);
+    let end_sec = if config.end_sec > start_sec {
+        if meta.duration_sec > 0.0 {
+            config.end_sec.min(meta.duration_sec)
+        } else {
+            config.end_sec
+        }
+    } else if meta.duration_sec > 0.0 {
+        meta.duration_sec
+    } else {
+        start_sec + 60.0
+    };
+    let trim_duration = (end_sec - start_sec).max(0.1);
+    let effective_output_duration = trim_duration / speed;
+
+    if config.export_gif.unwrap_or(false) || config.codec_choice == "4" {
+        return super::gif::execute_gif_trim_step(
+            app,
+            ffmpeg_path,
+            &config,
+            &meta,
+            &parent_dir,
+            &file_stem,
+            start_sec,
+            end_sec,
+            speed,
+            is_speed_changed,
+            effective_output_duration,
+        )
+        .await;
+    }
+
     let out_ext = if config.fast_copy {
         input_path
             .extension()
@@ -75,29 +113,7 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
     let raw_outfile = parent_dir.join(format!("{}_trimmed.{}", file_stem, out_ext));
     let resolved_outfile = resolve_conflict_path(raw_outfile);
 
-    let mute_audio = config.mute_audio.unwrap_or(false);
-    let raw_speed = config.playback_speed.unwrap_or(1.0);
-    let speed = raw_speed.clamp(0.1, 50.0);
-    let is_speed_changed = (speed - 1.0).abs() > 0.001;
-    let has_crop = (config.crop_w.is_some() && config.crop_h.is_some()) || config.crop_filter.is_some();
     let effective_fast_copy = config.fast_copy && !is_speed_changed && !has_crop;
-
-    let start_sec = config.start_sec.max(0.0);
-    let end_sec = if config.end_sec > start_sec {
-        if meta.duration_sec > 0.0 {
-            config.end_sec.min(meta.duration_sec)
-        } else {
-            config.end_sec
-        }
-    } else {
-        if meta.duration_sec > 0.0 {
-            meta.duration_sec
-        } else {
-            start_sec + 60.0
-        }
-    };
-    let trim_duration = (end_sec - start_sec).max(0.1);
-    let effective_output_duration = trim_duration / speed;
 
     let mut args: Vec<String> = vec!["-hide_banner".to_string()];
 

@@ -1,6 +1,7 @@
 pub mod combine;
 pub mod convert;
 pub mod extract_frames;
+pub mod gif;
 pub mod preview;
 pub mod trim;
 

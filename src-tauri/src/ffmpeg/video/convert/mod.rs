@@ -198,6 +198,30 @@ pub async fn run_video_pipeline<R: tauri::Runtime>(
                 },
             )
             .await?;
+        } else if config.codec_choice == "4" {
+            crate::ffmpeg::video::gif::execute_gif_convert_step(
+                app,
+                ffmpeg_path,
+                &config,
+                transcode::TranscodeItemParams {
+                    file_path,
+                    idx,
+                    total_videos,
+                    meta: &meta,
+                    parent_dir: &parent_dir,
+                    file_stem: &file_stem,
+                    res_tag: &res_tag,
+                    bit_tag: &bit_tag,
+                    input_decoder_args: &input_decoder_args,
+                    has_trim,
+                    start_sec,
+                    end_sec,
+                    effective_duration,
+                    crop_filter: crop_filter.as_deref(),
+                    crop_box,
+                },
+            )
+            .await?;
         } else {
             transcode::execute_transcode_step(
                 app,

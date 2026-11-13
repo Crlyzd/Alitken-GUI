@@ -27,7 +27,9 @@ where
 {
     let total_count = sorted_inputs.len();
     let export_gif = config.export_gif.unwrap_or(false);
-    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+    let export_webp = config.export_webp.unwrap_or(false) && !export_gif;
+    let is_anim = export_gif || export_webp;
+    let anim_transparent = is_anim && config.gif_transparent.unwrap_or(false);
     let gif_loop = config.gif_loop.unwrap_or(true);
     let temp_dir = std::env::temp_dir();
     let batch_id = format!(
@@ -61,7 +63,7 @@ where
         has_preprocessing = true;
         let mut processed_paths = Vec::new();
 
-        let vf_prep = if gif_transparent {
+        let vf_prep = if anim_transparent {
             format!(
                 "format=rgba,scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,setsar=1",
                 scale_w, scale_h, scale_w, scale_h
@@ -72,7 +74,7 @@ where
                 scale_w, scale_h, scale_w, scale_h
             )
         };
-        let magick_bg = if gif_transparent { "none" } else { "black" };
+        let magick_bg = if anim_transparent { "none" } else { "black" };
 
         for (idx, raw_path_str) in sorted_inputs.iter().enumerate() {
             if crate::utils::check_cancel_flag() {
@@ -110,7 +112,7 @@ where
             // Non-native formats (e.g. HEIC, TIFF, PSD, ICO): Use ImageMagick
             if !is_native && !magick_path.is_empty() && Path::new(magick_path).exists() {
                 let mut magick_cmd = create_tokio_hidden_cmd(magick_path);
-                if gif_transparent {
+                if anim_transparent {
                     magick_cmd.args(["-alpha", "on"]);
                 }
                 magick_cmd
@@ -214,14 +216,20 @@ where
     let base_vf = if !has_preprocessing {
         format!(
             "scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2:color={},setsar=1",
-            scale_w, scale_h, scale_w, scale_h, if gif_transparent { "0x00000000" } else { "black" }
+            scale_w, scale_h, scale_w, scale_h, if anim_transparent { "0x00000000" } else { "black" }
         )
     } else {
         "setsar=1".to_string()
     };
 
     let vf_filter = if export_gif {
-        format!("{},{}", base_vf, super::gif_palette_filter_stage(gif_transparent))
+        format!("{},{}", base_vf, super::gif_palette_filter_stage(anim_transparent))
+    } else if export_webp {
+        format!(
+            "{},{}",
+            base_vf,
+            if anim_transparent { "format=yuva420p" } else { "format=yuv420p" }
+        )
     } else {
         format!("{},format=yuv420p", base_vf)
     };
@@ -238,7 +246,7 @@ where
         &manifest_file.to_string_lossy(),
     ]);
 
-    if !export_gif {
+    if !is_anim {
         if let Some(ref audio_path) = config.audio_path {
             if Path::new(audio_path).exists() {
                 cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
@@ -256,6 +264,23 @@ where
     if export_gif {
         let loop_val = if gif_loop { "0" } else { "-1" };
         cmd.args(["-an", "-loop", loop_val]);
+    } else if export_webp {
+        let loop_val = if gif_loop { "0" } else { "1" };
+        cmd.args([
+            "-c:v",
+            "libwebp",
+            "-lossless",
+            "0",
+            "-compression_level",
+            "3",
+            "-quality",
+            "80",
+            "-preset",
+            "default",
+            "-an",
+            "-loop",
+            loop_val,
+        ]);
     }
     cmd.args(["-progress", "pipe:1"]);
     cmd.arg(resolved_out.to_string_lossy().to_string());

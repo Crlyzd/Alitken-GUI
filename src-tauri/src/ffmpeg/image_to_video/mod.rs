@@ -14,19 +14,19 @@ pub fn format_magick_input_arg(path: &str) -> String {
         .extension()
         .map(|s| s.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    if matches!(ext.as_str(), "psd" | "psb" | "ico" | "gif") {
+    if matches!(ext.as_str(), "psd" | "psb" | "ico" | "gif" | "webp") {
         format!("{}[0]", path)
     } else {
         path.to_string()
     }
 }
 
-/// Shared 256-color GIF palettegen/paletteuse filter stage for Image-to-GIF pipelines.
+/// Shared O(1)-memory 256-color GIF palettegen/paletteuse filter stage for Image-to-GIF pipelines.
 pub fn gif_palette_filter_stage(transparent: bool) -> &'static str {
     if transparent {
-        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=1:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle:alpha_threshold=128"
+        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=1:stats_mode=single[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:alpha_threshold=128:new=1"
     } else {
-        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=0:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle"
+        "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=0:stats_mode=single[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:new=1"
     }
 }
 
@@ -36,7 +36,8 @@ async fn resolve_canvas_and_homogeneity(
     resolution: &str,
     has_non_native: bool,
     export_gif: bool,
-    gif_transparent: bool,
+    export_webp: bool,
+    anim_transparent: bool,
 ) -> ((u32, u32), bool) {
     let mut dims: Vec<(u32, u32)> = Vec::with_capacity(inputs.len());
     for file_path in inputs {
@@ -62,7 +63,9 @@ async fn resolve_canvas_and_homogeneity(
         }
     }
     let is_majority_portrait = portrait_count > landscape_count;
-    let effective_res = if export_gif && resolution != "480p" && resolution != "360p" {
+    let effective_res = if export_gif && !matches!(resolution, "720p" | "480p" | "360p") {
+        "720p"
+    } else if export_webp && !matches!(resolution, "1080p" | "720p" | "480p" | "360p") {
         "720p"
     } else {
         resolution
@@ -124,7 +127,7 @@ async fn resolve_canvas_and_homogeneity(
     let first_dim = dims.first().copied().unwrap_or((0, 0));
 
     let is_homogeneous = !has_non_native
-        && !gif_transparent
+        && !anim_transparent
         && first_dim.0 > 0
         && first_dim.1 > 0
         && inputs.iter().enumerate().all(|(i, p)| {
@@ -172,9 +175,11 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     }
 
     let export_gif = config.export_gif.unwrap_or(false);
-    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+    let export_webp = config.export_webp.unwrap_or(false) && !export_gif;
+    let is_anim = export_gif || export_webp;
+    let anim_transparent = is_anim && config.gif_transparent.unwrap_or(false);
 
-    if !export_gif {
+    if !is_anim {
         if let Some(ref audio_path) = config.audio_path {
             if !audio_path.is_empty() && !Path::new(audio_path).exists() {
                 let err_msg = format!(
@@ -190,7 +195,7 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
     let mode = config.mode.as_deref().unwrap_or("SLIDESHOW");
     log_info(&format!(
         "Starting Image-to-{} pipeline ({}). Inputs: {}, Duration: {}s, FPS: {}",
-        if export_gif { "GIF" } else { "Video" },
+        if export_webp { "WebP" } else if export_gif { "GIF" } else { "Video" },
         mode,
         config.input_files.len(),
         config.duration_sec,
@@ -212,7 +217,13 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         "Image_Slideshow".to_string()
     };
 
-    let ext = if export_gif { "gif" } else { "mp4" };
+    let ext = if export_webp {
+        "webp"
+    } else if export_gif {
+        "gif"
+    } else {
+        "mp4"
+    };
     let target_file = out_dir.join(format!("{}.{}", stem, ext));
     let resolved_out = resolve_conflict_path(target_file);
 
@@ -226,7 +237,8 @@ pub async fn run_image_to_video_pipeline<R: tauri::Runtime>(
         config.resolution.as_str(),
         has_non_native,
         export_gif,
-        gif_transparent,
+        export_webp,
+        anim_transparent,
     )
     .await;
 

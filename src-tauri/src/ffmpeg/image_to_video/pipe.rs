@@ -44,7 +44,9 @@ where
     );
 
     let export_gif = config.export_gif.unwrap_or(false);
-    let gif_transparent = export_gif && config.gif_transparent.unwrap_or(false);
+    let export_webp = config.export_webp.unwrap_or(false) && !export_gif;
+    let is_anim = export_gif || export_webp;
+    let anim_transparent = is_anim && config.gif_transparent.unwrap_or(false);
     let gif_loop = config.gif_loop.unwrap_or(true);
 
     let input_fps = if mode == "SEQUENCE" {
@@ -64,7 +66,7 @@ where
         "-",
     ]);
 
-    if !export_gif {
+    if !is_anim {
         if let Some(ref audio_path) = config.audio_path {
             if Path::new(audio_path).exists() {
                 ffmpeg_cmd.args(["-i", audio_path, "-c:a", "aac", "-b:a", "192k", "-shortest"]);
@@ -82,10 +84,34 @@ where
     if export_gif {
         let vf = format!(
             "setsar=1,{}",
-            super::gif_palette_filter_stage(gif_transparent)
+            super::gif_palette_filter_stage(anim_transparent)
         );
         let loop_val = if gif_loop { "0" } else { "-1" };
         ffmpeg_cmd.args(["-vf", &vf, "-an", "-loop", loop_val]);
+    } else if export_webp {
+        let vf = if anim_transparent {
+            "setsar=1,format=yuva420p"
+        } else {
+            "setsar=1,format=yuv420p"
+        };
+        let loop_val = if gif_loop { "0" } else { "1" };
+        ffmpeg_cmd.args([
+            "-c:v",
+            "libwebp",
+            "-lossless",
+            "0",
+            "-compression_level",
+            "3",
+            "-quality",
+            "80",
+            "-preset",
+            "default",
+            "-vf",
+            vf,
+            "-an",
+            "-loop",
+            loop_val,
+        ]);
     } else {
         ffmpeg_cmd.args(["-vf", "setsar=1,format=yuv420p"]);
     }
@@ -123,7 +149,7 @@ where
             let formatted_input = super::format_magick_input_arg(path);
             let mut magick_cmd = create_tokio_hidden_cmd(&magick_path_clone);
             magick_cmd.arg(&formatted_input);
-            if gif_transparent {
+            if anim_transparent {
                 magick_cmd.args([
                     "-alpha",
                     "on",

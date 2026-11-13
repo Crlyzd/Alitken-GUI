@@ -103,7 +103,7 @@ pub async fn run_image_pipeline<R: tauri::Runtime>(
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-        let input_arg = if ext == "psd" || ext == "psb" {
+        let input_arg = if matches!(ext.as_str(), "psd" | "psb" | "ico" | "gif" | "webp") {
             format!("{}[0]", input_path_str)
         } else {
             input_path_str.to_string()

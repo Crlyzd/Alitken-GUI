@@ -11,7 +11,7 @@ Users may invoke this full sequence via `/proceed <request>`, or independently c
 ### Phase 1: Planning with the Architect (`@architect` / `/architect`)
 
 1. Act as the **Architect** (`@architect`).
-2. Deeply study the codebase, consult `skills/alitken-expert/SKILL.md`, and **MANDATORILY read [history.md](file:///e:/Default/DEVS/Alitken/Alitken-GUI/history.md)** to inspect past mistakes, anti-patterns, and project evolution.
+2. Deeply study the codebase, consult `.agents/skills/alitken-expert/SKILL.md` and `.agents/skills/alitken-pipelines/SKILL.md`, and **MANDATORILY read [history.md](file:///d:/ALitken/Alitken-GUI/history.md)** to inspect past mistakes, anti-patterns, and project evolution.
 3. Produce a structured `implementation_plan.md` in the **system artifacts directory** (`<appDataDir>\brain\<conversation-id>\implementation_plan.md`).
    - **Plan Constraints**:
      - Follow the standard coding rules: **KISS, YAGNI, DRY**.

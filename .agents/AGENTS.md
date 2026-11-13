@@ -6,7 +6,7 @@ This file governs the behavior, conventions, and architectural standards for all
 
 ## 1. Project Overview & Technology Stack
 
-**Alitken** is a modern, high-performance desktop media converter, video trimmer, segment splitter, concatenator, and frame burst extractor for Windows 11 (Current Version: **v0.9.1**).
+**Alitken** is a modern, high-performance desktop media converter, video trimmer, segment splitter, concatenator, frame burst extractor, and Animated WebP / GIF exporter for Windows 11 (Current Version: **v0.9.3**).
 
 - **Frontend**: React 18, TypeScript 5.7, Vite 6, Vanilla CSS + CSS Variables (`src/index.css`), Lucide React icons.
 - **Backend / Native Engine**: Tauri v2 (`tauri 2.2.0`, `tauri-plugin-dialog 2.2.0`, `tauri-plugin-opener 2.2.5`), Rust (2021 edition), Tokio async runtime (`src-tauri/`).
@@ -15,15 +15,15 @@ This file governs the behavior, conventions, and architectural standards for all
 - **Data & Binaries Directory**: `%LOCALAPPDATA%\curlyzed` (shared application root, binary cache in `%LOCALAPPDATA%\curlyzed\bin`, logs in `%LOCALAPPDATA%\curlyzed\logs`, temporary cache in `%LOCALAPPDATA%\curlyzed\cache`, auto-migrated from legacy `%LOCALAPPDATA%\Alitken`).
 - **Operating Environment**: Windows 10/11 native borderless glass window with Acrylic/Mica DWM effects (`decorations: false`, custom `Titlebar.tsx`, 1px DWM border stroke eliminated).
 - **Dynamic Two-Phase Window Geometry**:
-  - *Startup Mode*: Fixed 1:1 square window (`500×500 px`, non-resizable across all edges, centered, `collapse_to_startup_window`).
-  - *Working Mode*: Expands to `1060×720 px` with minimum bound `1040×700 px` (`expand_to_working_window`, resizable) upon loading media files. Automatically collapses back to 500×500 px when the queue is cleared.
-- **Titlebar Header Branding**: Must strictly follow the format `Alitken v<version>` or `ALITKEN v<version>` (e.g., `ALITKEN v0.9.1`).
-- **Unified Master Build System**: `build.ps1` consolidates all developer workflows (dev server, store dev, fast builds), multi-target packaging (MSIX, NSIS, Portable for x64/ARM64), visual asset generation, version bumping, and updater signing.
+  - *Startup Mode*: Fixed 1:1 square window (`500×500 px`, non-resizable across all edges, `maximizable: false` with `SC_MAXIMIZE` Aero Snap lock, centered, `collapse_to_startup_window`).
+  - *Working Mode*: Expands to `1060×720 px` with minimum bound `1040×700 px` (`expand_to_working_window`, resizable & maximizable restored) upon loading media files. Automatically collapses back to `500×500 px` when the queue is cleared.
+- **Titlebar Header Branding**: Must strictly follow the format `Alitken v<version>` or `ALITKEN v<version>` (e.g., `ALITKEN v0.9.3`).
+- **Unified Master Build System**: `build.ps1` consolidates all developer workflows (dev server, store dev, fast builds, custom Rust toolchain detection), multi-target packaging (NSIS, Portable, and automated multi-arch MS Store `.msixbundle` for x64/ARM64), visual asset generation, `-Bump` version syncing, and updater signing.
 - **MediaInfo-Grade Stream Inspector**: High-precision media stream specifications analyzer and dual-view visual modal (`MediaDetailsModal.tsx`, `MediaSpecsVisualView.tsx`).
 - **Memory Management**: Automatic working set memory compaction (`utils::trim_working_set()` / `trim_memory` command) triggered on startup, upon window collapse, and after heavy media operations.
 - **Modular Domain Architecture**:
   - *Frontend*: Modular domain directories under `src/components/<domain>/` (`queue/`, `trimmer/`, `config/`, `video-config/`, `image-config/`, `titlebar/`, `welcome/`, `ui/`, `modals/`, `settings/`, `banners/`) with lean coordinator shells. Backward-compatible re-export shims at legacy root paths prevent breaking existing callers. Types centralized in `src/types/`.
-  - *Backend*: Domain-driven submodules under `src-tauri/src/` (`commands/`, `utils/`, `dependencies/`, `updater/`, `image/`, `ffmpeg/video/combine/`, `ffmpeg/video/convert/`, `ffmpeg/image_to_video/`).
+  - *Backend*: Domain-driven submodules under `src-tauri/src/` (`commands/`, `utils/`, `dependencies/`, `updater/`, `image/`, `wmf/`, `ffmpeg/video/combine/`, `ffmpeg/video/convert/`, `ffmpeg/video/gif.rs`, `ffmpeg/video/trim.rs`, `ffmpeg/image_to_video/`).
 
 ---
 
@@ -54,7 +54,9 @@ This file governs the behavior, conventions, and architectural standards for all
    - Supports incomplete toolchain status reporting and selective managed binary pruning upon uninstallation.
    - Auto-updater includes download cancellation support, rate-limit fallback handling, and clean modal state transitions.
 8. **Modern Borderless & Frosted Glass Aesthetic**:
-   - Custom borderless window frame (`ALITKEN v0.9.1` titlebar), mica/acrylic backdrop, dynamic dark/light theme engine, and responsive glassmorphism layout.
+   - Custom borderless window frame (`ALITKEN v0.9.3` titlebar), mica/acrylic backdrop, dynamic dark/light theme engine, and responsive glassmorphism layout.
+9. **O(1)-Memory Animated WebP & GIF Engine**:
+   - Coexisting 24-bit Animated WebP (`-c:v libwebp`, up to `1080p`, `-loop 0|1`, 8-bit `yuva420p` alpha in Image mode) and 256-color Animated GIF (`palettegen=stats_mode=single` + `paletteuse=new=1`, capped at `720p`, `-loop 0|-1`) across Video Convert, Video Trimmer, and Image-to-Animation, plus `[0]` composite first-frame selection for `.psd`, `.psb`, `.ico`, `.gif`, and `.webp`.
 
 ---
 
@@ -110,7 +112,7 @@ This file governs the behavior, conventions, and architectural standards for all
 - **Backend Rust Modules**: Ceiling of **300–400 lines** per file. Long functions must be kept under **50–60 lines**. Subsystems must be organized into sub-modules (following `src-tauri/src/ffmpeg/video/`).
 
 ### G. Project History & Living Mistake Register (`history.md`)
-- **Mandatory Pre-Planning Check**: Before formulating any implementation plan or modifying code, agents **MUST check [history.md](file:///e:/Default/DEVS/Alitken/Alitken-GUI/history.md)**. Review recorded mistakes and anti-patterns to prevent repeating them.
+- **Mandatory Pre-Planning Check**: Before formulating any implementation plan or modifying code, agents **MUST check [history.md](file:///d:/ALitken/Alitken-GUI/history.md)**. Review recorded mistakes and anti-patterns to prevent repeating them.
 - **Change Gist Logging**: Every time an agent modifies, refactors, or adds code, the agent **MUST record a concise gist of the changes** in `history.md` under the current version / milestone section.
 - **Mistake & Correction Logging**: When the user provides negative feedback or corrections (e.g., *"don't do this"*, *"this isn't like what I expected"*, *"I never told you to do this"*), the agent **MUST immediately record the mistake** in `history.md` tagged as `[MISTAKE]` with the context, root cause, and permanent rule to prevent recurrence.
 
@@ -119,9 +121,9 @@ This file governs the behavior, conventions, and architectural standards for all
 ## 4. Domain Knowledge Reference
 
 All personas below MUST consult the specialized skills when working in their respective domains:
-- [`.agents/skills/alitken-expert/SKILL.md`](file:///e:/Default/DEVS/Alitken/Alitken-GUI/.agents/skills/alitken-expert/SKILL.md): Authoritative map of legacy CLI reference, Rust + Tauri architecture, and file responsibilities.
-- [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md): Authoritative map of all Video-to-Image, Image-to-Video, Image-to-Image, and Video-to-Video pipelines. MUST be consulted before planning or modifying any media conversion, animation, GIF, slideshow, sequence, or frame extraction feature to reuse existing pipelines instead of inventing new ones.
-- [`.agents/skills/alitken-verify/SKILL.md`](file:///e:/Default/DEVS/Alitken/Alitken-GUI/.agents/skills/alitken-verify/SKILL.md): Fast build verification playbook for frontend typecheck (`tsc`) and backend compilation (`cargo check`).
+- [`.agents/skills/alitken-expert/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-expert/SKILL.md): Authoritative map of legacy CLI reference, Rust + Tauri architecture, and file responsibilities.
+- [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md): Authoritative map of all Video-to-Image, Image-to-Video, Image-to-Image, and Video-to-Video pipelines. MUST be consulted before planning or modifying any media conversion, animation, Animated WebP, GIF, slideshow, sequence, or frame extraction feature to reuse existing pipelines instead of inventing new ones.
+- [`.agents/skills/alitken-verify/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-verify/SKILL.md): Fast build verification playbook for frontend typecheck (`tsc`) and backend compilation (`cargo check`).
 
 ---
 
@@ -229,4 +231,4 @@ When asked to create or draft release notes:
    - **Commits covered by the release note**: Exact list of commit hashes and messages included in the release.
 
 ### 4. Titlebar Header Branding Rule
-- Titlebar header branding MUST strictly follow the format `Alitken v<version>` or `ALITKEN v<version>` (e.g., `ALITKEN v0.9.1`).
+- Titlebar header branding MUST strictly follow the format `Alitken v<version>` or `ALITKEN v<version>` (e.g., `ALITKEN v0.9.3`).

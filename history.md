@@ -42,7 +42,12 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 ## 📜 Version Milestones & Key Highlights
 
-### v0.9.2 (Current Version)
+### v0.9.3 (Current Version)
+- **Coexisting Animated WebP & GIF Engine (`video/gif.rs`, `image_to_video/`)**: Added streaming 24-bit Animated WebP (`-c:v libwebp`, up to `1080p`, optional 8-bit `yuva420p` alpha transparency in Image mode) alongside 256-color O(1)-memory Animated GIF (`stats_mode=single` + `paletteuse=new=1`, capped at `720p`) across batch Video Convert, Video Trimmer, and Image-to-Animation pipelines, plus `[0]` first-frame safety for `.psd`, `.psb`, `.ico`, `.gif`, and `.webp` inputs.
+
+### v0.9.2
+- **Automated MS Store `.msixbundle` Packaging**: Integrated `MakeAppx.exe bundle` in `build.ps1` combining x64 and ARM64 MSIX packages into a single `.msixbundle`.
+- **Trimmer Seekbar Zoom & Crop Wireframe Precision**: Added cursor-anchored seekbar zoom (`1.0x–10.0x`), `Shift + Drag` range move guard, single-click playhead summon, and GPU matrix counter-scaled 1.5px crop wireframe edge lines (`VideoCanvasRenderer.tsx`).
 - **Unified Master Build Engine**: Consolidated all separate forwarders (`bump-version.ps1`, `scripts/build-releases.ps1`, `scripts/generate-msix-assets.ps1`) into a single all-in-one developer tool (`build.ps1`). Hardened version bump interactive workflow with strict input validation, direct `-Bump` execution, and cancellation handling.
 - **UI Light Mode Accessibility**: Refined theme-aware accent tokens (`--accent-amber`, `--accent-kofi`, `--accent-cyan`, `--accent-emerald`), eliminating washed-out icons in the About modal and related views.
 - **Donation Provider Update**: Replaced PayPal donation links with Ko-fi across frontend modal actions and project documentation.
@@ -71,6 +76,7 @@ All AI agents working on this repository MUST strictly follow these rules:
 *Record high-level summaries of changes here whenever code is modified:*
 
 ### [2026-11-14] v0.9.3 - Bump Application Version to v0.9.3
+- **`.agents/` Docs & Skills Sync (`.agents/AGENTS.md`, `.agents/skills/alitken-expert/SKILL.md`, `.agents/workflows/proceed.md`, `history.md`)**: Updated current version references (`v0.9.3`), Startup Mode maximize/Snap lock, `.msixbundle` packaging, trimmer zoom/wireframe precision, O(1)-memory Animated WebP & GIF pipelines, updated directory tree, and fixed stale `file:///e:/Default/...` links to `file:///d:/ALitken/Alitken-GUI/...`.
 - **`package.json` & `package-lock.json`**: Bumped patch version from `0.9.2` to `0.9.3` via `build.ps1 -Bump -Version "0.9.3"`.
 - **`src-tauri/tauri.conf.json`**: Synchronized package version to `0.9.3` and main window title to `ALITKEN v0.9.3`.
 - **`src-tauri/Cargo.toml` & `src-tauri/Cargo.lock`**: Synchronized Rust package version to `0.9.3`.

@@ -5,11 +5,11 @@ description: Specialized expert agent for Alitken Media Converter codebase. Deep
 
 # Alitken Expert Agent
 
-You are the **Alitken Expert Agent**, a domain-specialized software engineer and software architect for **Alitken Media Converter** (Current Version: **v0.9.1**). You have complete, end-to-end knowledge of both the legacy PowerShell CLI implementation and the modern Rust + Tauri v2 Desktop GUI architecture.
+You are the **Alitken Expert Agent**, a domain-specialized software engineer and software architect for **Alitken Media Converter** (Current Version: **v0.9.3**). You have complete, end-to-end knowledge of both the legacy PowerShell CLI implementation and the modern Rust + Tauri v2 Desktop GUI architecture.
 
 ## 🧠 Codebase & Domain Knowledge Matrix
 
-> **Pipeline Architecture Rule**: Before designing or modifying any Video-to-Image, Image-to-Video, Image-to-Image, Video-to-Video, GIF, slideshow, sequence, or trimming workflow, read [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md) first so existing battle-tested pipelines are extended rather than replaced.
+> **Pipeline Architecture Rule**: Before designing or modifying any Video-to-Image, Image-to-Video, Image-to-Image, Video-to-Video, Animated WebP, GIF, slideshow, sequence, or trimming workflow, read [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md) first so existing battle-tested pipelines are extended rather than replaced.
 
 ### 1. Legacy Core PowerShell Reference (`/src`)
 * **`System/GpuDetector.ps1`**:
@@ -29,25 +29,24 @@ You are the **Alitken Expert Agent**, a domain-specialized software engineer and
 
 ---
 
-### 2. Modern Rust + Tauri Architecture (v0.9.1)
+### 2. Modern Rust + Tauri Architecture (v0.9.3)
 
 ```
 Alitken/
 ├── package.json               # Frontend dependencies & sync scripts (React 18, Vite 6, TS 5.7, Tauri API 2.2)
-├── build.ps1                  # Master developer & release tool (dev, store dev, MSIX, NSIS, Portable, asset generation)
-├── bump-version.ps1           # Version synchronization PowerShell script (delegates to build.ps1)
+├── build.ps1                  # Master developer & release tool (dev, store dev, -Bump, NSIS, Portable, automated .msixbundle, asset gen)
 ├── history.md                 # Official project history, architecture log, and agent mistake register
 ├── scripts/
 │   └── sync-version.cjs       # Node.js sync script for package.json, tauri.conf.json, Cargo.toml, index.html
 ├── src-tauri/                 # Rust Backend (Tauri v2)
 │   ├── Cargo.toml             # Rust dependencies (tauri 2.2, tokio, serde, reqwest, zip, windows-sys 0.52, windows 0.58)
-│   ├── tauri.conf.json        # Window setup: 500x500 startup, decorations=false, transparent=true, ALITKEN v0.9.1
+│   ├── tauri.conf.json        # Window setup: 500x500 startup (maximizable=false), decorations=false, transparent=true, ALITKEN v0.9.3
 │   ├── capabilities/          # Tauri v2 security capabilities & permissions
 │   ├── shell_ext_crate/       # Sub-crate for Windows Shell Context Menu extension
 │   └── src/
 │       ├── main.rs            # Application entry point
 │       ├── lib.rs             # Tauri builder, plugins, legacy folder migration, memory compaction & IPC registration
-│       ├── window.rs          # Win32 window geometry subclassing & constraints (1px DWM border stroke eliminated)
+│       ├── window.rs          # Win32 window geometry subclassing & constraints (1px DWM border stroke & SC_MAXIMIZE snap lock)
 │       ├── gpu.rs             # Rust GPU detector (Win32 / FFmpeg dry-run with hidden processes)
 │       ├── win_integration.rs # Windows Shell integration (SendTo shortcut & Win11 Context Menu registry)
 │       ├── commands/          # Modularized Tauri IPC command handlers
@@ -61,7 +60,7 @@ Alitken/
 │       ├── utils/             # System, path, logging and process utilities
 │       │   ├── mod.rs         # Utility exports
 │       │   ├── paths.rs       # App data roots, temp dirs, binary and log path resolution
-│       │   ├── system.rs      # Working set memory trimming, system probing, file reveal
+│       │   ├── system.rs      # Working set memory trimming, fast image dimension probe, file reveal
 │       │   ├── cache.rs       # Temp cache disk usage calculation and purge helpers
 │       │   ├── logger.rs      # Application logging setup and log rotation
 │       │   └── process.rs     # Hidden process spawner (CREATE_NO_WINDOW)
@@ -76,7 +75,7 @@ Alitken/
 │       │   └── installer.rs   # In-place executable swapper, cancellation token, process restart
 │       ├── image/             # Batch image processing & PDF merge engine
 │       │   ├── mod.rs         # Image module exports
-│       │   ├── convert.rs     # ImageMagick batch image conversions & resizing
+│       │   ├── convert.rs     # ImageMagick batch image conversions, resizing & [0] first-frame extraction
 │       │   ├── pdf.rs         # Image-to-PDF merging pipeline
 │       │   └── types.rs       # Image configuration and format types
 │       ├── wmf/               # Native Windows Media Foundation Frame Extractor & Filmstrip Engine
@@ -91,9 +90,10 @@ Alitken/
 │           │   ├── combine/   # Video concat & lossless remux engine (mod.rs, pipeline.rs, compatibility.rs, audio.rs)
 │           │   ├── convert/   # Video transcode & segment splitter (mod.rs, split.rs, transcode.rs, args.rs)
 │           │   ├── extract_frames.rs # Multi-frame burst extraction pipeline
+│           │   ├── gif.rs     # Streaming Animated WebP (1080p max) & O(1)-memory GIF palette (720p max) engine
 │           │   ├── preview.rs # 3-Tier preview router & stream copy remuxer
 │           │   └── trim.rs    # Precision video trimmer pipeline
-│           └── image_to_video/ # Image-to-Video Slideshow generator (mod.rs, demuxer.rs, pipe.rs)
+│           └── image_to_video/ # MP4, Animated WebP & Animated GIF Slideshow/Sequence generator (mod.rs, demuxer.rs, pipe.rs)
 └── src/                       # Frontend (React 18 / Vite 6 + TypeScript 5.7 + Lucide React + Vanilla CSS)
     ├── index.html             # Borderless root with custom drag region
     ├── index.css              # Frosted glass, acrylic, dark/light theme design system
@@ -104,12 +104,12 @@ Alitken/
     │   ├── config.ts          # ConfigState, PRESET_HEIGHTS, PRESET_BITRATES
     │   ├── progress.ts        # ProgressState telemetry models
     │   ├── update.ts          # UpdateInfo, UpdateProgressPayload
-    │   └── media.ts           # FullMediaInfoPayload, AspectRatioOption, MediaMetadata
+    │   └── media.ts           # FullMediaInfoPayload, AspectRatioOption, MediaMetadata, ImageConfig, TrimConfig
     ├── hooks/                 # Modular domain hooks (state, business logic & side-effects)
     │   ├── useAppTelemetry.ts # Telemetry, hardware probe, dependency status & download
     │   ├── useAppUpdates.ts   # In-app updater checks & installation
     │   ├── useMediaQueue.ts   # File queue, window expand/collapse transitions, validation, trimmer navigation
-    │   ├── useMediaPipelines.ts # Batch conversion, split, combine, frame extraction & slideshow pipelines
+    │   ├── useMediaPipelines.ts # Batch conversion, split, combine, frame extraction & image-to-animation pipelines
     │   └── useNativeDragDrop.ts # OS-level native drag-and-drop listener via Tauri payload
     ├── components/            # Domain-modular UI components (<250-300 lines each)
     │   ├── ui/                # Shared UI primitives (GlassSelect.tsx, FileLoadingOverlay.tsx)
@@ -117,10 +117,10 @@ Alitken/
     │   ├── welcome/           # Startup 1:1 view (WelcomeDropzone.tsx, WelcomeTrimmerCard.tsx)
     │   ├── queue/             # File queue & reordering (Dropzone.tsx, QueueHeader.tsx, QueueFileList.tsx, QueueFileCard.tsx, QueueCardBadges.tsx, QueueCardActions.tsx, useQueueReorder.ts)
     │   ├── config/            # Transcode configuration panel (ConfigPanel.tsx, useConfigPanelHandlers.ts, TrimmerActionBanner.tsx, BatchActionFooter.tsx, CollapsedConfigBar.tsx)
-    │   ├── video-config/      # Video sub-panels (TranscodeControls.tsx, CodecSelector.tsx, ResolutionSelector.tsx, BitrateSelector.tsx, AudioTrackControls.tsx, CombineControls.tsx, CombineCompatibilityBadge.tsx, CombineDurationCard.tsx, ExtractFramesControls.tsx, SplitControls.tsx, VideoActionRail.tsx, OutputFolderSection.tsx)
-    │   ├── image-config/      # Image sub-components (ImageConfigTab.tsx, FormatSelector, ScaleSelector, QualitySlider, VideoControls, PdfControls)
+    │   ├── video-config/      # Video sub-panels (TranscodeControls.tsx, CodecSelector.tsx, GifExportControls.tsx, ResolutionSelector.tsx, BitrateSelector.tsx, AudioTrackControls.tsx, CombineControls.tsx, CombineCompatibilityBadge.tsx, CombineDurationCard.tsx, ExtractFramesControls.tsx, SplitControls.tsx, VideoActionRail.tsx, OutputFolderSection.tsx)
+    │   ├── image-config/      # Image sub-components (ImageConfigTab.tsx, FormatSelector.tsx, ScaleSelector.tsx, QualitySlider.tsx, JpgControls.tsx, PngControls.tsx, WebpControls.tsx, PdfControls.tsx, VideoControls.tsx, VideoGifOptions.tsx, OutputFolderPicker.tsx, ImageStartButton.tsx)
     │   ├── trimmer/           # Lossless trimmer workspace (VideoTrimmer.tsx, VideoPlayerViewport.tsx, CropGuideLines.tsx, VideoCanvasRenderer.tsx, useCropInteraction.ts, AspectRatioSelector.tsx, TrimmerHeader.tsx, TrimmerPlaybackControls.tsx, TrimmerStatusBar.tsx, useTrimmerState.ts)
-    │   │   ├── timeline/      # Timeline scrubber (TimelineSlider.tsx, RangeHandles.tsx, FilmstripTrack.tsx, HoverTimeTooltip.tsx, useTimelineScrubber.ts, formatTime.ts)
+    │   │   ├── timeline/      # Timeline scrubber (TimelineSlider.tsx, RangeHandles.tsx, FilmstripTrack.tsx, HoverTimeTooltip.tsx, TimelineZoomControls.tsx, useTimelineScrubber.ts, useTimelineZoom.ts, formatTime.ts)
     │   │   └── modals/        # Media details & storage check dialogs (MediaDetailsModal.tsx, MediaDetailsToolbar.tsx, MediaSpecsVisualView.tsx, StorageValidationModal.tsx, StorageValidationBody.tsx)
     │   ├── modals/            # Application dialogs (LargeFrameWarningModal.tsx)
     │   │   ├── about/         # About dialog (AboutModal.tsx, AboutBrandingSection.tsx, AboutLinksGrid.tsx, HardwareInfoSection.tsx, UpdateCheckerSection.tsx)
@@ -135,10 +135,10 @@ Alitken/
 
 ### 3. Key Architectural Requirements for Rust + Tauri UI
 1. **Dynamic Two-Phase Window Geometry**:
-   * Startup Window: Fixed 1:1 aspect ratio (`500×500 px`, non-resizable across all edges, `decorations: false`, `transparent: true`).
-   * Working Window: Expands in-place to `1060×720 px` with minimum bounds `1040×700 px` (`expand_to_working_window`, resizable) upon loading media files.
-   * Window Collapse: Collapses back to `500×500 px` (`collapse_to_startup_window`, non-resizable) when the queue is cleared, triggering immediate working set memory compaction (`utils::trim_working_set()`).
-   * Window Titlebar: Header branding must strictly follow `Alitken v<version>` or `ALITKEN v<version>` (e.g. `ALITKEN v0.9.1`).
+   * Startup Window: Fixed 1:1 aspect ratio (`500×500 px`, non-resizable across all edges, `maximizable: false` with `SC_MAXIMIZE` Windows Aero Snap lock, `decorations: false`, `transparent: true`).
+   * Working Window: Expands in-place to `1060×720 px` with minimum bounds `1040×700 px` (`expand_to_working_window`, resizable & maximizable restored) upon loading media files.
+   * Window Collapse: Collapses back to `500×500 px` (`collapse_to_startup_window`, non-resizable, non-maximizable) when the queue is cleared, triggering immediate working set memory compaction (`utils::trim_working_set()`).
+   * Window Titlebar: Header branding must strictly follow `Alitken v<version>` or `ALITKEN v<version>` (e.g. `ALITKEN v0.9.3`).
 2. **Shared Data Directory & Auto-Migration**:
    * Uses `%LOCALAPPDATA%\curlyzed` as the shared root for binary cache (`bin/`), logs (`logs/`), and temporary cache (`cache/`).
    * Auto-migrates legacy `%LOCALAPPDATA%\Alitken` directories on startup.
@@ -151,7 +151,7 @@ Alitken/
    * Dual Slow-Mo modes: *Fast Frame Dup* (`setpts`) at 500+ FPS vs *Optical Smooth* (`minterpolate`) AI motion vectors.
    * Chained pitch-preserving `atempo` audio filter scaling and one-click audio muting (`-an`).
 5. **Interactive Video Trimmer & MediaInfo Inspector**:
-   * `VideoTrimmer.tsx` with dual In/Out handles (`TimelineSlider.tsx`) and single-row control bar.
+   * `VideoTrimmer.tsx` with dual In/Out handles, seekbar zoom (`1.0x–10.0x`), `Shift + Drag` range move guard, single-click playhead summon (`TimelineSlider.tsx`), GPU matrix counter-scaled 1.5px crop wireframe (`VideoCanvasRenderer.tsx`), and single-row control bar.
    * Deep stream specifications inspector (`MediaDetailsModal.tsx`, `MediaSpecsVisualView.tsx`) with technical audio/video track badges and raw stream metadata.
 6. **Storage Safety & Dynamic Cache Management**:
    * Pre-validates disk space requirements before trimming or extracting frames (`validate_trimmer_storage`, `validate_extraction_storage`).
@@ -160,6 +160,9 @@ Alitken/
    * Checks toolchain completeness (`ffmpeg.exe`, `ffprobe.exe`, `magick.exe`).
    * Supports incomplete toolchain status reporting and selective managed binary pruning upon uninstallation.
    * Auto-updater supports download cancellation, GitHub API rate-limit fallback, and clean modal state cleanup.
+8. **O(1)-Memory Animated WebP & GIF Engine (`video/gif.rs` & `image_to_video/`)**:
+   * Coexisting 24-bit Animated WebP (`-c:v libwebp`, up to `1080p`, `-loop 0|1`, 8-bit `yuva420p` alpha in Image mode) and 256-color O(1)-memory Animated GIF (`palettegen=stats_mode=single` + `paletteuse=new=1`, capped at `720p`, `-loop 0|-1`) across Video Convert, Trimmer, and Image-to-Animation.
+   * Preserves crop framing, speed scaling, `libdav1d` AV1 decoding, and `[0]` first-frame selection (`format_magick_input_arg` and `image/convert.rs`) for multi-layer/animated inputs (`.psd`, `.psb`, `.ico`, `.gif`, `.webp`).
 
 ---
 

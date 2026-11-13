@@ -10,11 +10,14 @@ export interface ConfigState {
   frameQuality: number;
   targetHeight: string;
   targetBitrate: string;
-  codecChoice: string; // "1"=H264, "2"=HEVC, "3"=AV1
+  codecChoice: string; // "1"=H264, "2"=HEVC, "3"=AV1, "4"=GIF
   outputDir: string | null;
   audioPath: string | null;
   audioFadeIn: boolean;
   audioFadeOut: boolean;
+  gifFps: '10' | '15' | '24' | '30' | 'ORIGINAL';
+  gifQuality: 'HIGH' | 'BALANCED';
+  gifLoop: boolean;
 }
 
 export const PRESET_HEIGHTS = ['ORIGINAL', '2160', '1440', '1080', '720', '480'];

@@ -4,6 +4,7 @@ import { CodecSelector } from './CodecSelector';
 import { ResolutionSelector } from './ResolutionSelector';
 import { BitrateSelector } from './BitrateSelector';
 import { AudioTrackControls } from './AudioTrackControls';
+import { GifExportControls } from './GifExportControls';
 
 export interface TranscodeControlsProps {
   config: ConfigState;
@@ -46,6 +47,7 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
   // Audio replacement is supported in Convert and Combine (both Lossless and Transcode).
   // In Split mode, lossless fast copy does not re-encode audio.
   const isAudioBypassed = isSplitMode && isFastCopyActive && croppedFilesCount === 0;
+  const isGifMode = config.codecChoice === '4' && !isCombineMode && !isSplitMode;
 
   return (
     <>
@@ -67,22 +69,28 @@ export const TranscodeControls: React.FC<TranscodeControlsProps> = ({
         PRESET_HEIGHTS={PRESET_HEIGHTS}
       />
 
-      <BitrateSelector
-        config={config}
-        onChange={onChange}
-        isEffectivelyBypassed={isEffectivelyBypassed}
-        isCustomBitrate={isCustomBitrate}
-        setIsCustomBitrate={setIsCustomBitrate}
-        PRESET_BITRATES={PRESET_BITRATES}
-      />
+      {isGifMode ? (
+        <GifExportControls config={config} onChange={onChange} />
+      ) : (
+        <>
+          <BitrateSelector
+            config={config}
+            onChange={onChange}
+            isEffectivelyBypassed={isEffectivelyBypassed}
+            isCustomBitrate={isCustomBitrate}
+            setIsCustomBitrate={setIsCustomBitrate}
+            PRESET_BITRATES={PRESET_BITRATES}
+          />
 
-      <AudioTrackControls
-        config={config}
-        onChange={onChange}
-        isAudioBypassed={isAudioBypassed}
-        onBrowseAudio={onBrowseAudio}
-        onClearAudio={onClearAudio}
-      />
+          <AudioTrackControls
+            config={config}
+            onChange={onChange}
+            isAudioBypassed={isAudioBypassed}
+            onBrowseAudio={onBrowseAudio}
+            onClearAudio={onClearAudio}
+          />
+        </>
+      )}
     </>
   );
 };

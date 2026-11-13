@@ -10,3 +10,4 @@ export { CodecSelector } from './CodecSelector';
 export { ResolutionSelector } from './ResolutionSelector';
 export { BitrateSelector } from './BitrateSelector';
 export { AudioTrackControls } from './AudioTrackControls';
+export { GifExportControls } from './GifExportControls';

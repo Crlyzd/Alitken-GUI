@@ -170,13 +170,15 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
         {(() => {
           const isSpeedChanged = Math.abs(trimmer.playbackSpeed - 1.0) > 0.001;
           const isCropActive = trimmer.aspectRatio !== 'ORIGINAL' || trimmer.isCropApplied;
-          const isFastCopyTrimDisabled = isSpeedChanged || isCropActive;
-          const fastCopyTrimDisabledReason =
-            isSpeedChanged && isCropActive
-              ? 'Speed adjustment and crop framing require re-encoding.'
-              : isSpeedChanged
-              ? `Speed alteration (${trimmer.playbackSpeed}x) requires re-encoding.`
-              : 'Crop framing and custom aspect ratios require re-encoding.';
+          const isGifExport = videoConfig.codecChoice === '4';
+          const isFastCopyTrimDisabled = isSpeedChanged || isCropActive || isGifExport;
+          const fastCopyTrimDisabledReason = isGifExport
+            ? 'Animated GIF export requires 256-color palette encoding.'
+            : isSpeedChanged && isCropActive
+            ? 'Speed adjustment and crop framing require re-encoding.'
+            : isSpeedChanged
+            ? `Speed alteration (${trimmer.playbackSpeed}x) requires re-encoding.`
+            : 'Crop framing and custom aspect ratios require re-encoding.';
 
           return (
             <div

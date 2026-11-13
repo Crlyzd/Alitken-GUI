@@ -75,7 +75,7 @@ export const BatchActionFooter: React.FC<BatchActionFooterProps> = ({
       >
         {isTrimmerMode ? (
           <>
-            <Scissors size={16} /> EXPORT TRIMMED CLIP
+            <Scissors size={16} /> {config.codecChoice === '4' ? 'EXPORT TRIMMED GIF' : 'EXPORT TRIMMED CLIP'}
           </>
         ) : config.videoAction === 'COMBINE' ? (
           <>
@@ -91,7 +91,7 @@ export const BatchActionFooter: React.FC<BatchActionFooterProps> = ({
           </>
         ) : (
           <>
-            <Zap size={16} /> START CONVERT
+            <Zap size={16} /> {config.codecChoice === '4' ? 'START GIF EXPORT' : 'START CONVERT'}
           </>
         )}
       </button>

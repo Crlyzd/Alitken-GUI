@@ -250,6 +250,7 @@ export function useMediaPipelines(
     }
 
     // Branch 3: STANDARD TRANSCODE & SPLIT
+    const isGifExport = videoConfig.videoAction === 'CONVERT' && videoConfig.codecChoice === '4';
     setProgress({
       isProcessing: true,
       currentFile: files[0].name,
@@ -258,7 +259,9 @@ export function useMediaPipelines(
       percent: 0,
       currentPart: 1,
       totalParts: 1,
-      status: 'Starting FFmpeg transcode pipeline...',
+      status: isGifExport
+        ? 'Exporting Animated GIF(s)...'
+        : 'Starting FFmpeg transcode pipeline...',
       completed: false,
     });
 
@@ -296,6 +299,9 @@ export function useMediaPipelines(
           audio_path: videoConfig.audioPath || null,
           audio_fade_in: videoConfig.audioFadeIn || false,
           audio_fade_out: videoConfig.audioFadeOut || false,
+          gif_fps: videoConfig.gifFps,
+          gif_quality: videoConfig.gifQuality,
+          gif_loop: videoConfig.gifLoop,
         },
       });
 
@@ -378,7 +384,9 @@ export function useMediaPipelines(
       totalParts: 1,
       status:
         imageConfig.outputFormat === 'VIDEO'
-          ? 'Converting Image(s) to MP4 Video...'
+          ? imageConfig.videoOutputFormat === 'GIF'
+            ? 'Rendering Animated GIF...'
+            : 'Converting Image(s) to MP4 Video...'
           : imageConfig.outputFormat === 'PDF' && imageConfig.mergePdf
           ? 'Combining Image(s) into PDF document...'
           : 'Processing image conversion pipeline...',
@@ -387,6 +395,7 @@ export function useMediaPipelines(
 
     try {
       if (imageConfig.outputFormat === 'VIDEO') {
+        const isGif = imageConfig.videoOutputFormat === 'GIF';
         await invoke('start_image_to_video_pipeline', {
           config: {
             input_files: files.map((f) => f.path),
@@ -394,9 +403,12 @@ export function useMediaPipelines(
             duration_sec: imageConfig.videoDurationSec,
             fps: imageConfig.videoFps,
             resolution: imageConfig.videoResolution,
-            audio_path: imageConfig.audioPath || null,
+            audio_path: isGif ? null : imageConfig.audioPath || null,
             codec_choice: videoConfig.codecChoice,
             output_dir: imageConfig.outputDir || null,
+            export_gif: isGif,
+            gif_loop: imageConfig.gifLoop,
+            gif_transparent: imageConfig.gifTransparent,
           },
         });
       } else {

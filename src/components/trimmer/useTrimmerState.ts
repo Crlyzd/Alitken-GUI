@@ -674,7 +674,8 @@ export function useTrimmerState({
     const crop = getCropParams();
     const isSpeedChanged = Math.abs(playbackSpeed - 1.0) > 0.001;
     const isCropActive = !!crop || (aspectRatio && aspectRatio !== 'ORIGINAL') || isCropApplied;
-    const effectiveFastCopy = (isCropActive || isSpeedChanged) ? false : fastCopy;
+    const isGifExport = videoConfig.codecChoice === '4';
+    const effectiveFastCopy = (isCropActive || isSpeedChanged || isGifExport) ? false : fastCopy;
 
     const trimConfig: TrimConfig = {
       input_file: file.path,
@@ -693,6 +694,10 @@ export function useTrimmerState({
       crop_x: crop?.crop_x,
       crop_y: crop?.crop_y,
       crop_filter: crop?.crop_filter,
+      export_gif: isGifExport,
+      gif_fps: videoConfig.gifFps,
+      gif_quality: videoConfig.gifQuality,
+      gif_loop: videoConfig.gifLoop,
     };
     onStartTrim(trimConfig);
   }, [file.path, startSec, endSec, fastCopy, videoConfig, playbackSpeed, isMuted, slowMoMode, isCropApplied, aspectRatio, getCropParams, onStartTrim]);

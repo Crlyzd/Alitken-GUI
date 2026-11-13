@@ -19,6 +19,14 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
   isSplitMode,
   croppedFilesCount,
 }) => {
+  const showGifCard = !isSplitMode && config.videoAction !== 'COMBINE';
+  const codecs = [
+    { id: '1', title: 'H.264', subtitle: 'Universal' },
+    { id: '2', title: 'H.265', subtitle: 'HEVC High Comp' },
+    { id: '3', title: 'AV1', subtitle: 'Next-Gen Open' },
+    ...(showGifCard ? [{ id: '4', title: 'GIF', subtitle: 'Animated Loop' }] : []),
+  ];
+
   return (
     <div>
       <div
@@ -66,27 +74,34 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: `repeat(${codecs.length}, 1fr)`,
           gap: '8px',
           opacity: isEffectivelyBypassed ? 0.4 : 1,
           pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
           transition: 'opacity 0.2s ease',
         }}
       >
-        {[
-          { id: '1', title: 'H.264', subtitle: 'Universal' },
-          { id: '2', title: 'H.265', subtitle: 'HEVC High Comp' },
-          { id: '3', title: 'AV1', subtitle: 'Next-Gen Open' },
-        ].map((codec) => {
+        {codecs.map((codec) => {
           const isActive = config.codecChoice === codec.id;
           return (
             <button
               key={codec.id}
               type="button"
+              data-tauri-drag-region={false}
               disabled={isEffectivelyBypassed}
-              onClick={() => onChange({ codecChoice: codec.id })}
+              onClick={() => {
+                const parsedHeight = parseInt(config.targetHeight, 10);
+                if (
+                  codec.id === '4' &&
+                  (config.targetHeight === 'ORIGINAL' || (!isNaN(parsedHeight) && parsedHeight > 720))
+                ) {
+                  onChange({ codecChoice: '4', targetHeight: '720' });
+                } else {
+                  onChange({ codecChoice: codec.id });
+                }
+              }}
               style={{
-                padding: '10px 6px',
+                padding: codecs.length === 4 ? '10px 4px' : '10px 6px',
                 borderRadius: '10px',
                 border: isActive
                   ? '1px solid var(--accent-cyan)'

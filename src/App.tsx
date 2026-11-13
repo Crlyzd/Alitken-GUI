@@ -56,6 +56,9 @@ export function App() {
     audioPath: null,
     audioFadeIn: false,
     audioFadeOut: false,
+    gifFps: '15',
+    gifQuality: 'HIGH',
+    gifLoop: true,
   });
 
   const [imageConfig, setImageConfig] = useState<ImageConfig>({
@@ -72,10 +75,13 @@ export function App() {
     mergePdf: false,
     pngScalePercent: null,
     pngHeight: null,
+    videoOutputFormat: 'MP4',
     videoMode: 'SLIDESHOW',
     videoDurationSec: 5,
     videoFps: 30,
     videoResolution: '1080p',
+    gifLoop: true,
+    gifTransparent: false,
     audioPath: null,
     outputDir: null,
   });
@@ -250,8 +256,14 @@ export function App() {
   const handleConfigChange = (updated: Partial<ConfigState>) => {
     setVideoConfig((prev) => {
       const next = { ...prev, ...updated };
-      if (updated.codecChoice && updated.codecChoice !== prev.codecChoice) {
-        checkDepsAndGpu(updated.codecChoice);
+      if (
+        (next.videoAction === 'SPLIT' || next.videoAction === 'COMBINE') &&
+        next.codecChoice === '4'
+      ) {
+        next.codecChoice = '1';
+      }
+      if (next.codecChoice && next.codecChoice !== prev.codecChoice && next.codecChoice !== '4') {
+        checkDepsAndGpu(next.codecChoice);
       }
       return next;
     });

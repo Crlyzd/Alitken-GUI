@@ -70,10 +70,18 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-14] v0.9.3 - Bump Application Version to v0.9.3
+- **`package.json` & `package-lock.json`**: Bumped patch version from `0.9.2` to `0.9.3` via `build.ps1 -Bump -Version "0.9.3"`.
+- **`src-tauri/tauri.conf.json`**: Synchronized package version to `0.9.3` and main window title to `ALITKEN v0.9.3`.
+- **`src-tauri/Cargo.toml` & `src-tauri/Cargo.lock`**: Synchronized Rust package version to `0.9.3`.
+- **`index.html`**: Updated document title to `ALITKEN v0.9.3`.
+- **`build.ps1`**: Updated `Get-AppVersion` fallback version strings to `0.9.3`.
+
 ### [2026-11-14] v0.9.2 - Add Animated WebP Support & O(1) Memory Streaming for WebP/GIF
 - **Video & Trimmer Animated WebP (`src-tauri/src/ffmpeg/video/gif.rs`, `types.rs`)**: Added streaming 24-bit Animated WebP (`-c:v libwebp`, `format=yuv420p`, `-quality 80 -compression_level 3` High Detail / `-quality 65 -compression_level 4` Compact Size, `-loop 0|1`, up to `1080p`) alongside GIF (`720p` max) via `anim_format`; upgraded `build_gif_palette_filter` to `stats_mode=single` + `paletteuse=...:new=1` for O(1) memory streaming.
 - **Image-to-WebP & Input Safety (`src-tauri/src/ffmpeg/image_to_video/mod.rs`, `pipe.rs`, `demuxer.rs`, `src-tauri/src/image/convert.rs`)**: Extended `image_to_video` Tier 1 (`pipe.rs`) and Tier 2 (`demuxer.rs`) with `export_webp` (`.webp`, `1080p` max, `yuva420p` 8-bit smooth alpha when transparent, `-c:v libwebp` streaming); upgraded `gif_palette_filter_stage` to `stats_mode=single` + `new=1`; appended `[0]` first-frame selection for `.webp` (and `.gif`/`.ico` in `image/convert.rs`).
 - **Frontend UI & Hooks (`src/types/`, `src/App.tsx`, `src/hooks/`, `src/components/video-config/`, `src/components/image-config/`, `src/components/config/`, `src/components/trimmer/`, `src/components/VideoTrimmer.tsx`)**: Added `animFormat` (`'WEBP' | 'GIF'`, default `'WEBP'`) with 4-card `WEBP / GIF` selector, `[Animated WebP | Animated GIF]` sub-toggle, `1080p` WebP / `720p` GIF resolution caps (auto-clamping `1080p` -> `720p` on GIF switch), 3-pill `[MP4 Video | Anim WebP | Anim GIF]` selector in Image mode, and dynamic progress/CTA labels.
+- **Image Category Pill Layout (`src/styles/image-config.css`, `src/components/image-config/FormatSelector.tsx`)**: Updated `.image-config-category-grid` (`minmax(0, 1fr)`) and `.image-config-category-btn` (`font-size: 11.5px`, `padding: 8px 6px`, `gap: 5px`, `min-width: 0`) with compact `14px` `flexShrink: 0` icons to prevent right-edge clipping of the `"Video & Animation"` category pill.
 - **`.agents/skills/alitken-pipelines/SKILL.md`**: Documented Animated WebP (`libwebp`), O(1) GIF streaming (`stats_mode=single` + `new=1`), and `[0]` `.webp` input handling.
 
 ### [2026-11-13] v0.9.2 - Enforce 720p GIF Ceiling & Clean Target Resolution Labels
@@ -243,4 +251,11 @@ All AI agents working on this repository MUST strictly follow these rules:
   1. **NEVER** run `lavfi` test generators without an explicit finite `duration=<sec>` inside the filter graph or `-t <sec>` *before* `-i`, and avoid running heavy multi-second 1080p CLI benchmarks unless explicitly requested by the user.
   2. **ALWAYS** use `-c:v libwebp` (streaming per-frame WebP encoder with real-time `out_time_ms` telemetry and `O(1)` RAM usage) instead of `libwebp_anim` (which buffers all frames in RAM until EOF).
   3. **ALWAYS** use `palettegen=max_colors=256:stats_mode=single` paired with `paletteuse=new=1` in single-pass GIF filtergraphs so FFmpeg streams frames in `O(1)` memory instead of buffering the entire video in RAM on `[s1]`.
+
+### 9. Horizontal Overflow & Right-Edge Clipping When Lengthening 2-Column Pill Labels in Narrow Sidebars
+- **Tag**: `[MISTAKE]` / `[CORRECTION]`
+- **Context & Objection**: Renaming the second Image mode category pill from `Video & GIF` to `Video & Animation` caused both 2-column `.image-config-category-btn` buttons (`13px` bold, `12px` horizontal padding, `white-space: nowrap`, `1fr 1fr` grid tracks) to exceed the `316px` inner sidebar width and clip the right edge of `"Video & Animation"`.
+- **Root Cause**: CSS Grid `1fr` tracks default to `minmax(auto, 1fr)`, allowing `white-space: nowrap` button content to expand the grid wider than its container unless constrained by `minmax(0, 1fr)` and sized appropriately for narrow panels.
+- **Strict Invariants**:
+  1. **ALWAYS** use `minmax(0, 1fr)` on multi-column pill grids inside the fixed `360px` config sidebar and verify combined icon + padding + label widths fit comfortably within `316px` (`padding: 8px 6px`, `font-size: 11.5px`, `gap: 5px`, `min-width: 0`).
 

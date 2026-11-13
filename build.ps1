@@ -44,10 +44,10 @@ function Get-AppVersion {
         try {
             (Get-Content $PackageJsonPath -Raw | ConvertFrom-Json).version
         } catch {
-            "0.9.2"
+            "0.9.3"
         }
     } else {
-        "0.9.2"
+        "0.9.3"
     }
 }
 

@@ -58,6 +58,7 @@ pub struct ConversionConfig {
     pub gif_fps: Option<String>,
     pub gif_quality: Option<String>,
     pub gif_loop: Option<bool>,
+    pub anim_format: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +98,7 @@ pub struct ImageToVideoConfig {
     pub codec_choice: String,
     pub output_dir: Option<String>,
     pub export_gif: Option<bool>,
+    pub export_webp: Option<bool>,
     pub gif_loop: Option<bool>,
     pub gif_transparent: Option<bool>,
 }
@@ -126,6 +128,7 @@ pub struct TrimConfig {
     pub gif_fps: Option<String>,
     pub gif_quality: Option<String>,
     pub gif_loop: Option<bool>,
+    pub anim_format: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

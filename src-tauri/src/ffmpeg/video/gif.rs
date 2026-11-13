@@ -4,7 +4,7 @@ use crate::ffmpeg::types::{ConversionConfig, MediaMetadata, TrimConfig};
 use crate::utils::{log_info, resolve_conflict_path};
 use std::path::Path;
 
-/// Builds a high-quality single-pass FFmpeg 256-color palettegen/paletteuse GIF filtergraph.
+/// Builds an O(1)-memory single-pass FFmpeg 256-color palettegen/paletteuse GIF filtergraph.
 pub fn build_gif_palette_filter(
     pre_filters: &[String],
     target_height: &str,
@@ -24,12 +24,77 @@ pub fn build_gif_palette_filter(
     chain.push(format!("scale=-2:{}:flags=lanczos", h));
 
     let palette_stage = if gif_quality == "BALANCED" {
-        "split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=full[p];[s1][p]paletteuse=dither=sierra2_4a"
+        "split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=single[p];[s1][p]paletteuse=dither=sierra2_4a:new=1"
     } else {
-        "split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle"
+        "split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=single[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:new=1"
     };
     chain.push(palette_stage.to_string());
     chain.join(",")
+}
+
+/// Builds a streaming FFmpeg filtergraph for 24-bit Animated WebP (`libwebp`).
+pub fn build_webp_anim_filter(
+    pre_filters: &[String],
+    target_height: &str,
+    anim_fps: &str,
+) -> String {
+    let mut chain: Vec<String> = pre_filters.to_vec();
+
+    if !anim_fps.is_empty() && anim_fps != "ORIGINAL" {
+        if let Ok(fps_val) = anim_fps.parse::<f64>() {
+            let clamped = fps_val.clamp(1.0, 60.0);
+            chain.push(format!("fps={}", clamped));
+        }
+    }
+
+    let h = (target_height.parse::<u32>().unwrap_or(720).clamp(144, 1080) / 2) * 2;
+    chain.push(format!("scale=-2:{}:flags=lanczos,format=yuv420p", h));
+    chain.join(",")
+}
+
+fn append_anim_encode_args(
+    args: &mut Vec<String>,
+    is_webp: bool,
+    pre_filters: &[String],
+    target_height: &str,
+    anim_fps: &str,
+    quality: &str,
+    loop_enabled: bool,
+) {
+    if is_webp {
+        let vf = build_webp_anim_filter(pre_filters, target_height, anim_fps);
+        let (q_val, comp_lvl) = if quality == "BALANCED" { ("65", "4") } else { ("80", "3") };
+        let loop_val = if loop_enabled { "0" } else { "1" };
+        args.extend([
+            "-vf".to_string(),
+            vf,
+            "-c:v".to_string(),
+            "libwebp".to_string(),
+            "-lossless".to_string(),
+            "0".to_string(),
+            "-compression_level".to_string(),
+            comp_lvl.to_string(),
+            "-quality".to_string(),
+            q_val.to_string(),
+            "-preset".to_string(),
+            "default".to_string(),
+            "-an".to_string(),
+            "-dn".to_string(),
+            "-loop".to_string(),
+            loop_val.to_string(),
+        ]);
+    } else {
+        let vf = build_gif_palette_filter(pre_filters, target_height, anim_fps, quality);
+        let loop_val = if loop_enabled { "0" } else { "-1" };
+        args.extend([
+            "-vf".to_string(),
+            vf,
+            "-an".to_string(),
+            "-dn".to_string(),
+            "-loop".to_string(),
+            loop_val.to_string(),
+        ]);
+    }
 }
 
 fn collect_crop_filters(
@@ -68,22 +133,28 @@ fn build_speed_filter(speed: f64, slow_mo_mode: Option<&str>, meta: &MediaMetada
     }
 }
 
-/// Converts a queued video (with optional saved trim/crop) into an animated GIF.
+/// Converts a queued video (with optional saved trim/crop) into an animated GIF or WebP.
 pub async fn execute_gif_convert_step<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     ffmpeg_path: &str,
     config: &ConversionConfig,
     params: TranscodeItemParams<'_>,
 ) -> Result<(), String> {
+    let is_webp = config.anim_format.as_deref() == Some("WEBP");
     let effective_stem = if params.has_trim && !params.file_stem.ends_with("_trimmed") {
         format!("{}_trimmed", params.file_stem)
     } else {
         params.file_stem.to_string()
     };
 
+    let (tag, ext, status_label) = if is_webp {
+        ("webp", "webp", "Exporting Animated WebP")
+    } else {
+        ("gif", "gif", "Exporting Animated GIF")
+    };
     let raw_outfile = params
         .parent_dir
-        .join(format!("{}_gif_{}.gif", effective_stem, params.res_tag));
+        .join(format!("{}_{}_{}.{}", effective_stem, tag, params.res_tag, ext));
     let resolved_outfile = resolve_conflict_path(raw_outfile);
 
     let mut args: Vec<String> = vec!["-hide_banner".to_string()];
@@ -105,23 +176,25 @@ pub async fn execute_gif_convert_step<R: tauri::Runtime>(
     let pre_filters = collect_crop_filters(params.crop_filter, params.crop_box);
     let gif_fps = config.gif_fps.as_deref().unwrap_or("15");
     let gif_quality = config.gif_quality.as_deref().unwrap_or("HIGH");
-    let vf = build_gif_palette_filter(&pre_filters, &config.target_height, gif_fps, gif_quality);
-    let loop_val = if config.gif_loop.unwrap_or(true) { "0" } else { "-1" };
+    let loop_enabled = config.gif_loop.unwrap_or(true);
+    append_anim_encode_args(
+        &mut args,
+        is_webp,
+        &pre_filters,
+        &config.target_height,
+        gif_fps,
+        gif_quality,
+        loop_enabled,
+    );
 
     args.extend([
-        "-vf".to_string(),
-        vf,
-        "-an".to_string(),
-        "-dn".to_string(),
-        "-loop".to_string(),
-        loop_val.to_string(),
         "-y".to_string(),
         "-progress".to_string(),
         "pipe:1".to_string(),
         resolved_outfile.to_string_lossy().to_string(),
     ]);
 
-    log_info(&format!("Exporting video to GIF -> {:?}", resolved_outfile));
+    log_info(&format!("Exporting video to {} -> {:?}", if is_webp { "Animated WebP" } else { "GIF" }, resolved_outfile));
 
     execute_ffmpeg_process(
         app,
@@ -132,12 +205,12 @@ pub async fn execute_gif_convert_step<R: tauri::Runtime>(
         params.total_videos,
         params.effective_duration,
         1,
-        Some("Exporting Animated GIF"),
+        Some(status_label),
     )
     .await
 }
 
-/// Exports a precision-trimmed, optionally cropped/speed-adjusted video segment as an animated GIF.
+/// Exports a precision-trimmed, optionally cropped/speed-adjusted video segment as an animated GIF or WebP.
 pub async fn execute_gif_trim_step<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     ffmpeg_path: &str,
@@ -151,7 +224,13 @@ pub async fn execute_gif_trim_step<R: tauri::Runtime>(
     is_speed_changed: bool,
     effective_output_duration: f64,
 ) -> Result<(), String> {
-    let raw_outfile = parent_dir.join(format!("{}_trimmed.gif", file_stem));
+    let is_webp = config.anim_format.as_deref() == Some("WEBP");
+    let (ext, status_label) = if is_webp {
+        ("webp", "Exporting Trimmed WebP")
+    } else {
+        ("gif", "Exporting Trimmed GIF")
+    };
+    let raw_outfile = parent_dir.join(format!("{}_trimmed.{}", file_stem, ext));
     let resolved_outfile = resolve_conflict_path(raw_outfile);
 
     let mut args: Vec<String> = vec!["-hide_banner".to_string()];
@@ -180,23 +259,25 @@ pub async fn execute_gif_trim_step<R: tauri::Runtime>(
 
     let gif_fps = config.gif_fps.as_deref().unwrap_or("15");
     let gif_quality = config.gif_quality.as_deref().unwrap_or("HIGH");
-    let vf = build_gif_palette_filter(&pre_filters, &config.target_height, gif_fps, gif_quality);
-    let loop_val = if config.gif_loop.unwrap_or(true) { "0" } else { "-1" };
+    let loop_enabled = config.gif_loop.unwrap_or(true);
+    append_anim_encode_args(
+        &mut args,
+        is_webp,
+        &pre_filters,
+        &config.target_height,
+        gif_fps,
+        gif_quality,
+        loop_enabled,
+    );
 
     args.extend([
-        "-vf".to_string(),
-        vf,
-        "-an".to_string(),
-        "-dn".to_string(),
-        "-loop".to_string(),
-        loop_val.to_string(),
         "-y".to_string(),
         "-progress".to_string(),
         "pipe:1".to_string(),
         resolved_outfile.to_string_lossy().to_string(),
     ]);
 
-    log_info(&format!("Exporting trimmed video to GIF -> {:?}", resolved_outfile));
+    log_info(&format!("Exporting trimmed video to {} -> {:?}", if is_webp { "Animated WebP" } else { "GIF" }, resolved_outfile));
 
     execute_ffmpeg_process(
         app,
@@ -207,7 +288,7 @@ pub async fn execute_gif_trim_step<R: tauri::Runtime>(
         1,
         effective_output_duration,
         1,
-        Some("Exporting Trimmed GIF"),
+        Some(status_label),
     )
     .await
 }

@@ -203,8 +203,8 @@ Alitken/
      6. Repeat until all groups are committed, and present the final summary for user inspection.
 3. **Strict Release Notes Generation Rules**:
    - **Location**: NEVER write release notes in project root. ALWAYS write as an artifact in `<appDataDir>\brain\<conversation-id>/release_notes_v<version>.md`.
-   - **Prohibitions**: NEVER use `>` quotes (ugly), NEVER use emojis, NEVER include download links.
-   - **Content & Tone**: Delta-only (only changes since previous tag via `git log <prev_tag>..HEAD`), professional/technical language (no hype), more technical detail is better.
+   - **Prohibitions**: NEVER use `>` quotes (ugly), NEVER include download links, and NEVER use emojis outside **Summary of the change**.
+   - **Content & Tone**: Delta-only (only changes since previous tag via `git log <prev_tag>..HEAD`); in **Summary of the change**, use a hyped, energetic second-person README voice formatted as a 1-sentence lead-in ending with `:` (e.g., `Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets (each starting with a leading emoji icon, no wall-of-text paragraphs), while keeping all remaining sections professional, objective, and deeply technical (more technical detail is better).
    - **Mandatory Format**:
      - Title
      - Target of the change / release note

@@ -76,6 +76,8 @@ All AI agents working on this repository MUST strictly follow these rules:
 *Record high-level summaries of changes here whenever code is modified:*
 
 ### [2026-11-14] v0.9.3 - Bump Application Version to v0.9.3
+- **`README.md` & `assets/1.png`–`assets/9.png`**: Reworked `README.md` so the Hero banner and every Core Capabilities feature section displays a dedicated numbered black screenshot placeholder (`assets/1.png` through `assets/9.png`) with a quick-map replacement table, updated v0.9.3 Animated WebP / GIF & Image pipeline specs, and an `Acknowledgments & Open-Source Attribution` section crediting all third-party engines, Rust crates, and frontend libraries/tools.
+- **Release Notes Tone & Format Policy (`.agents/AGENTS.md`, `.agents/skills/alitken-expert/SKILL.md`, `history.md`)**: Updated release notes style policy so `Summary of the change` uses a hyped README-style 1-sentence lead-in (`Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets with leading emoji icons (`- ✨ ...`, `- 🎞️ ...`) for non-developer readers, while keeping all remaining sections emoji-free, objective, and strictly technical.
 - **`.agents/` Docs & Skills Sync (`.agents/AGENTS.md`, `.agents/skills/alitken-expert/SKILL.md`, `.agents/workflows/proceed.md`, `history.md`)**: Updated current version references (`v0.9.3`), Startup Mode maximize/Snap lock, `.msixbundle` packaging, trimmer zoom/wireframe precision, O(1)-memory Animated WebP & GIF pipelines, updated directory tree, and fixed stale `file:///e:/Default/...` links to `file:///d:/ALitken/Alitken-GUI/...`.
 - **`package.json` & `package-lock.json`**: Bumped patch version from `0.9.2` to `0.9.3` via `build.ps1 -Bump -Version "0.9.3"`.
 - **`src-tauri/tauri.conf.json`**: Synchronized package version to `0.9.3` and main window title to `ALITKEN v0.9.3`.
@@ -179,10 +181,10 @@ All AI agents working on this repository MUST strictly follow these rules:
 - **Strict Invariants**:
   1. **NEVER** write release notes in the project repository folder (`/`). **ALWAYS** write release notes as an artifact document in the system artifacts directory (`<appDataDir>\brain\<conversation-id>/release_notes_v<version>.md`).
   2. **NEVER** use `>` (Markdown blockquote / alert quote) in release notes. It looks ugly to the user.
-  3. **NEVER** use emojis in release notes.
+  3. **NEVER** use emojis outside **Summary of the change**: all technical sections (**Target**, **Detailing what changed**, **Explain why**, **Bug fixing**, **Technical details**, **Commits**) must stay strictly emoji-free; only **Summary of the change** bullets start with leading emoji icons (`- ✨ **Feature Name** — ...`).
   4. **NEVER** include download links in release notes.
   5. **NEVER** rehash or include changes already covered in previous release notes; inspect git delta (`git log <prev_tag>..HEAD --oneline`) and only document net-new changes.
-  6. **ALWAYS** use professional, technical, objective language without hype or excessive enthusiasm.
+  6. **ALWAYS** format **Summary of the change** for non-developer readers using a hyped, energetic second-person README voice: a 1-sentence lead-in ending with `:` (e.g., `Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets (no wall-of-text paragraphs), while keeping all remaining sections objective, professional, and deeply technical.
   7. **ALWAYS** use the required 7-part format:
      - Title
      - Target of the change / release note

@@ -214,16 +214,16 @@ When asked to create or draft release notes:
 1. **Location**: **NEVER** write release notes in the project repository folder (`/`). **ALWAYS** write release notes as an artifact document in the system artifacts directory (`<appDataDir>\brain\<conversation-id>/release_notes_v<version>.md`).
 2. **Formatting Prohibitions**:
    - **NEVER use `>`** (Markdown blockquote / alert quote) anywhere in the release note. It looks ugly to the user.
-   - **NEVER use emojis** (no icons, symbols, or decorative emojis).
+   - **NEVER use emojis outside `Summary of the change`**: Emojis are strictly prohibited in all technical sections (**Target**, **Detailing what changed**, **Explain why**, **Bug fixing**, **Technical details**, **Commits**), **EXCEPT in `Summary of the change`**, where every bullet MUST start with a leading emoji icon (`- ✨ **Feature Name** — ...`).
    - **NEVER include any download links**.
 3. **Content & Tone Standards**:
    - **Delta-Only**: **NEVER** include or repeat changes that were already covered in previous release notes. Always inspect git history from the previous release tag to current HEAD (`git log <prev_tag>..HEAD --oneline`) and only document net-new items.
-   - **Tone**: Use professional, objective, technical language. Do not hype up the tone.
+   - **Tone & Summary Format**: Write **Summary of the change** in a hyped, energetic, second-person README voice for non-developer users, formatted strictly as a single punchy lead-in sentence ending with `:` (e.g., `Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets (no wall-of-text paragraphs), while keeping all remaining sections (**Target**, **Detailing what changed**, **Explain why**, **Bug fixing**, **Technical details**, **Commits**) professional, objective, and deeply technical.
    - **Depth**: More details is better (technical parameters, file paths, exact mechanisms, architectural reasons).
 4. **Mandatory Format Structure**: Release notes must strictly use the following sequential layout:
    - **Title**: Release title and version tag.
    - **Target of the change / release note**: Clear statement of who and what this release targets.
-   - **Summary of the change**: High-level executive summary of the release.
+   - **Summary of the change**: High-level executive summary formatted as a hyped 1-sentence lead-in ending with `:` followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets for end users.
    - **Detailing what changed**: Exhaustive section-by-section breakdown of all modifications.
    - **Explain why the change was made**: Clear rationale, motivation, and user/developer benefits.
    - **Bug fixing (if any)**: Specific bugs resolved, failure modes addressed, and edge cases fixed.

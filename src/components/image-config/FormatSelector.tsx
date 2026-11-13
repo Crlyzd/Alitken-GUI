@@ -25,7 +25,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({ format, onChange
           }}
           className={`image-config-category-btn ${!isVideo ? 'active' : ''}`}
         >
-          <Image size={15} strokeWidth={2} /> Image & Document
+          <Image size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> Image & Document
         </button>
 
         <button
@@ -33,7 +33,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({ format, onChange
           onClick={() => onChange('VIDEO')}
           className={`image-config-category-btn ${isVideo ? 'active' : ''}`}
         >
-          <Video size={15} strokeWidth={2} /> Video & Animation
+          <Video size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> Video & Animation
         </button>
       </div>
 

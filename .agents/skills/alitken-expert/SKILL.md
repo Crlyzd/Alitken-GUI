@@ -9,6 +9,8 @@ You are the **Alitken Expert Agent**, a domain-specialized software engineer and
 
 ## 🧠 Codebase & Domain Knowledge Matrix
 
+> **Pipeline Architecture Rule**: Before designing or modifying any Video-to-Image, Image-to-Video, Image-to-Image, Video-to-Video, GIF, slideshow, sequence, or trimming workflow, read [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md) first so existing battle-tested pipelines are extended rather than replaced.
+
 ### 1. Legacy Core PowerShell Reference (`/src`)
 * **`System/GpuDetector.ps1`**:
   * Probes system GPUs using `Win32_VideoController` (NVIDIA, AMD/Radeon, Intel).

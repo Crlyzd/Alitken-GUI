@@ -120,6 +120,7 @@ This file governs the behavior, conventions, and architectural standards for all
 
 All personas below MUST consult the specialized skills when working in their respective domains:
 - [`.agents/skills/alitken-expert/SKILL.md`](file:///e:/Default/DEVS/Alitken/Alitken-GUI/.agents/skills/alitken-expert/SKILL.md): Authoritative map of legacy CLI reference, Rust + Tauri architecture, and file responsibilities.
+- [`.agents/skills/alitken-pipelines/SKILL.md`](file:///d:/ALitken/Alitken-GUI/.agents/skills/alitken-pipelines/SKILL.md): Authoritative map of all Video-to-Image, Image-to-Video, Image-to-Image, and Video-to-Video pipelines. MUST be consulted before planning or modifying any media conversion, animation, GIF, slideshow, sequence, or frame extraction feature to reuse existing pipelines instead of inventing new ones.
 - [`.agents/skills/alitken-verify/SKILL.md`](file:///e:/Default/DEVS/Alitken/Alitken-GUI/.agents/skills/alitken-verify/SKILL.md): Fast build verification playbook for frontend typecheck (`tsc`) and backend compilation (`cargo check`).
 
 ---

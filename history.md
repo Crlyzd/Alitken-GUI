@@ -70,6 +70,24 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-13] v0.9.2 - Enforce 720p GIF Ceiling & Clean Target Resolution Labels
+- **`src/components/video-config/ResolutionSelector.tsx` & `src/types/config.ts`**: Removed `360p Compact (GIF / Web)` option and unused `'360'` entry in `PRESET_HEIGHTS`; filtered `Target Resolution` dropdown in GIF mode strictly to `720p HD`, `480p SD`, and `Custom Height (144 - 720 px)` with active clamping on change/blur.
+- **`src/components/video-config/CodecSelector.tsx`**: Auto-clamped `ORIGINAL` and any height `> 720` down to `'720'` when switching into GIF mode.
+- **`src/components/image-config/VideoControls.tsx`**: Restricted Image-to-GIF resolution options strictly to `720p`, `480p`, and `360p`.
+- **`src-tauri/src/ffmpeg/video/gif.rs` & `src-tauri/src/ffmpeg/image_to_video/mod.rs`**: Pruned dead `"ORIGINAL"` scale branch in `build_gif_palette_filter` and enforced a hard `720px` cap across both Video-to-GIF (`144..=720`, even-aligned) and Image-to-GIF (`720p`/`480p`/`360p`).
+- **`.agents/skills/alitken-pipelines/SKILL.md`**: Synced `video/gif.rs` preset documentation to reflect the 720p cap and `360p` removal.
+
+### [2026-11-13] v0.9.2 - Export to GIF (Video, Trimmer, Images) & Image-to-Video Sequence Bug Fixes
+- **Video & Trimmer GIF Pipeline (`src-tauri/src/ffmpeg/video/gif.rs`, `convert/mod.rs`, `trim.rs`, `types.rs`)**: Added high-quality single-pass 256-color adaptive palette GIF encoding (`execute_gif_convert_step`, `execute_gif_trim_step`) supporting GIF FPS (`10`/`15`/`24`/`30`/`ORIGINAL`), palette quality (`HIGH` diff+floyd_steinberg vs `BALANCED` full+bayer), infinite loop (`-loop 0` vs `-1`), crop framing, speed scaling (`0.10x`–`50.00x`), `libdav1d` AV1 decode, and `360p` compact preset.
+- **Image-to-GIF & Sequence Hardening (`src-tauri/src/ffmpeg/image_to_video/mod.rs`, `pipe.rs`, `demuxer.rs`, `src-tauri/src/commands/media.rs`)**: Extended `image_to_video` with `.gif` animated output (`export_gif`, `gif_loop`, `gif_transparent`), `480p`/`360p` presets, majority Portrait/Landscape preset auto-orientation, UI queue order preservation (removed alphabetical sort), 0ms `is_homogeneous` fast-path guard for uniform native sequences, `[0]` composite frame extraction for `.psd`/`.psb`/`.ico`/`.gif`, uniform `-colorspace sRGB -depth 8` in `pipe.rs`, and RGBA `pam:-` / alpha padding when `gif_transparent` is enabled.
+- **Frontend UI (`src/components/video-config/`, `src/components/image-config/`, `src/components/config/`, `src/hooks/`, `src/types/`, `src/App.tsx`)**: Added 4th `GIF` codec card in `CodecSelector.tsx` + `GifExportControls.tsx` + `360p` option in `ResolutionSelector.tsx`; renamed Image category to `Video & GIF` in `FormatSelector.tsx` with `[MP4 Video | Animated GIF]` pills, adaptive FPS presets (`[10, 15, 24]` vs `[24, 30, 60]`), and `VideoGifOptions.tsx` (`gifLoop`, `gifTransparent`); updated CTA labels and trimmer fast-copy bypass.
+- **`.agents/skills/alitken-pipelines/SKILL.md`**: Synchronized pipeline reference with the new GIF modes, auto-orientation, composite `[0]`, uniform depth, and homogeneous fast-path details.
+
+### [2026-11-13] v0.9.2 - Document Media Pipelines Skill & Enforce Anti-Replacement Rule
+- **`.agents/skills/alitken-pipelines/SKILL.md`**: Created dedicated skill documenting every production media pipeline (`image_to_video` 2-tier pipe + concat/3-stage normalizer, `extract_frames` + WMF hardware scrubbing, `image/convert` + `pdf` ImageMagick pipelines, and `video/convert`/`trim`/`combine`/`preview`) along with native vs non-native 45+ format routing rules.
+- **`.agents/AGENTS.md` & `.agents/skills/alitken-expert/SKILL.md`**: Registered `alitken-pipelines` under Domain Knowledge Reference so agents always audit existing pipelines before proposing or coding media features.
+- **`history.md`**: Logged Mistake #6 (`[MISTAKE]` / `[CORRECTION]`) regarding reinventing existing multi-format/resolution pipelines without inspecting `src-tauri/src/ffmpeg/image_to_video/` first.
+
 ### [2026-10-24] v0.9.2 - Automated Microsoft Store MSIX Bundle (.msixbundle) Packaging
 - **`build.ps1`**: Integrated automated multi-architecture bundle packaging (`MakeAppx.exe bundle`) in `Invoke-ReleasePipeline` under MS Store targets; combines `_MSStore_64.msix` and `_MSStore_ARM64.msix` into a single `Alitken_v<ver>_MSStore.msixbundle` ready for 1-file upload to Microsoft Partner Center; updated `Invoke-CleanCaches` to purge `msix_bundle_staging`; updated menu descriptions for options `[6]` and `[8]` to reflect unified `.msixbundle` generation.
 
@@ -192,4 +210,20 @@ All AI agents working on this repository MUST strictly follow these rules:
 - **Strict Invariants**:
   1. Always use valid CSS `transform-origin` keyword syntax (`left center`, `right center`, `top center`, `bottom center`) when scaling wireframes and handles.
   2. Never hardcode `height: 100%` on aspect-ratio canvas containers without accounting for narrow viewports (`width: 100%, height: auto` when `viewportAspect < canvasAspect`).
+
+### 6. Reinventing Media Pipelines Without Auditing Existing Engine Modules
+- **Tag**: `[MISTAKE]` / `[CORRECTION]`
+- **Context & Objection**: Proposing a new Image-to-GIF / multi-resolution / multi-format handling pipeline during planning without first inspecting `src-tauri/src/ffmpeg/image_to_video/` (`mod.rs`, `pipe.rs`, `demuxer.rs`) and `src-tauri/src/image/convert.rs`, requiring the user to remind the agent that Alitken already solved multi-resolution and 45+ image format conversion in Image-to-Video.
+- **Root Cause**: Failing to audit existing backend pipeline modules (`image_to_video`, `extract_frames`, `image/convert`, `video/convert`) before drafting architectural plans for media features.
+- **Strict Invariants**:
+  1. **ALWAYS** read `.agents/skills/alitken-pipelines/SKILL.md` and inspect the underlying `src-tauri/src/ffmpeg/` and `src-tauri/src/image/` modules before proposing any media conversion, animation, GIF, or frame extraction plan.
+  2. **NEVER** replace or duplicate a working media pipeline with a new, unproven pipeline when the existing pipeline can be reused and extended.
+
+### 7. GIF Resolution Cap (720p Max) & No Format Labels in Target Resolution
+- **Tag**: `[MISTAKE]` / `[CORRECTION]`
+- **Context & Objection**: (1) Allowing GIF exports to select `Original`, `1080p`, `2K`, `4K`, or custom heights above `720p`, and (2) labeling the 360p option in `Target Resolution` as `360p Compact (GIF / Web)`, which misleads users into thinking selecting that resolution in video codec modes (`H.264`/`H.265`/`AV1`) will export a GIF.
+- **Root Cause**: Failing to restrict the resolution dropdown and custom height input upper bound (`max=720`) when GIF mode is active, and mixing format/codec terminology (`GIF`) into a resolution preset label.
+- **Strict Invariants**:
+  1. **ALWAYS** cap GIF resolution options and custom height inputs strictly at **720p maximum** (`144px–720px`) across both UI controls and backend Rust pipelines.
+  2. **NEVER** include codec or file-format names (such as `GIF`) inside `Target Resolution` dropdown option labels.
 

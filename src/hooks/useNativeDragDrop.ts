@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { FileItem } from '../types/queue';
 import { getFileKind } from '../utils/mediaType';
 
 export function useNativeDragDrop(
   activeViewRef: React.MutableRefObject<'main' | 'trimmer'>,
+  filesRef: React.MutableRefObject<FileItem[]>,
   handleAddFiles: (paths: string[]) => Promise<void>,
   handleOpenTrimmerFromWelcome: (filePath: string) => Promise<void>,
   setValidationError: (err: string | null) => void
@@ -31,6 +33,8 @@ export function useNativeDragDrop(
 
     const unlistenPromise = appWindow.onDragDropEvent((event: any) => {
       if (!isMounted) return;
+      const isWelcomeScreen = activeViewRef.current === 'main' && filesRef.current.length === 0;
+
       if (event.payload.type === 'drop') {
         setIsDragOver(false);
         setDragTargetZone(null);
@@ -62,7 +66,10 @@ export function useNativeDragDrop(
             }
           };
 
-          if (activeViewRef.current === 'trimmer' || welcomeZoneRef.current === 'trimmer') {
+          if (
+            activeViewRef.current === 'trimmer' ||
+            (isWelcomeScreen && welcomeZoneRef.current === 'trimmer')
+          ) {
             processTrimmerDrop(paths);
           } else {
             handleAddFilesRef.current(paths);
@@ -71,19 +78,18 @@ export function useNativeDragDrop(
         welcomeZoneRef.current = null;
       } else if (event.payload.type === 'enter' || event.payload.type === 'over') {
         setIsDragOver(true);
-        const pos = event.payload.position;
-        if (pos && typeof pos.y === 'number') {
-          const windowHeight = window.innerHeight || 500;
-          if (pos.y > windowHeight * 0.72) {
-            setDragTargetZone('trimmer');
-            welcomeZoneRef.current = 'trimmer';
-          } else {
-            setDragTargetZone('batch');
-            welcomeZoneRef.current = 'batch';
-          }
+        if (activeViewRef.current === 'trimmer') {
+          setDragTargetZone('trimmer');
+          welcomeZoneRef.current = null;
         } else {
-          setDragTargetZone('batch');
-          welcomeZoneRef.current = 'batch';
+          const pos = event.payload.position;
+          const windowHeight = window.innerHeight || 500;
+          const nextZone =
+            isWelcomeScreen && pos && typeof pos.y === 'number' && pos.y > windowHeight * 0.72
+              ? 'trimmer'
+              : 'batch';
+          setDragTargetZone(nextZone);
+          welcomeZoneRef.current = nextZone;
         }
       } else if (event.payload.type === 'leave' || event.payload.type === 'cancel') {
         setIsDragOver(false);
@@ -100,7 +106,7 @@ export function useNativeDragDrop(
         })
         .catch((err) => console.error('Failed to cleanup drag-drop listener:', err));
     };
-  }, [activeViewRef, setValidationError]);
+  }, [activeViewRef, filesRef, setValidationError]);
 
   return {
     isDragOver,

@@ -75,6 +75,9 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-14] v0.9.3 - Restrict Bottom "Drop to Trim" Zone to Welcome Screen Only
+- **`src/App.tsx` & `src/hooks/useNativeDragDrop.ts`**: Passed `filesRef` from `useMediaQueue` into `useNativeDragDrop` and gated the bottom-28% (`pos.y > windowHeight * 0.72`) `'trimmer'` drop zone strictly to the Welcome Screen (`activeViewRef.current === 'main' && filesRef.current.length === 0`), so dropping files anywhere in Queue List Mode always targets `'batch'` and appends to the queue instead of activating Video Trimmer.
+
 ### [2026-11-14] v0.9.3 - Bump Application Version to v0.9.3
 - **`README.md` & `assets/1.png`–`assets/9.png`**: Reworked `README.md` so the Hero banner and every Core Capabilities feature section displays a dedicated numbered black screenshot placeholder (`assets/1.png` through `assets/9.png`) with a quick-map replacement table, updated v0.9.3 Animated WebP / GIF & Image pipeline specs, and an `Acknowledgments & Open-Source Attribution` section crediting all third-party engines, Rust crates, and frontend libraries/tools.
 - **Release Notes Tone & Format Policy (`.agents/AGENTS.md`, `.agents/skills/alitken-expert/SKILL.md`, `history.md`)**: Updated release notes style policy so `Summary of the change` uses a hyped README-style 1-sentence lead-in (`Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets with leading emoji icons (`- ✨ ...`, `- 🎞️ ...`) for non-developer readers, while keeping all remaining sections emoji-free, objective, and strictly technical.

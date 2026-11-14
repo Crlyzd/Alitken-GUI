@@ -102,6 +102,7 @@ export function App() {
     setValidationError,
     storageModalState,
     setStorageModalState,
+    filesRef,
     activeViewRef,
     verifyFileAvailability,
     handleAddFiles,
@@ -138,6 +139,7 @@ export function App() {
   // Hook 4: Native Drag and Drop Zone Orchestration
   const { isDragOver, dragTargetZone, welcomeZoneRef } = useNativeDragDrop(
     activeViewRef,
+    filesRef,
     handleAddFiles,
     handleOpenTrimmerFromWelcome,
     setValidationError

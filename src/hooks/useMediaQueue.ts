@@ -510,11 +510,25 @@ export function useMediaQueue(
           status: 'Video trim export completed successfully!',
         }));
       } catch (err: any) {
-        setProgress((prev) => ({
-          ...prev,
-          isProcessing: false,
-          error: err.toString(),
-        }));
+        const errMsg = err?.toString() || 'Trim export failed';
+        const isCanceled = errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('abort');
+        setProgress((prev) => {
+          const alreadyCanceled =
+            prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'));
+          if (isCanceled || alreadyCanceled) {
+            return {
+              ...prev,
+              isProcessing: false,
+              completed: false,
+              error: alreadyCanceled ? prev.error : 'Operation cancelled by user.',
+            };
+          }
+          return {
+            ...prev,
+            isProcessing: false,
+            error: errMsg,
+          };
+        });
       }
     },
     [checkDepsAndGpu, setProgress, trimmerFile]

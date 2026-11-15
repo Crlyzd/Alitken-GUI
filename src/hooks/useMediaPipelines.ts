@@ -318,11 +318,25 @@ export function useMediaPipelines(
       }));
       invoke('trim_memory').catch(() => {});
     } catch (err: any) {
-      setProgress((prev) => ({
-        ...prev,
-        isProcessing: false,
-        error: err.toString(),
-      }));
+      const errMsg = err?.toString() || 'Video processing failed';
+      const isCanceled = errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('abort');
+      setProgress((prev) => {
+        const alreadyCanceled =
+          prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'));
+        if (isCanceled || alreadyCanceled) {
+          return {
+            ...prev,
+            isProcessing: false,
+            completed: false,
+            error: alreadyCanceled ? prev.error : 'Operation cancelled by user.',
+          };
+        }
+        return {
+          ...prev,
+          isProcessing: false,
+          error: errMsg,
+        };
+      });
     }
   }, [
     files,
@@ -451,11 +465,25 @@ export function useMediaPipelines(
       }));
       invoke('trim_memory').catch(() => {});
     } catch (err: any) {
-      setProgress((prev) => ({
-        ...prev,
-        isProcessing: false,
-        error: err.toString(),
-      }));
+      const errMsg = err?.toString() || 'Image processing failed';
+      const isCanceled = errMsg.toLowerCase().includes('cancel') || errMsg.toLowerCase().includes('abort');
+      setProgress((prev) => {
+        const alreadyCanceled =
+          prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'));
+        if (isCanceled || alreadyCanceled) {
+          return {
+            ...prev,
+            isProcessing: false,
+            completed: false,
+            error: alreadyCanceled ? prev.error : 'Operation cancelled by user.',
+          };
+        }
+        return {
+          ...prev,
+          isProcessing: false,
+          error: errMsg,
+        };
+      });
     }
   }, [
     files,

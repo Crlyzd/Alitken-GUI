@@ -139,38 +139,48 @@ export function useAppTelemetry(setFileLoadingState: React.Dispatch<React.SetSta
 
     const unlistenProgress = listen('ffmpeg-progress', (event: any) => {
       const payload = event.payload;
-      setProgress((prev) => ({
-        ...prev,
-        type: 'conversion',
-        isProcessing: true,
-        completed: false,
-        error: undefined,
-        currentFile: payload.current_file,
-        fileIndex: payload.file_index,
-        totalFiles: payload.total_files,
-        percent: payload.percent,
-        currentPart: payload.current_part,
-        totalParts: payload.total_parts,
-        status: payload.status,
-      }));
+      setProgress((prev) => {
+        if (prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'))) {
+          return prev;
+        }
+        return {
+          ...prev,
+          type: 'conversion',
+          isProcessing: true,
+          completed: false,
+          error: undefined,
+          currentFile: payload.current_file,
+          fileIndex: payload.file_index,
+          totalFiles: payload.total_files,
+          percent: payload.percent,
+          currentPart: payload.current_part,
+          totalParts: payload.total_parts,
+          status: payload.status,
+        };
+      });
     });
 
     const unlistenImageProgress = listen('image-progress', (event: any) => {
       const payload = event.payload;
-      setProgress((prev) => ({
-        ...prev,
-        type: 'conversion',
-        isProcessing: true,
-        completed: false,
-        error: undefined,
-        currentFile: payload.current_file,
-        fileIndex: payload.file_index,
-        totalFiles: payload.total_files,
-        percent: payload.percent,
-        currentPart: 1,
-        totalParts: 1,
-        status: payload.status || payload.phase,
-      }));
+      setProgress((prev) => {
+        if (prev.error && (prev.error.toLowerCase().includes('cancel') || prev.error.toLowerCase().includes('abort'))) {
+          return prev;
+        }
+        return {
+          ...prev,
+          type: 'conversion',
+          isProcessing: true,
+          completed: false,
+          error: undefined,
+          currentFile: payload.current_file,
+          fileIndex: payload.file_index,
+          totalFiles: payload.total_files,
+          percent: payload.percent,
+          currentPart: 1,
+          totalParts: 1,
+          status: payload.status || payload.phase,
+        };
+      });
     });
 
     const unlistenDownload = listen('download-progress', (event: any) => {

@@ -212,14 +212,14 @@ export function useTrimmerState({
     if (videoRef.current) {
       videoRef.current.playbackRate = Math.min(16.0, playbackSpeed);
     }
-  }, [playbackSpeed]);
+  }, [playbackSpeed, isNativeSupported, previewPath]);
 
   // Sync isMuted state with HTML5 video player
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = isMuted;
     }
-  }, [isMuted]);
+  }, [isMuted, isNativeSupported, previewPath]);
 
   // Update text fields whenever startSec/endSec change
   useEffect(() => {

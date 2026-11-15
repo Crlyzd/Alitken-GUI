@@ -145,7 +145,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
               if (trimmer.videoRef.current) trimmer.videoRef.current.muted = true;
             }}
             onScrubEnd={() => {
-              if (trimmer.videoRef.current) trimmer.videoRef.current.muted = false;
+              if (trimmer.videoRef.current) trimmer.videoRef.current.muted = trimmer.isMuted;
             }}
           />
 

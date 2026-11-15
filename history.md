@@ -75,6 +75,9 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-15] v0.9.3 - Polish README.md with Apple-Style Marketing Copy
+- **`README.md`**: Removed unnecessary technical jargon (CLI flags, internal Rust/frontend symbol names, Big-O/codec implementation details) from user-facing sections, rewrote headlines and feature copy in a clean, benefit-driven Apple-style marketing voice, and tucked developer architecture/`build.ps1` and screenshot map details into collapsible `<details>` blocks while preserving all badges, links, format lists, and open-source credits.
+
 ### [2026-11-15] v0.9.3 - Fix Video Trimmer Mute Desync After Timeline Scrubbing
 - **`src/components/VideoTrimmer.tsx`**: Updated `TimelineSlider` `onScrubEnd` callback to restore `trimmer.videoRef.current.muted = trimmer.isMuted` instead of unconditionally setting `false`, preventing dragged handles/playhead from unmuting a muted preview.
 - **`src/components/trimmer/timeline/TimelineSlider.tsx`**: Added `onPointerCancel` handler mirroring `onPointerUp` so interrupted drags cleanly invoke `onScrubEnd`.

@@ -75,6 +75,11 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-15] v0.9.3 - Fix Video Trimmer Mute Desync After Timeline Scrubbing
+- **`src/components/VideoTrimmer.tsx`**: Updated `TimelineSlider` `onScrubEnd` callback to restore `trimmer.videoRef.current.muted = trimmer.isMuted` instead of unconditionally setting `false`, preventing dragged handles/playhead from unmuting a muted preview.
+- **`src/components/trimmer/timeline/TimelineSlider.tsx`**: Added `onPointerCancel` handler mirroring `onPointerUp` so interrupted drags cleanly invoke `onScrubEnd`.
+- **`src/components/trimmer/useTrimmerState.ts`**: Added `isNativeSupported` and `previewPath` to the `playbackSpeed` and `isMuted` sync `useEffect` dependency arrays so newly mounted `<video>` elements inherit the active mute/speed state.
+
 ### [2026-11-15] v0.9.3 - Fix FFmpeg Cancellation Race Condition & Partial Output Cleanup
 - **`src-tauri/src/ffmpeg/process.rs`**: Added post-loop `check_cancel_flag()` guards and extracted `handle_ffmpeg_exit_status()` across `execute_ffmpeg_process`, `execute_ffmpeg_combine_process`, and `execute_ffmpeg_combine_segment_process` so `taskkill`-induced stdout EOF returns `"Processing aborted by user."` instead of `"FFmpeg processing failed: ..."`.
 - **`src-tauri/src/ffmpeg/video/gif.rs`, `trim.rs`, `convert/transcode.rs`, `convert/split.rs`**: Added automatic removal of partial/corrupted output files (and split segment files/empty split dirs) when `execute_ffmpeg_process` returns an error or cancellation.

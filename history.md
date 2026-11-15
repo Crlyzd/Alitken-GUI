@@ -75,6 +75,11 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-15] v0.9.3 - Fix FFmpeg Cancellation Race Condition & Partial Output Cleanup
+- **`src-tauri/src/ffmpeg/process.rs`**: Added post-loop `check_cancel_flag()` guards and extracted `handle_ffmpeg_exit_status()` across `execute_ffmpeg_process`, `execute_ffmpeg_combine_process`, and `execute_ffmpeg_combine_segment_process` so `taskkill`-induced stdout EOF returns `"Processing aborted by user."` instead of `"FFmpeg processing failed: ..."`.
+- **`src-tauri/src/ffmpeg/video/gif.rs`, `trim.rs`, `convert/transcode.rs`, `convert/split.rs`**: Added automatic removal of partial/corrupted output files (and split segment files/empty split dirs) when `execute_ffmpeg_process` returns an error or cancellation.
+- **`src/hooks/useMediaQueue.ts`, `src/hooks/useMediaPipelines.ts`, `src/hooks/useAppTelemetry.ts`**: Guarded `handleTrimExport`, `handleStartVideoProcessing`, `handleStartImageProcessing` `catch` blocks and `ffmpeg-progress`/`image-progress` listeners against overwriting an active cancellation state (`'Operation cancelled by user.'`).
+
 ### [2026-11-14] v0.9.3 - Restrict Bottom "Drop to Trim" Zone to Welcome Screen Only
 - **`src/App.tsx` & `src/hooks/useNativeDragDrop.ts`**: Passed `filesRef` from `useMediaQueue` into `useNativeDragDrop` and gated the bottom-28% (`pos.y > windowHeight * 0.72`) `'trimmer'` drop zone strictly to the Welcome Screen (`activeViewRef.current === 'main' && filesRef.current.length === 0`), so dropping files anywhere in Queue List Mode always targets `'batch'` and appends to the queue instead of activating Video Trimmer.
 

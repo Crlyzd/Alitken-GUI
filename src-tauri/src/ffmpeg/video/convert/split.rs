@@ -193,7 +193,7 @@ pub async fn execute_split_step<R: tauri::Runtime>(
         ]);
     }
 
-    execute_ffmpeg_process(
+    let res = execute_ffmpeg_process(
         app,
         ffmpeg_path,
         args,
@@ -204,5 +204,23 @@ pub async fn execute_split_step<R: tauri::Runtime>(
         num_parts,
         None,
     )
-    .await
+    .await;
+
+    if res.is_err() {
+        let part_prefix = format!("{}_part", split_file_stem);
+        let search_dir = pattern_base.parent().unwrap_or(params.parent_dir);
+        if let Ok(entries) = std::fs::read_dir(search_dir) {
+            for entry in entries.flatten() {
+                if let Some(name) = entry.file_name().to_str() {
+                    if name.starts_with(&part_prefix) {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+        if config.custom_output_dir.is_none() {
+            let _ = std::fs::remove_dir(search_dir);
+        }
+    }
+    res
 }

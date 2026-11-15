@@ -5,6 +5,48 @@ use std::process::Stdio;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
+async fn handle_ffmpeg_exit_status(
+    status: std::process::ExitStatus,
+    stderr_lines: &tokio::sync::Mutex<Vec<String>>,
+    context_label: &str,
+    err_prefix: &str,
+) -> Result<(), String> {
+    if crate::utils::check_cancel_flag() {
+        log_info(&format!("FFmpeg aborted by user ({})", context_label));
+        return Err("Processing aborted by user.".to_string());
+    }
+
+    if status.success() {
+        log_info(&format!("Successfully processed {}", context_label));
+        return Ok(());
+    }
+
+    let captured_err = {
+        let lines = stderr_lines.lock().await;
+        lines.join("\n")
+    };
+    let err_summary = if captured_err.trim().is_empty() {
+        format!("FFmpeg exited with code {:?}", status.code())
+    } else {
+        captured_err
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .rev()
+            .take(6)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    log_error(&format!(
+        "{} ({}): {}\nFull Stderr: {}",
+        err_prefix, context_label, err_summary, captured_err
+    ));
+    Err(format!("{}: {}", err_prefix, err_summary))
+}
+
 pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     ffmpeg_path: &str,
@@ -120,6 +162,12 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
         }
     }
 
+    if crate::utils::check_cancel_flag() {
+        let _ = child.kill().await;
+        let _ = stderr_handle.await;
+        return Err("Processing aborted by user.".to_string());
+    }
+
     let _ = stderr_handle.await;
 
     let status = child
@@ -131,35 +179,7 @@ pub async fn execute_ffmpeg_process<R: tauri::Runtime>(
             err_msg
         })?;
 
-    if status.success() {
-        log_info(&format!("Successfully processed {}", file_name));
-        Ok(())
-    } else {
-        let captured_err = {
-            let lines = stderr_lines.lock().await;
-            lines.join("\n")
-        };
-        let err_summary = if captured_err.trim().is_empty() {
-            format!("FFmpeg exited with code {:?}", status.code())
-        } else {
-            captured_err
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .rev()
-                .take(6)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-
-        log_error(&format!(
-            "FFmpeg failed for {}: {}\nFull Stderr: {}",
-            file_name, err_summary, captured_err
-        ));
-        Err(format!("FFmpeg processing failed: {}", err_summary))
-    }
+    handle_ffmpeg_exit_status(status, &stderr_lines, file_name, "FFmpeg processing failed").await
 }
 
 pub(crate) fn fs_err_file_size(file_path: &str) -> f64 {
@@ -268,6 +288,12 @@ pub async fn execute_ffmpeg_combine_process<R: tauri::Runtime>(
         }
     }
 
+    if crate::utils::check_cancel_flag() {
+        let _ = child.kill().await;
+        let _ = stderr_handle.await;
+        return Err("Processing aborted by user.".to_string());
+    }
+
     let _ = stderr_handle.await;
 
     let status = child
@@ -279,35 +305,7 @@ pub async fn execute_ffmpeg_combine_process<R: tauri::Runtime>(
             err_msg
         })?;
 
-    if status.success() {
-        log_info(&format!("Successfully combined {}", output_name));
-        Ok(())
-    } else {
-        let captured_err = {
-            let lines = stderr_lines.lock().await;
-            lines.join("\n")
-        };
-        let err_summary = if captured_err.trim().is_empty() {
-            format!("FFmpeg exited with code {:?}", status.code())
-        } else {
-            captured_err
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .rev()
-                .take(6)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-
-        log_error(&format!(
-            "FFmpeg combine failed for {}: {}\nFull Stderr: {}",
-            output_name, err_summary, captured_err
-        ));
-        Err(format!("FFmpeg processing failed: {}", err_summary))
-    }
+    handle_ffmpeg_exit_status(status, &stderr_lines, output_name, "FFmpeg processing failed").await
 }
 
 pub async fn execute_ffmpeg_combine_segment_process<R: tauri::Runtime>(
@@ -396,6 +394,12 @@ pub async fn execute_ffmpeg_combine_segment_process<R: tauri::Runtime>(
         }
     }
 
+    if crate::utils::check_cancel_flag() {
+        let _ = child.kill().await;
+        let _ = stderr_handle.await;
+        return Err("Processing aborted by user.".to_string());
+    }
+
     let _ = stderr_handle.await;
 
     let status = child
@@ -407,35 +411,8 @@ pub async fn execute_ffmpeg_combine_segment_process<R: tauri::Runtime>(
             err_msg
         })?;
 
-    if status.success() {
-        log_info(&format!("Successfully processed segment [{}/{}] {}", clip_index, total_clips, file_name));
-        Ok(())
-    } else {
-        let captured_err = {
-            let lines = stderr_lines.lock().await;
-            lines.join("\n")
-        };
-        let err_summary = if captured_err.trim().is_empty() {
-            format!("FFmpeg exited with code {:?}", status.code())
-        } else {
-            captured_err
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .rev()
-                .take(6)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-
-        log_error(&format!(
-            "FFmpeg segment [{}/{}] failed for {}: {}\nFull Stderr: {}",
-            clip_index, total_clips, file_name, err_summary, captured_err
-        ));
-        Err(format!("FFmpeg segment processing failed: {}", err_summary))
-    }
+    let seg_label = format!("segment [{}/{}] {}", clip_index, total_clips, file_name);
+    handle_ffmpeg_exit_status(status, &stderr_lines, &seg_label, "FFmpeg segment processing failed").await
 }
 
 pub fn is_ffmpeg_native_image_format(path_str: &str) -> bool {

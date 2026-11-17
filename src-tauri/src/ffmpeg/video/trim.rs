@@ -273,7 +273,7 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         ]);
     }
 
-    execute_ffmpeg_process(
+    let res = execute_ffmpeg_process(
         app,
         ffmpeg_path,
         args,
@@ -284,7 +284,10 @@ pub async fn run_trim_video_pipeline<R: tauri::Runtime>(
         1,
         None,
     )
-    .await?;
+    .await;
 
-    Ok(())
+    if res.is_err() && resolved_outfile.exists() {
+        let _ = std::fs::remove_file(&resolved_outfile);
+    }
+    res
 }

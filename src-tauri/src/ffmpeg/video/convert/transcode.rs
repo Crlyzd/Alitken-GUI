@@ -117,7 +117,7 @@ pub async fn execute_transcode_step<R: tauri::Runtime>(
         resolved_outfile.to_string_lossy().to_string(),
     ]);
 
-    execute_ffmpeg_process(
+    let res = execute_ffmpeg_process(
         app,
         ffmpeg_path,
         args,
@@ -128,5 +128,10 @@ pub async fn execute_transcode_step<R: tauri::Runtime>(
         1,
         None,
     )
-    .await
+    .await;
+
+    if res.is_err() && resolved_outfile.exists() {
+        let _ = std::fs::remove_file(&resolved_outfile);
+    }
+    res
 }

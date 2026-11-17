@@ -196,7 +196,7 @@ pub async fn execute_gif_convert_step<R: tauri::Runtime>(
 
     log_info(&format!("Exporting video to {} -> {:?}", if is_webp { "Animated WebP" } else { "GIF" }, resolved_outfile));
 
-    execute_ffmpeg_process(
+    let res = execute_ffmpeg_process(
         app,
         ffmpeg_path,
         args,
@@ -207,7 +207,12 @@ pub async fn execute_gif_convert_step<R: tauri::Runtime>(
         1,
         Some(status_label),
     )
-    .await
+    .await;
+
+    if res.is_err() && resolved_outfile.exists() {
+        let _ = std::fs::remove_file(&resolved_outfile);
+    }
+    res
 }
 
 /// Exports a precision-trimmed, optionally cropped/speed-adjusted video segment as an animated GIF or WebP.
@@ -279,7 +284,7 @@ pub async fn execute_gif_trim_step<R: tauri::Runtime>(
 
     log_info(&format!("Exporting trimmed video to {} -> {:?}", if is_webp { "Animated WebP" } else { "GIF" }, resolved_outfile));
 
-    execute_ffmpeg_process(
+    let res = execute_ffmpeg_process(
         app,
         ffmpeg_path,
         args,
@@ -290,6 +295,11 @@ pub async fn execute_gif_trim_step<R: tauri::Runtime>(
         1,
         Some(status_label),
     )
-    .await
+    .await;
+
+    if res.is_err() && resolved_outfile.exists() {
+        let _ = std::fs::remove_file(&resolved_outfile);
+    }
+    res
 }
 

@@ -205,6 +205,13 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
               handlePointerUp(e);
             }
           }}
+          onPointerCancel={(e) => {
+            if (isPanning) {
+              handlePanPointerUp(e);
+            } else {
+              handlePointerUp(e);
+            }
+          }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           style={{

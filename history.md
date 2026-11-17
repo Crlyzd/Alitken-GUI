@@ -75,6 +75,22 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-15] v0.9.3 - Polish README.md with Apple-Style Marketing Copy
+- **`README.md`**: Removed unnecessary technical jargon (CLI flags, internal Rust/frontend symbol names, Big-O/codec implementation details) from user-facing sections, rewrote headlines and feature copy in a clean, benefit-driven Apple-style marketing voice, and tucked developer architecture/`build.ps1` and screenshot map details into collapsible `<details>` blocks while preserving all badges, links, format lists, and open-source credits.
+
+### [2026-11-15] v0.9.3 - Fix Video Trimmer Mute Desync After Timeline Scrubbing
+- **`src/components/VideoTrimmer.tsx`**: Updated `TimelineSlider` `onScrubEnd` callback to restore `trimmer.videoRef.current.muted = trimmer.isMuted` instead of unconditionally setting `false`, preventing dragged handles/playhead from unmuting a muted preview.
+- **`src/components/trimmer/timeline/TimelineSlider.tsx`**: Added `onPointerCancel` handler mirroring `onPointerUp` so interrupted drags cleanly invoke `onScrubEnd`.
+- **`src/components/trimmer/useTrimmerState.ts`**: Added `isNativeSupported` and `previewPath` to the `playbackSpeed` and `isMuted` sync `useEffect` dependency arrays so newly mounted `<video>` elements inherit the active mute/speed state.
+
+### [2026-11-15] v0.9.3 - Fix FFmpeg Cancellation Race Condition & Partial Output Cleanup
+- **`src-tauri/src/ffmpeg/process.rs`**: Added post-loop `check_cancel_flag()` guards and extracted `handle_ffmpeg_exit_status()` across `execute_ffmpeg_process`, `execute_ffmpeg_combine_process`, and `execute_ffmpeg_combine_segment_process` so `taskkill`-induced stdout EOF returns `"Processing aborted by user."` instead of `"FFmpeg processing failed: ..."`.
+- **`src-tauri/src/ffmpeg/video/gif.rs`, `trim.rs`, `convert/transcode.rs`, `convert/split.rs`**: Added automatic removal of partial/corrupted output files (and split segment files/empty split dirs) when `execute_ffmpeg_process` returns an error or cancellation.
+- **`src/hooks/useMediaQueue.ts`, `src/hooks/useMediaPipelines.ts`, `src/hooks/useAppTelemetry.ts`**: Guarded `handleTrimExport`, `handleStartVideoProcessing`, `handleStartImageProcessing` `catch` blocks and `ffmpeg-progress`/`image-progress` listeners against overwriting an active cancellation state (`'Operation cancelled by user.'`).
+
+### [2026-11-14] v0.9.3 - Restrict Bottom "Drop to Trim" Zone to Welcome Screen Only
+- **`src/App.tsx` & `src/hooks/useNativeDragDrop.ts`**: Passed `filesRef` from `useMediaQueue` into `useNativeDragDrop` and gated the bottom-28% (`pos.y > windowHeight * 0.72`) `'trimmer'` drop zone strictly to the Welcome Screen (`activeViewRef.current === 'main' && filesRef.current.length === 0`), so dropping files anywhere in Queue List Mode always targets `'batch'` and appends to the queue instead of activating Video Trimmer.
+
 ### [2026-11-14] v0.9.3 - Bump Application Version to v0.9.3
 - **`README.md` & `assets/1.png`–`assets/9.png`**: Reworked `README.md` so the Hero banner and every Core Capabilities feature section displays a dedicated numbered black screenshot placeholder (`assets/1.png` through `assets/9.png`) with a quick-map replacement table, updated v0.9.3 Animated WebP / GIF & Image pipeline specs, and an `Acknowledgments & Open-Source Attribution` section crediting all third-party engines, Rust crates, and frontend libraries/tools.
 - **Release Notes Tone & Format Policy (`.agents/AGENTS.md`, `.agents/skills/alitken-expert/SKILL.md`, `history.md`)**: Updated release notes style policy so `Summary of the change` uses a hyped README-style 1-sentence lead-in (`Alitken v<version> levels up ...:`) followed by 4–5 scannable `- <Emoji> **Feature Name** — Hyped user-facing benefit` bullets with leading emoji icons (`- ✨ ...`, `- 🎞️ ...`) for non-developer readers, while keeping all remaining sections emoji-free, objective, and strictly technical.

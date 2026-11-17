@@ -59,9 +59,19 @@ Nobody else seemed capable of making an app that wasn't either a relic from 2005
 
 ### ✨ Why "Alitken"?
 
-<p align="center">
-  <img width="880" alt="The Linguistic Origins of Alitken — Javanese for Make It Smaller" src="assets/origins.jpg" />
-</p>
+<div align="center">
+
+**📖 THE LINGUISTIC ORIGINS**
+
+## **ALITKEN** &nbsp; `[ ah • leet • ken ]` &nbsp;•&nbsp; `ꦲꦭꦶꦠ꧀ꦏꦼꦤ꧀`
+
+| Root Word *(Javanese)* | | Causative Suffix | | Literal Translation |
+| :---: | :---: | :---: | :---: | :---: |
+| **Alit**<br /><sub>Small, compact, lightweight, or lean *(the opposite of *ageng* / big)*.</sub> | **+** | **`-ken`** `(-aken)`<br /><sub>Action suffix meaning *to make* or *cause something to become*.</sub> | **=** | **"Make It Smaller"**<br /><sub>Shrink, compress, and trim heavy files down to their leanest essence.</sub> |
+
+<sub>A cultural tribute by Indonesian developer **Kaleksanan Bagus Massani**. Alitken was built around one simple idea: skip the gigabytes of bloated code, deliver a clean ~5 MB portable app, and turn heavy 4K media into lightweight, crisp clips with zero quality loss.</sub>
+
+</div>
 
 ---
 

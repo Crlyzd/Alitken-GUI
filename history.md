@@ -75,6 +75,11 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-18] v0.9.5 - Blue & Pink Folded Ribbon Icons + Dynamic Theme Icon Switching
+- **`src-tauri/icons/` & `public/`**: Replaced V1 monogram icons with the simplified **Pair B** Blue & Pink Folded Ribbon SVG pair (`app-icon-dark.svg`, `app-icon-light.svg`, `app-icon.svg`), rasterized `icon-dark.png` & `icon-light.png` (`256×256`) and multi-resolution `icon.ico` / `app-icon.ico` (`16px–256px`), and regenerated all `src-tauri/msix/Assets/*.png` via `build.ps1 -GenerateAssets`.
+- **`src-tauri/Cargo.toml`, `src-tauri/src/commands/system.rs`, `src-tauri/src/lib.rs`**: Enabled `image-png` on `tauri` and added `set_window_theme_icon` command embedding `icon-dark.png` / `icon-light.png` to dynamically update the live Windows Taskbar and Alt+Tab window icon on theme changes.
+- **`src/App.tsx`, `src/components/titlebar/`, `src/components/modals/about/`**: Wired `theme` into `Titlebar` → `TitlebarBranding` and `AboutModal` → `AboutBrandingSection` to swap `/app-icon-dark.svg` and `/app-icon-light.svg` instantly, and invoked `set_window_theme_icon` on startup and theme toggles.
+
 ### [2026-11-18] v0.9.4 - Replace App Icon with V1 SVG & Add MSIX Unplated Shell Icons (`resources.pri`)
 - **`src-tauri/icons/app-icon.svg`, `src-tauri/icons/icon.ico`, `public/app-icon.ico`**: Saved canonical V1 Iridescent `A` Monogram SVG and rasterized multi-resolution (`16px–256px`) `.ico` icons for Tauri, NSIS/EXE, Titlebar, and About modal.
 - **`build.ps1` & `src-tauri/msix/Assets/`**: Updated `Invoke-GenerateMsixAssets` to generate `Square44x44Logo.targetsize-{16,20,24,32,48,256}_altform-unplated.png` alongside the 5 base MSIX PNGs, extracted shared `Find-WindowsKitTool` / `Find-MakePriExe`, and added `makepri.exe` `resources.pri` generation in `Invoke-BuildMsixTarget` so Windows 11's **Share with >** submenu displays the Alitken icon.

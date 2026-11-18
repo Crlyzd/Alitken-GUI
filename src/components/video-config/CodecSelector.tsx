@@ -22,9 +22,9 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
   const showGifCard = !isSplitMode && config.videoAction !== 'COMBINE';
   const codecs = [
     { id: '1', title: 'H.264', subtitle: 'Universal' },
-    { id: '2', title: 'H.265', subtitle: 'HEVC High Comp' },
-    { id: '3', title: 'AV1', subtitle: 'Next-Gen Open' },
-    ...(showGifCard ? [{ id: '4', title: 'WEBP / GIF', subtitle: 'Animated Loop' }] : []),
+    { id: '2', title: 'H.265', subtitle: 'High Comp' },
+    { id: '3', title: 'AV1', subtitle: 'Next-Gen' },
+    ...(showGifCard ? [{ id: '4', title: 'Anim', subtitle: 'WebP · GIF' }] : []),
   ];
 
   return (
@@ -74,8 +74,8 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${codecs.length}, 1fr)`,
-          gap: '8px',
+          gridTemplateColumns: `repeat(${codecs.length}, minmax(0, 1fr))`,
+          gap: codecs.length === 4 ? '6px' : '8px',
           opacity: isEffectivelyBypassed ? 0.4 : 1,
           pointerEvents: isEffectivelyBypassed ? 'none' : 'auto',
           transition: 'opacity 0.2s ease',
@@ -101,6 +101,7 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
                 }
               }}
               style={{
+                minWidth: 0,
                 padding: codecs.length === 4 ? '10px 4px' : '10px 6px',
                 borderRadius: '10px',
                 border: isActive
@@ -118,9 +119,10 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
             >
               <span
                 style={{
-                  fontSize: '13px',
+                  fontSize: codecs.length === 4 ? '12.5px' : '13px',
                   fontWeight: 700,
                   color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {codec.title}
@@ -130,6 +132,7 @@ export const CodecSelector: React.FC<CodecSelectorProps> = ({
                   fontSize: '9px',
                   color: 'var(--text-dim)',
                   marginTop: '2px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {codec.subtitle}

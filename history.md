@@ -75,6 +75,9 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-18] v0.9.5 - Clean Up Target Codec Card Labels & Prevent Multi-Line Wrapping
+- **`src/components/video-config/CodecSelector.tsx`**: Updated the 4th card from `WEBP / GIF` (`Animated Loop`) to `Anim` (`WebP · GIF`) so it fits comfortably inside the ~56px card width next to `VideoActionRail` without touching edges, tightened neighboring subtitles (`High Comp`, `Next-Gen`), switched the grid template to `minmax(0, 1fr)` (`6px` gap in 4-card mode), and added `minWidth: 0` + `whiteSpace: 'nowrap'` (`12.5px` title in 4-card mode) so all 4 codec buttons align cleanly on 2 lines.
+
 ### [2026-11-18] v0.9.5 - Blue & Pink Folded Ribbon Icons + Dynamic Theme Icon Switching
 - **`src-tauri/icons/` & `public/`**: Replaced V1 monogram icons with the simplified **Pair B** Blue & Pink Folded Ribbon SVG pair (`app-icon-dark.svg`, `app-icon-light.svg`, `app-icon.svg`), rasterized `icon-dark.png` & `icon-light.png` (`256×256`) and multi-resolution `icon.ico` / `app-icon.ico` (`16px–256px`), and regenerated all `src-tauri/msix/Assets/*.png` via `build.ps1 -GenerateAssets`.
 - **`src-tauri/Cargo.toml`, `src-tauri/src/commands/system.rs`, `src-tauri/src/lib.rs`**: Enabled `image-png` on `tauri` and added `set_window_theme_icon` command embedding `icon-dark.png` / `icon-light.png` to dynamically update the live Windows Taskbar and Alt+Tab window icon on theme changes.

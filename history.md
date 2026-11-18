@@ -75,6 +75,16 @@ All AI agents working on this repository MUST strictly follow these rules:
 
 *Record high-level summaries of changes here whenever code is modified:*
 
+### [2026-11-18] v0.9.4 - Replace App Icon with V1 SVG & Add MSIX Unplated Shell Icons (`resources.pri`)
+- **`src-tauri/icons/app-icon.svg`, `src-tauri/icons/icon.ico`, `public/app-icon.ico`**: Saved canonical V1 Iridescent `A` Monogram SVG and rasterized multi-resolution (`16px–256px`) `.ico` icons for Tauri, NSIS/EXE, Titlebar, and About modal.
+- **`build.ps1` & `src-tauri/msix/Assets/`**: Updated `Invoke-GenerateMsixAssets` to generate `Square44x44Logo.targetsize-{16,20,24,32,48,256}_altform-unplated.png` alongside the 5 base MSIX PNGs, extracted shared `Find-WindowsKitTool` / `Find-MakePriExe`, and added `makepri.exe` `resources.pri` generation in `Invoke-BuildMsixTarget` so Windows 11's **Share with >** submenu displays the Alitken icon.
+
+### [2026-11-18] v0.9.4 - Add Windows 11 Share Target, MS Store Open With & Single-Instance Forwarding
+- **`src-tauri/msix/AppxManifest.template.xml`**: Added `<Extensions>` with `windows.shareTarget` (`StorageItems`) and `windows.fileTypeAssociation` (`alitkenmedia`) covering all 55 supported video and image extensions from `src/utils/mediaType.ts`.
+- **`src-tauri/Cargo.toml` & `src-tauri/src/share_target.rs`**: Added `tauri-plugin-single-instance = "2"` and WinRT `ApplicationModel`/`ShareTarget`/`Storage` features on `windows`; implemented `share_target.rs` to extract `ShareTargetActivatedEventArgs` file paths at startup, call `ReportCompleted()`, and bridge secondary-instance handoff via `%LOCALAPPDATA%\curlyzed\pending_share_files.json`.
+- **`src-tauri/src/lib.rs` & `src-tauri/src/commands/updater.rs`**: Registered `share_target`, initialized `tauri_plugin_single_instance` to focus the primary window and emit `external-files-opened` for incoming CLI/Share files, and merged cold-start Share Target files into `get_initial_files`.
+- **`src/App.tsx`**: Added `external-files-opened` event listener to append incoming files to the batch queue (guarding against active processing or Trimmer view).
+
 ### [2026-11-17] v0.9.3 - Align README.md with Real Screenshots, Casual Apple-Style Copy & Undimmed Rant
 - **`README.md`**: Updated hero and `#1`–`#9` captions, alt texts, and feature descriptions to match the real app screenshots in `assets/1.png`–`9.png`; added native Markdown *Why "Alitken"?* linguistic origins section (`Alit` + `-ken` = *"Make It Smaller"*) after the Manifesto; removed the outdated `Screenshot Guide` placeholder table and `assets/X.png` filename tags; removed `> ` blockquote markers from *The Manifesto: Why I Built This (A Rant)* while preserving its exact text so it renders at full contrast; and simplified remaining technical jargon across the comparison table, feature cards, Quick Start, Supported Formats, and Open-Source Credits into casual, Apple-style copy.
 

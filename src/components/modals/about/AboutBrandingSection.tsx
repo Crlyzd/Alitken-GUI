@@ -6,9 +6,12 @@ import { AboutLinksGrid } from './AboutLinksGrid';
 
 export interface AboutBrandingSectionProps {
   onClose: () => void;
+  theme?: 'dark' | 'light';
 }
 
-export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onClose }) => {
+export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onClose, theme = 'dark' }) => {
+  const iconSrc = theme === 'light' ? '/app-icon-light.svg' : '/app-icon-dark.svg';
+
   const handleOpenLink = async (url: string) => {
     try {
       await openUrl(url);
@@ -23,7 +26,7 @@ export const AboutBrandingSection: React.FC<AboutBrandingSectionProps> = ({ onCl
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img
-            src="/app-icon.ico"
+            src={iconSrc}
             alt="ALITKEN Logo"
             style={{
               width: '32px',

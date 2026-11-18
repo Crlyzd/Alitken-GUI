@@ -7,6 +7,7 @@ import { UpdateInfo, UpdateProgressPayload } from '../../../types/update';
 export interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  theme?: 'dark' | 'light';
   hardwareInfo?: {
     name: string;
     encoder: string;
@@ -23,6 +24,7 @@ export interface AboutModalProps {
 export const AboutModal: React.FC<AboutModalProps> = ({
   isOpen,
   onClose,
+  theme = 'dark',
   hardwareInfo,
   updateInfo,
   onCheckUpdate,
@@ -76,7 +78,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
           position: 'relative',
         }}
       >
-        <AboutBrandingSection onClose={onClose} />
+        <AboutBrandingSection onClose={onClose} theme={theme} />
 
         <UpdateCheckerSection
           updateInfo={updateInfo}

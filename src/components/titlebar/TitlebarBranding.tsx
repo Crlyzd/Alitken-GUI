@@ -1,7 +1,13 @@
 import React from 'react';
 import { APP_VERSION_TITLE } from '../../utils/version';
 
-export const TitlebarBranding: React.FC = () => {
+export interface TitlebarBrandingProps {
+  theme?: 'dark' | 'light';
+}
+
+export const TitlebarBranding: React.FC<TitlebarBrandingProps> = ({ theme = 'dark' }) => {
+  const iconSrc = theme === 'light' ? '/app-icon-light.svg' : '/app-icon-dark.svg';
+
   return (
     <div
       data-tauri-drag-region
@@ -14,7 +20,7 @@ export const TitlebarBranding: React.FC = () => {
       }}
     >
       <img
-        src="/app-icon.ico"
+        src={iconSrc}
         alt="ALITKEN"
         style={{
           width: '22px',

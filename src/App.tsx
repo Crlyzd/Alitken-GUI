@@ -36,6 +36,10 @@ export function App() {
     localStorage.setItem('alitken_theme', next);
   };
 
+  useEffect(() => {
+    invoke('set_window_theme_icon', { theme }).catch(() => {});
+  }, [theme]);
+
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -322,6 +326,7 @@ export function App() {
     >
       {/* Custom Titlebar */}
       <Titlebar
+        theme={theme}
         hardwareName={hardwareInfo.name}
         encoderName={hardwareInfo.encoder}
         hardwareDetails={hardwareInfo.details}
@@ -441,6 +446,7 @@ export function App() {
       <AboutModal
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
+        theme={theme}
         hardwareInfo={hardwareInfo}
         updateInfo={updateInfo}
         onCheckUpdate={handleCheckUpdate}

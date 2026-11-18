@@ -4,6 +4,7 @@ import { HardwareAccelPill } from './HardwareAccelPill';
 import { WindowControls } from './WindowControls';
 
 export interface TitlebarProps {
+  theme?: 'dark' | 'light';
   hardwareName?: string;
   encoderName?: string;
   hardwareDetails?: string;
@@ -15,6 +16,7 @@ export interface TitlebarProps {
 }
 
 export const Titlebar: React.FC<TitlebarProps> = ({
+  theme = 'dark',
   hardwareName,
   encoderName,
   hardwareDetails,
@@ -41,7 +43,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
       }}
     >
       {/* Brand & App Name — drag region only, not clickable */}
-      <TitlebarBranding />
+      <TitlebarBranding theme={theme} />
 
       {/* Flexible Drag Region Spacer */}
       <div data-tauri-drag-region style={{ flex: 1, minWidth: '40px', height: '100%', cursor: 'default' }} />

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <linearGradient id="blbg" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E6EDF7"/>
+    </linearGradient>
+    <linearGradient id="bl1" x1="74" y1="70" x2="188" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0891B2"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="bl2" x1="74" y1="112" x2="188" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#F472B6"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="54" fill="url(#blbg)"/>
+  <rect x="17.5" y="17.5" width="221" height="221" rx="52.5" stroke="#0F172A" stroke-opacity="0.1" stroke-width="3"/>
+  <path d="M76 80C76 70 87 64 96 69L184 118C192 122 192 134 184 138L150 156L76 114Z" fill="url(#bl1)"/>
+  <path d="M76 176C76 186 87 192 96 187L184 138C192 134 192 122 184 118L150 100L76 142Z" fill="url(#bl2)" fill-opacity="0.9"/>
+</svg>

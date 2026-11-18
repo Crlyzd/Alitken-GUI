@@ -111,7 +111,8 @@ pub fn run() {
             check_stream_compatibility,
             start_extract_frames_pipeline,
             validate_extraction_storage,
-            trim_memory
+            trim_memory,
+            set_window_theme_icon
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

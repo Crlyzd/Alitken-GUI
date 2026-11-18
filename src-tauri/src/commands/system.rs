@@ -146,3 +146,18 @@ pub async fn abort_processing() -> Result<(), String> {
 pub fn trim_memory() {
     utils::trim_working_set();
 }
+
+const ICON_DARK_PNG: &[u8] = include_bytes!("../../icons/icon-dark.png");
+const ICON_LIGHT_PNG: &[u8] = include_bytes!("../../icons/icon-light.png");
+
+/// Updates the live native window/taskbar icon to match the active UI theme.
+#[tauri::command]
+pub fn set_window_theme_icon(window: tauri::Window, theme: String) -> Result<(), String> {
+    let bytes = if theme == "light" {
+        ICON_LIGHT_PNG
+    } else {
+        ICON_DARK_PNG
+    };
+    let icon = tauri::image::Image::from_bytes(bytes).map_err(|e| e.to_string())?;
+    window.set_icon(icon).map_err(|e| e.to_string())
+}

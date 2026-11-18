@@ -3,6 +3,7 @@ mod dependencies;
 mod ffmpeg;
 mod gpu;
 mod image;
+mod share_target;
 mod updater;
 mod utils;
 mod win_integration;
@@ -10,13 +11,29 @@ mod window;
 mod wmf;
 
 use commands::*;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     utils::log_info(&format!("ALITKEN v{} application initialized", env!("CARGO_PKG_VERSION")));
+    share_target::capture_startup_shared_files();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let mut incoming: Vec<String> = args.into_iter().skip(1).collect();
+            incoming.extend(share_target::take_handoff_shared_files());
+            let files = share_target::filter_and_dedupe_files(incoming);
+
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.unminimize();
+                let _ = main_window.show();
+                let _ = main_window.set_focus();
+            }
+
+            if !files.is_empty() {
+                let _ = app.emit("external-files-opened", files);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {

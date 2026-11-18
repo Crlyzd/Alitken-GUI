@@ -1,16 +1,12 @@
 use crate::updater::{self, UpdateInfo};
 use crate::win_integration::{self, IntegrationStatus};
 
-/// Reads command line arguments passed on app startup (e.g. from Windows "Send to" menu)
+/// Reads command line arguments and Windows Share Target files passed on app startup
 #[tauri::command]
 pub fn get_initial_files() -> Vec<String> {
-    std::env::args()
-        .skip(1)
-        .filter(|arg| {
-            let p = std::path::Path::new(arg);
-            p.exists() && p.is_file()
-        })
-        .collect()
+    let mut incoming: Vec<String> = std::env::args().skip(1).collect();
+    incoming.extend(crate::share_target::take_startup_shared_files());
+    crate::share_target::filter_and_dedupe_files(incoming)
 }
 
 #[tauri::command]

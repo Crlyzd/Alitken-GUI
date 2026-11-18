@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { Titlebar } from './components/Titlebar';
 import { WelcomeDropzone } from './components/WelcomeDropzone';
 import { Dropzone } from './components/Dropzone';
@@ -245,7 +246,7 @@ export function App() {
     }
   }, []);
 
-  // Read command line startup arguments
+  // Read command line & Share Target startup arguments
   useEffect(() => {
     invoke<string[]>('get_initial_files')
       .then((initialPaths) => {
@@ -255,6 +256,33 @@ export function App() {
       })
       .catch((err) => console.error('Failed to get initial files:', err));
   }, [handleAddFiles]);
+
+  const isProcessingRef = useRef(false);
+  isProcessingRef.current = progress.isProcessing;
+
+  // Listen for files forwarded from a secondary instance (Share Target / Open with / Send to)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string[]>('external-files-opened', (event) => {
+      const incoming = event.payload;
+      if (!incoming || incoming.length === 0) return;
+
+      if (isProcessingRef.current || activeViewRef.current === 'trimmer') {
+        setValidationError('Cannot add shared/opened files while processing or trimming is active.');
+        return;
+      }
+
+      handleAddFiles(incoming);
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch((err) => console.error('Failed to listen for external files:', err));
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [activeViewRef, handleAddFiles, setValidationError]);
 
   const handleConfigChange = (updated: Partial<ConfigState>) => {
     setVideoConfig((prev) => {

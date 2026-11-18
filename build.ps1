@@ -130,22 +130,32 @@ function Test-Arm64ToolchainAvailable {
     return $true
 }
 
-function Find-MakeAppxExe {
-    $cmd = Get-Command "makeappx.exe" -ErrorAction SilentlyContinue
+function Find-WindowsKitTool {
+    param([string]$ExeName)
+    $cmd = Get-Command $ExeName -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
 
     $kitsDir = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
     if (Test-Path $kitsDir) {
-        $makeAppx = Get-ChildItem -Path $kitsDir -Filter "makeappx.exe" -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -like "*\x64\makeappx.exe" } |
+        $tool = Get-ChildItem -Path $kitsDir -Filter $ExeName -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\x64\$ExeName" } |
+            Sort-Object FullName -Descending |
             Select-Object -First 1
-        if ($makeAppx) { return $makeAppx.FullName }
+        if ($tool) { return $tool.FullName }
     }
 
-    $fallback = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits" -Filter "makeappx.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    $fallback = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits" -Filter $ExeName -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($fallback) { return $fallback.FullName }
 
     return $null
+}
+
+function Find-MakeAppxExe {
+    return Find-WindowsKitTool -ExeName "makeappx.exe"
+}
+
+function Find-MakePriExe {
+    return Find-WindowsKitTool -ExeName "makepri.exe"
 }
 
 # ------------------------------------------------------------------------------
@@ -217,6 +227,10 @@ function Invoke-GenerateMsixAssets {
         Save-VisualAsset 150 150 150 150 "Square150x150Logo.png"
         Save-VisualAsset 310 150 150 150 "Wide310x150Logo.png"
         Save-VisualAsset 620 300 200 200 "SplashScreen.png"
+
+        foreach ($sz in @(16, 20, 24, 32, 48, 256)) {
+            Save-VisualAsset $sz $sz $sz $sz "Square44x44Logo.targetsize-${sz}_altform-unplated.png"
+        }
 
         Write-Host ""
         Write-Host "[OK] All MSIX Visual Assets generated successfully in: $OutputDir" -ForegroundColor Green
@@ -716,6 +730,19 @@ function Invoke-ReleasePipeline {
 
             $ManifestDest = Join-Path $StagingDir "AppxManifest.xml"
             [System.IO.File]::WriteAllText($ManifestDest, $manifestContent, [System.Text.Encoding]::UTF8)
+
+            $MakePriExe = Find-MakePriExe
+            if ($MakePriExe) {
+                Write-Host " Generating MSIX resource index (resources.pri)..." -ForegroundColor Yellow
+                $PriConfigPath = Join-Path $StagingDir "priconfig.xml"
+                & "$MakePriExe" createconfig /cf "$PriConfigPath" /dq en-US /o | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "makepri createconfig failed with exit code $LASTEXITCODE" }
+                & "$MakePriExe" new /pr "$StagingDir" /cf "$PriConfigPath" /mn "$ManifestDest" /of (Join-Path $StagingDir "resources.pri") /o | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "makepri new failed with exit code $LASTEXITCODE" }
+                Remove-Item -Path $PriConfigPath -Force -ErrorAction SilentlyContinue
+            } else {
+                Write-Host " WARNING: makepri.exe not found; targetsize shell icons may not resolve." -ForegroundColor Yellow
+            }
 
             $DestMsixPath = Join-Path $OutputDistFolder "${OutputPrefix}.msix"
             Write-Host " Packing Windows App Package (.msix)..." -ForegroundColor Yellow

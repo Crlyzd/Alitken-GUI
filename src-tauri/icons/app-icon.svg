@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Soft Iridescent Pastel Backdrop -->
+    <linearGradient id="v1bg" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FBCFE8" />
+      <stop offset="50%" stop-color="#DDD6FE" />
+      <stop offset="100%" stop-color="#A5F3FC" />
+    </linearGradient>
+    <linearGradient id="v1rim" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.35" />
+    </linearGradient>
+    <linearGradient id="v1card" x1="60" y1="56" x2="196" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E1B4B" stop-opacity="0.88" />
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.95" />
+    </linearGradient>
+    <linearGradient id="v1accent" x1="72" y1="72" x2="184" y2="184" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F472B6" />
+      <stop offset="50%" stop-color="#A78BFA" />
+      <stop offset="100%" stop-color="#22D3EE" />
+    </linearGradient>
+  </defs>
+
+  <rect x="12" y="12" width="232" height="232" rx="58" fill="url(#v1bg)" />
+  <rect x="14" y="14" width="228" height="228" rx="56" stroke="url(#v1rim)" stroke-width="4" />
+
+  <!-- Layered Frosted Dark Media Tile -->
+  <rect x="52" y="52" width="152" height="152" rx="38" fill="url(#v1card)" />
+  <rect x="53.5" y="53.5" width="149" height="149" rx="36.5" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="3" />
+
+  <!-- Stylized 'A' + Compression Chevrons -->
+  <path d="M84 156L128 84L172 156" stroke="url(#v1accent)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M104 148L128 112L152 148" fill="url(#v1accent)" fill-opacity="0.28" />
+  <circle cx="128" cy="146" r="10" fill="#FFFFFF" />
+</svg>
